@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+
+# segredos
+.env
+.env.*
+
+# configurações locais do Claude
+.claude/settings.local.json
