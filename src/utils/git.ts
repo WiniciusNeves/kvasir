@@ -188,3 +188,13 @@ export function getDiffStat(): string {
   if (result.error) throw result.error;
   return result.stdout ?? '';
 }
+
+export function getHeadShortHash(): string {
+  const result = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+  });
+
+  if (result.error) throw result.error;
+  return (result.stdout ?? '').trim();
+}

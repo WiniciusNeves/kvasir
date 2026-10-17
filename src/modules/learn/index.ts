@@ -5,8 +5,11 @@ import { promptAI } from '@ai/client';
 import { cleanAnswer } from '@ai/parse';
 import { writeFile, readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
+import { readMetrics, summarizeMetrics } from '@ai/metrics';
+import { noteAgentPerformance } from '@modules/knowledge/auto';
 
 const MAX_FEEDBACK_ENTRIES = 150;
+const AGENT_STATS_DAYS = 30;
 const DEFAULT_PROFILE = '# profile.md\n\n## Preferências aprendidas\n\n## Stack pessoal\n';
 
 function getProfilePath(): string {
@@ -71,4 +74,8 @@ export async function runLearn(): Promise<void> {
 
   await writeFile(getProfilePath(), updatedProfile);
   console.log('✅ profile.md atualizado.');
+
+  // What each agent is good at, from real usage: knowledge/agents/<model>.md.
+  const summary = summarizeMetrics(await readMetrics(AGENT_STATS_DAYS));
+  if (summary.models.length > 0) await noteAgentPerformance(summary, AGENT_STATS_DAYS);
 }

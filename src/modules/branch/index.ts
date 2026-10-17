@@ -1,5 +1,6 @@
 import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
+import { noteTaskBranch } from '@modules/knowledge/auto';
 import { answerLines, pickLine } from '@ai/parse';
 import { confirm, input, select } from '@utils/prompt';
 import {
@@ -104,6 +105,7 @@ export async function runBranch(): Promise<void> {
   if (activeTask && taskDescription.trim() === activeTask.title.trim()) {
     await setActiveTask({ ...activeTask, linkedBranch: finalBranchName });
     console.log(`🔗 Task ${activeTask.id} vinculada à branch ${finalBranchName}.`);
+    await noteTaskBranch(activeTask.id, finalBranchName);
   }
 
   await runPostBranchMenu();

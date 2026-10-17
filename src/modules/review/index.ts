@@ -3,6 +3,7 @@ import { parseAddedLines } from '@utils/diff';
 import type { AddedLine } from '@utils/diff';
 import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
+import { noteUsefulReview } from '@modules/knowledge/auto';
 import { answerLines } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/contextWriter';
@@ -112,4 +113,5 @@ export async function runReview(): Promise<void> {
   await recordFeedback('patterns', useful ? 'approved' : 'rejected', `review: ${findings[0] ?? NO_ISSUES}`);
   await recordOutcome('review', useful ? 'approved' : 'rejected');
   console.log('Feedback registrado.');
+  if (useful && findings.length > 0) await noteUsefulReview(findings);
 }

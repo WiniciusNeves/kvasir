@@ -1,37 +1,14 @@
-import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { readClipboard } from '@ai/client';
 import { readFile, writeFile, pathExists } from '@utils/fs';
+import { getKnowledgeDir, getIndexPath, getNotePath, slugify, saveNote, rebuildIndex } from './notes';
 import { input, select, confirm } from '@utils/prompt';
 import type { KnowledgeCategory } from '@ktypes/knowledge';
 
 type ContentSource = 'type' | 'clipboard';
 
 const MAX_SNIPPET = 100;
-
-function getKnowledgeDir(): string {
-  return path.join(os.homedir(), '.kvasir', 'knowledge');
-}
-
-function getIndexPath(): string {
-  return path.join(getKnowledgeDir(), 'index.md');
-}
-
-// Titles like "Hooks / React Query: padrão" used to create a sub-folder ("/") and, on Windows,
-// an NTFS alternate data stream (":"), so the note became invisible. Keep only [a-z0-9-].
-function slugify(title: string): string {
-  return title
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function getNotePath(category: KnowledgeCategory, title: string): string {
-  return path.join(getKnowledgeDir(), category, `${slugify(title)}.md`);
-}
 
 async function walkMarkdownFiles(dir: string): Promise<string[]> {
   const exists = await fs.pathExists(dir);
@@ -102,6 +79,7 @@ export async function addKnowledge(): Promise<void> {
     { name: 'Decisão técnica', value: 'decisions' },
     { name: 'Histórico de task', value: 'tasks' },
     { name: 'Histórico de commits', value: 'commits' },
+    { name: 'Erro resolvido', value: 'errors' },
   ]);
 
   const title = (await input('Título da nota:')).trim();
@@ -121,8 +99,8 @@ export async function addKnowledge(): Promise<void> {
     return;
   }
 
-  await writeFile(notePath, `# ${title}\n\n${content}\n`);
-  console.log(`✅ Salva: ${relativeNote(notePath)}`);
+  const saved = await saveNote({ category, title, body: content, origin: 'manual (kvasir knowledge add)', project: path.basename(process.cwd()) }, 'replace');
+  console.log(`✅ Salva: ${saved}`);
 }
 
 function appendRelated(content: string, noteName: string): string {
@@ -167,19 +145,15 @@ export async function linkKnowledge(): Promise<void> {
   console.log('✅ Notas ligadas.');
 }
 
+// index.md is generated: rebuild it (notes may have been edited in Obsidian) and print it.
 export async function showKnowledge(): Promise<void> {
-  const indexContent = await readFile(getIndexPath());
-  if (indexContent !== null) {
-    console.log(indexContent);
-    return;
-  }
-
   const files = await walkMarkdownFiles(getKnowledgeDir());
   if (files.length === 0) {
     console.log('A base de conhecimento está vazia. Use "kvasir knowledge add".');
     return;
   }
 
-  console.log(`\nBase de conhecimento (${files.length} nota(s)):`);
-  files.forEach((file) => console.log(`  - ${relativeNote(file)}`));
+  await rebuildIndex();
+  console.log((await readFile(getIndexPath())) ?? '');
+  console.log(`Vault do Obsidian: ${getKnowledgeDir()}`);
 }

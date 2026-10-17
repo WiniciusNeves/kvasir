@@ -1,6 +1,7 @@
 import {
   getDiff,
   getDiffStat,
+  getHeadShortHash,
   commitWithMessage,
   stageAll,
   getCurrentBranch,
@@ -17,6 +18,7 @@ import { recordFeedback } from '@utils/feedback';
 import { runPush } from '@modules/push';
 import { confirmAndUndoLastCommit } from '@modules/undo';
 import { runLog } from '@modules/log';
+import { noteCommit } from '@modules/knowledge/auto';
 
 type CommitChoice = 'yes' | 'no' | 'edit';
 type PostCommitAction = 'push' | 'undo' | 'log' | 'merge' | 'none';
@@ -160,6 +162,7 @@ export async function runCommit(): Promise<void> {
 
   commitWithMessage(finalMessage);
   console.log('✅ Commit realizado com sucesso!');
+  await noteCommit(finalMessage, getHeadShortHash(), getCurrentBranch());
 
   await runPostCommitMenu();
 }

@@ -13,6 +13,7 @@ import { readFile, writeFile, readJson, copyFile, removeFile } from '@utils/fs';
 import { runTypecheck, parseTscDiagnostics } from '@utils/typecheck';
 import type { TscDiagnostic } from '@utils/typecheck';
 import { openDiffInEditor } from '@utils/editor';
+import { noteFixedError, noteBatchFix, noteInvestigation } from '@modules/knowledge/auto';
 import { resolveLocalImports, readTsconfigText, findFilesNamedLike, isResolvableImport } from '@utils/imports';
 
 const MAX_INVESTIGATION_ROUNDS = 3;
@@ -36,9 +37,11 @@ interface FixBackup {
 }
 
 interface AppliedFix {
-  filePath: string;
+  diagnostic: TscDiagnostic;
   backupPath: string;
-  lineIndex: number;
+  before: string;
+  after: string;
+  source: string;
 }
 
 interface SplitFile {
@@ -288,8 +291,9 @@ async function fixDiagnostic(diagnostic: TscDiagnostic, session: FixBackup[], mo
   lines[diagnostic.lineIndex] = newLine;
   await writeFile(diagnostic.filePath, lines.join(eol));
 
-  showLineDiff(diagnostic, oldLine, newLine, deterministic ? 'regra determinística' : 'IA');
-  return { filePath: diagnostic.filePath, backupPath, lineIndex: diagnostic.lineIndex };
+  const source = deterministic ? 'regra determinística' : 'IA';
+  showLineDiff(diagnostic, oldLine, newLine, source);
+  return { diagnostic, backupPath, before: oldLine, after: newLine, source };
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +446,7 @@ async function investigateComplexError(erro: string, target: TscDiagnostic | nul
   return cleanAnswer(await askFor('architect', buildInvestigationPrompt(context), { timeoutMs: ARCHITECT_TIMEOUT_MS }));
 }
 
-async function showSuggestion(title: string, suggestion: string, erro: string, task: AiTask): Promise<void> {
+async function showSuggestion(title: string, suggestion: string, erro: string, task: AiTask, code: string | null): Promise<void> {
   console.log(`\n${title}`);
   console.log(suggestion);
   console.log('\nAplique a mudança acima manualmente no seu editor.');
@@ -450,6 +454,9 @@ async function showSuggestion(title: string, suggestion: string, erro: string, t
   const useful = await confirm('A sugestão foi útil?');
   await recordFeedback('fixes', useful ? 'approved' : 'rejected', erro.trim().split('\n')[0]);
   await recordOutcome(task, useful ? 'approved' : 'rejected');
+
+  // Only suggestions the developer found useful become knowledge (a wrong root cause would mislead later).
+  if (useful) await noteInvestigation(code, erro, suggestion);
 }
 
 // ---------------------------------------------------------------------------
@@ -495,17 +502,18 @@ async function offerSameCodeFixes(code: string, attempted: Set<string>, session:
     console.log('\nSem regra determinística para este erro: usando o modelo local direto (sem clipboard).');
   }
 
-  let fixedCount = 0;
+  const fixedFiles: string[] = [];
   for (let i = 0; i < sameCode.length; i += 1) {
     const diagnostic = sameCode[i];
     attempted.add(diagnosticKey(diagnostic));
     console.log(`\nCorrigindo ${i + 1}/${sameCode.length}: ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
 
     const applied = await fixDiagnostic(diagnostic, session, 'batch');
-    if (applied) fixedCount += 1;
+    if (applied) fixedFiles.push(`${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
   }
 
-  console.log(`\n✅ ${fixedCount}/${sameCode.length} erro(s) ${code} corrigido(s).`);
+  console.log(`\n✅ ${fixedFiles.length}/${sameCode.length} erro(s) ${code} corrigido(s).`);
+  if (fixedFiles.length > 0) await noteBatchFix(code, fixedFiles.length, sameCode.length, fixedFiles);
 
   const after = runTypecheck();
   console.log(after.success ? '✅ O typecheck não encontrou mais erros.' : `Ainda há ${after.errorCount} erro(s) no typecheck.`);
@@ -528,7 +536,7 @@ export async function runFix(options: FixOptions = {}): Promise<void> {
   const diagnostics = parseTscDiagnostics(erro);
   if (diagnostics.length === 0) {
     const suggestion = await askFor('fix', buildGenericFixPrompt(erro));
-    await showSuggestion('💡 Sugestão de correção:', suggestion, erro, 'fix');
+    await showSuggestion('💡 Sugestão de correção:', suggestion, erro, 'fix', null);
     return;
   }
 
@@ -557,11 +565,22 @@ export async function runFix(options: FixOptions = {}): Promise<void> {
   if (applied.length === 0) {
     // No yes/no question: a failed line fix escalates to the investigation on its own.
     const report = await investigateComplexError(erro, target);
-    await showSuggestion('🔎 Investigação:', report, erro, 'architect');
+    await showSuggestion('🔎 Investigação:', report, erro, 'architect', target.code);
     return;
   }
 
-  openDiffInEditor(applied[0].backupPath, applied[0].filePath);
+  openDiffInEditor(applied[0].backupPath, applied[0].diagnostic.filePath);
+  for (const fix of applied) {
+    await noteFixedError({
+      code: fix.diagnostic.code,
+      message: fix.diagnostic.message,
+      filePath: fix.diagnostic.filePath,
+      line: fix.diagnostic.lineIndex + 1,
+      before: fix.before,
+      after: fix.after,
+      source: fix.source,
+    });
+  }
   await recordFeedback('fixes', 'approved', `${target.code} ${target.filePath}:${target.lineIndex + 1} (aplicado)`);
   await recordOutcome('fix', 'approved');
   console.log(`\n✅ ${applied.length} correção(ões) aplicada(s) em ${target.filePath}.`);

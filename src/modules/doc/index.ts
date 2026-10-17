@@ -1,11 +1,10 @@
-import os from 'os';
-import path from 'path';
 import axios from 'axios';
 import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
+import { getNotePath, readNote, saveNote } from '@modules/knowledge/notes';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { confirm } from '@utils/prompt';
-import { writeFile, readFile } from '@utils/fs';
+import { writeFile } from '@utils/fs';
 import { loadContext } from '@modules/init/contextWriter';
 
 interface NpmRepository {
@@ -53,10 +52,6 @@ Regras: responda só em português; não invente funcionalidades que não estão
 // Scoped packages ("@tanstack/react-query") must not become a sub-folder: "tanstack__react-query".
 function toLibFileName(libraryName: string): string {
   return `${libraryName.replace(/^@/, '').replace(/\//g, '__')}.md`;
-}
-
-function getKnowledgeLibPath(libraryName: string): string {
-  return path.join(os.homedir(), '.kvasir', 'knowledge', 'libs', toLibFileName(libraryName));
 }
 
 async function fetchNpmData(libraryName: string): Promise<NpmRegistryResponse> {
@@ -154,7 +149,7 @@ export async function runDoc(libraryName: string): Promise<void> {
   );
 
   const projectDocPath = `DOC/libs/${toLibFileName(libraryName)}`;
-  const knowledgePath = getKnowledgeLibPath(libraryName);
+  const knowledgePath = getNotePath('libs', libraryName);
 
   console.log(`\nIsso vai salvar a documentação em:`);
   console.log(`  - ${projectDocPath}`);
@@ -171,13 +166,17 @@ export async function runDoc(libraryName: string): Promise<void> {
 
   await writeFile(projectDocPath, summary);
 
-  const existingKnowledge = await readFile(knowledgePath);
+  // Already documented by another project: keep the summary, just add this project to "Usado em".
+  const existingKnowledge = await readNote('libs', libraryName);
   const knowledgeBody = existingKnowledge
-    ? mergeUsageLinks(existingKnowledge, context.project.name)
-    : `# ${libraryName}\n\nUsado em: ${buildUsageLink(context.project.name)}\n\n## Resumo\n${summary}\n`;
+    ? mergeUsageLinks(existingKnowledge.body, context.project.name)
+    : `Usado em: ${buildUsageLink(context.project.name)}\n\n## Resumo\n${summary}`;
 
-  await writeFile(knowledgePath, knowledgeBody);
+  const saved = await saveNote(
+    { category: 'libs', title: libraryName, body: knowledgeBody, origin: 'kvasir doc', tags: ['lib'], project: context.project.name },
+    'replace'
+  );
 
   console.log(`\nSalvo: ${projectDocPath}`);
-  console.log(`Salvo: ${knowledgePath}`);
+  console.log(`📚 Nota salva no knowledge: ${saved}`);
 }
