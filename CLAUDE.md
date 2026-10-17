@@ -49,11 +49,12 @@ src/
 │   ├── router.ts   # askFor / askLocal(task, prompt, { maxTokens?, temperature? }), MODEL_MAP, AiTask
 │   ├── parse.ts    # defensive parsing of model answers
 │   ├── ollama.ts   # askOllama(prompt, { model?, maxTokens?, timeoutMs? }), listInstalledModels()
-│   └── client.ts   # promptAI(prompt): clipboard bridge to Claude
+│   ├── client.ts   # promptAI(prompt, meta?): clipboard bridge to Claude
+│   └── metrics.ts  # recordAiCall, recordOutcome(task, decision), summarizeMetrics
 ├── adapters/       # claude.ts, copilot.ts, cursor.ts (read kvasir.context.md)
 ├── personas/       # acme.ts + templates/acme-mobile.md, acme-web.md
 ├── integrations/   # planner.ts (KVASIR_PLANNER_API_URL / _TOKEN)
-├── utils/          # git, fs, prompt, editor, typecheck, process, feedback, errors
+├── utils/          # git, fs, prompt, editor, typecheck, process, diff, imports, feedback, errors
 └── types/          # context, persona, feedback, knowledge, task
 ```
 
@@ -152,7 +153,9 @@ export function getDiff(): string {
 - Prompts are written in Portuguese. When the output must be English (commits, branches), say it explicitly.
 - Local models often wrap answers in backticks, labels, `<think>` blocks or explanations: **always parse defensively** with `@ai/parse` (`cleanAnswer`, `answerLines`, `pickLine`, `truncateForPrompt`); see `parseBranchName`, `parseCommitMessage`, `parseCorrectedLine`.
 - Prompt shape that works with local models: data first (diff, snippet), instructions last, the exact output format, "one line only" when parsing a line; pass known facts (install command, links, export names) instead of letting the model invent them.
-- Prefer **deterministic fixes/rules before AI** when the answer is known (see `DETERMINISTIC_FIXES` in `fix`).
+- **Never compensate a model's mistakes with fixed rules in code**: improve the prompt, the context or the data (backlog principle). Only 100% deterministic, proven fixes are allowed (see `DETERMINISTIC_FIXES` in `fix`, e.g. TS6137 from the tsc message).
+- Every model call is recorded in `~/.kvasir/metrics/calls.jsonl` automatically. Where the user approves/rejects AI output, also call `recordOutcome(task, decision)` from `@ai/metrics`.
+- The router injects the "Preferências aprendidas" section of `profile.md` into commit/branch/review/doc prompts. Don't read `profile.md` in modules.
 
 ---
 
@@ -165,7 +168,9 @@ export function getDiff(): string {
 
 ## Global data (`~/.kvasir/`)
 
-`profile.md` · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `knowledge/{libs,patterns,decisions,tasks,commits}/`
+`profile.md` · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents}/`)
+
+**Knowledge:** write notes only through `saveNote` (`@modules/knowledge/notes`) or the helpers in `@modules/knowledge/auto`; never `writeFile` into the vault directly.
 
 ---
 
@@ -214,9 +219,10 @@ Never use arrow functions for top-level exported functions.
 3. Register in `src/cli/index.ts`
 4. If it uses AI: add an `AiTask` + `MODEL_MAP` entry, call `askFor`
 5. New git operations go in `@utils/git`; new types go in `src/types/`
-6. `confirm()` before any side effect; `recordFeedback()` if user approves/rejects AI output
-7. `npm run typecheck`
-8. Update `README.md` (commands table), `Doc/kvasir-current.md`, and `Doc/kvasir-architecture.md`
+6. `confirm()` before any side effect; `recordFeedback()` + `recordOutcome()` if user approves/rejects AI output
+7. If the module produces reusable knowledge (a solution, a decision, a summary), save it with `@modules/knowledge/auto`
+8. `npm run typecheck`
+9. Update `README.md` (commands table), `Doc/kvasir-current.md`, and `Doc/kvasir-architecture.md`
 
 ---
 

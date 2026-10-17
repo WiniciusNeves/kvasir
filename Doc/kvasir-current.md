@@ -14,12 +14,12 @@
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
-| `models` | ✅ funcionando | |
-| `fix` | ✅ funcionando | Lê o erro do clipboard (ou roda o typecheck), corrige o arquivo do erro sem perguntar (regra determinística → IA), abre o diff no VS Code, conta os erros iguais e pergunta se corrige os outros; `--undo` restaura. Testado ponta a ponta com TS6137 e com qwen2.5-coder (TS2551, TS2322) |
-| `review` | ✅ testado (2026-10-17) | Checagens determinísticas (segredo, `<= .length`, `any`, `console.log`) + IA com itens sem repetição; "As sugestões foram úteis?" |
+| `models` | ✅ funcionando | Mostra também o desempenho real por tarefa × modelo (métricas) e o custo das idas ao Claude |
+| `fix` | ✅ funcionando | Clipboard com erro do tsc é usado direto; classifica simples × complexo; simples corrige sem perguntar (regra comprovada → IA); complexo investiga a causa raiz com imports, tsconfig, versões e arquivos de mesmo nome; nota em `knowledge/errors/`; expansão e `--undo` |
+| `review` | ✅ testado (2026-10-17) | Veredito da IA linha por linha (sem regras fixas); achados com `arquivo:linha`; reviews úteis viram nota em `knowledge/patterns/` |
 | `push` / `undo` / `log` | 🧪 falta testar | Também acessíveis pelo menu do `commit` |
 | `format` | 🧪 falta testar | Sem `execSync` (usa `runCommand`) |
-| `knowledge` | ✅ testado (2026-10-17) | Nome de arquivo seguro (títulos com `/` ou `:` sumiam), conteúdo pelo clipboard, avisa antes de substituir, link sem duplicar |
+| `knowledge` | ✅ v2 (2026-10-17) | Vault do Obsidian com frontmatter e `index.md` gerado; pastas `errors/` e `agents/`; notas automáticas de fix, commit, task, branch, review, learn e doc |
 | `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks, salva só o markdown (antes salvava a frase do Claude e as cercas ```) |
 | `task` / `start` | ✅ testado (2026-10-17) | Testados sem a API e com um Planner falso: erros claros (token, conexão, formato via zod); `task` grava a task ativa; `start` não aborta se o Planner falhar |
 
@@ -31,6 +31,8 @@
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
 - Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
+- Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
+- `profile.md` injetado nos prompts de commit, branch, review e doc
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
 - Dependências: commander, @inquirer/prompts, axios, clipboardy, fs-extra, cosmiconfig, zod (usado no planner)
 
@@ -60,7 +62,6 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 
 - Gemini Flash e Groq no router (só Ollama + Claude via clipboard)
 - `kvasir task update`
-- `profile.md` usado nos prompts (o `learn` atualiza, mas nenhum módulo lê)
 - `kvasir task` sem `KVASIR_PLANNER_API_URL` não tem fonte de tasks local (só a API)
-- Knowledge base usada nos prompts (o `doc` escreve, mas `fix`/`review` não leem)
+- Knowledge base consultada nos prompts (hoje os módulos escrevem notas, mas nenhum lê; vem com o OmniContext)
 - Testes automatizados

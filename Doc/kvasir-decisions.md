@@ -147,6 +147,30 @@
 
 ---
 
+## Melhorar a IA, não contornar (princípio do backlog v2)
+
+**Decisão:** (2026-10-17) Quando um modelo erra, melhoramos prompt, contexto e dados; não escrevemos regra fixa para compensar. Exceção: correções 100% determinísticas e comprovadas (ex.: TS6137, cuja correção vem da própria mensagem do tsc).
+
+**Por quê:** A IA tem que aprender com o feedback. Regra fixa esconde o problema e não melhora. Exemplo: na Fase 3 o `review` ganhou regex (`<= .length`, `any`, `console.log`) porque o qwen2.5-coder dizia "nenhum problema"; na onda A as regex saíram e o prompt passou a pedir um veredito por linha, com exemplo: o mesmo modelo passou a achar o off-by-one, a chave no código e o `console.log`. As regras de segredo voltam no `guard`, onde são determinísticas por especificação.
+
+---
+
+## Métricas locais em JSONL
+
+**Decisão:** (2026-10-17) Cada chamada de IA e cada veredito do usuário vão para `~/.kvasir/metrics/calls.jsonl` (uma linha JSON por evento). Falha ao gravar é ignorada.
+
+**Por quê:** É a base do Agent Board, do `kvasir stats`, do router por desempenho e da auto-melhoria. JSONL não precisa de banco, só cresce no fim do arquivo e qualquer ferramenta lê.
+
+---
+
+## Knowledge: escritor único, frontmatter e índice gerado
+
+**Decisão:** (2026-10-17) Toda escrita no `~/.kvasir/knowledge` passa por `saveNote` (`modules/knowledge/notes.ts`), que põe frontmatter (title, tags, projetos, origem, criado, atualizado) e regenera o `index.md`. Os módulos gravam notas sozinhos (`auto.ts`). Investigações e reviews só viram nota quando o usuário diz que foram úteis.
+
+**Por quê:** O vault tem que abrir no Obsidian sem ajuste e ser a fonte do OmniContext. Um ponto único de escrita mantém o formato. Sugestão rejeitada guardada como conhecimento ensinaria errado.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.

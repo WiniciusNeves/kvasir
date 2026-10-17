@@ -53,16 +53,19 @@ kvasir/
 │   │   ├── doc/             # index.ts (libs npm), code.ts (código do projeto)
 │   │   └── branch/ commit/ fix/ format/ knowledge/ learn/ log/
 │   │       models/ push/ review/ start/ task/ undo/   (index.ts cada)
+│   │       knowledge/notes.ts (escrita no vault) + auto.ts (notas automáticas)
 │   ├── ai/
-│   │   ├── router.ts        # askFor(task, prompt): orquestra modelo + validação
+│   │   ├── router.ts        # askFor / askLocal: modelos instalados, fallback, preferências do profile.md
 │   │   ├── ollama.ts        # askOllama(), listInstalledModels()
-│   │   └── client.ts        # promptAI(): ponte via clipboard com o Claude
+│   │   ├── client.ts        # promptAI(): ponte via clipboard com o Claude
+│   │   ├── metrics.ts       # recordAiCall / recordOutcome / summarizeMetrics
+│   │   └── parse.ts         # parse defensivo das respostas
 │   ├── adapters/            # claude.ts, copilot.ts, cursor.ts
 │   ├── personas/
 │   │   ├── acme.ts
 │   │   └── templates/       # acme-mobile.md, acme-web.md (copiados para dist/ no build)
 │   ├── integrations/planner.ts
-│   ├── utils/               # git, fs, prompt, editor, typecheck, feedback, errors
+│   ├── utils/               # git, fs, prompt, editor, typecheck, process, diff, imports, feedback, errors
 │   └── types/               # context, persona, feedback, knowledge, task
 ├── Doc/                     # documentação do projeto
 ├── dist/                    # build (não versionado)
@@ -85,6 +88,12 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 | `askLocal(task, prompt, opts?)` | `router.ts` | Lote / rápido: primeiro modelo instalado de `MODEL_MAP[task]`, com fallback, sem clipboard (`doc --code`, expansão do `fix`) |
 | `askOllama(prompt, opts?)` | `ollama.ts` | Chamada crua ao Ollama (usada pelo router; `num_ctx` 8192, remove `<think>`) |
 | `promptAI(prompt)` | `client.ts` | Só o Claude, via clipboard (usada no `learn`) |
+
+### Métricas e preferências (`metrics.ts`, `router.ts`)
+- Toda chamada passa por `recordAiCall`: Ollama (executor, com `prompt_eval_count`/`eval_count`) e Claude via clipboard (orquestrador/validador/direto, com tamanho do prompt e tempo de ida e volta). Arquivo: `~/.kvasir/metrics/calls.jsonl`.
+- Onde o usuário aprova ou rejeita um resultado (commit, branch, review, fix, doc), o módulo chama `recordOutcome(task, decision)`, que liga o veredito à última chamada executora daquela tarefa.
+- `kvasir models` mostra chamadas, falhas, tempo, tokens e aprovação por tarefa × modelo, mais o custo das idas ao Claude.
+- `withDeveloperPreferences`: o router coloca a seção "Preferências aprendidas" do `profile.md` no início do prompt de commit, branch, review e doc (nunca no fix/architect).
 
 ### Como o `askFor` funciona
 
@@ -147,10 +156,16 @@ askFor('fix', prompt)
 │   ├── commits.md          # aprovações/rejeições do commit
 │   ├── fixes.md            # aprovações/rejeições do fix
 │   └── patterns.md         # aprovações/rejeições do review
-└── knowledge/
-    ├── index.md            # (opcional) mostrado pelo knowledge show
-    ├── libs/               # gerado pelo kvasir doc, com links [[projeto]]
-    └── patterns/ decisions/ tasks/ commits/   # notas manuais (knowledge add)
+├── metrics/calls.jsonl     # cada chamada de IA (tarefa, modelo, papel, tempo, tokens) + veredito do usuário
+└── knowledge/              # vault do Obsidian; toda nota tem frontmatter (title, tags, projetos, origem, criado, atualizado)
+    ├── index.md            # GERADO a cada escrita (mapa por pasta, mais recentes primeiro)
+    ├── libs/               # kvasir doc <lib> (com "Usado em: [[projeto]]")
+    ├── errors/<código>.md  # kvasir fix: cada ocorrência (antes/depois), expansões, investigações úteis
+    ├── commits/<projeto>.md# kvasir commit: data · hash · branch · mensagem
+    ├── tasks/<id>.md       # kvasir task (ativação) e kvasir branch (branch vinculada)
+    ├── patterns/           # review-<projeto>.md (reviews marcados como úteis) + notas manuais
+    ├── agents/<modelo>.md  # kvasir learn: desempenho de cada modelo, a partir das métricas
+    └── decisions/          # notas manuais (knowledge add)
 ```
 
 ---
@@ -179,29 +194,34 @@ askFor('fix', prompt)
 
 ### `kvasir fix`
 ```
-de onde vem o erro? clipboard (padrão) · rodar o typecheck · digitar 1 linha
+erro: se o clipboard já tem um erro do tsc, usa direto; senão pergunta (clipboard · typecheck · 1 linha)
    │
-   ├─ parseTscDiagnostics (utils/typecheck): entende "arq.ts(12,5): error TSxxxx" e
-   │  "arq.ts:12:5 - error TSxxxx", com caminho absoluto do Windows e cores ANSI
+   ├─ parseTscDiagnostics: "arq.ts(12,5): error TSxxxx" e "arq.ts:12:5 - error TSxxxx"
    │    nenhum diagnóstico → askFor('fix') sugere (só mostra; "foi útil?")
    │
-   ├─ alvo = arquivo do 1º erro colado; corrige cada erro colado nesse arquivo,
-   │  SEM PERGUNTAR (decisão do usuário, ver kvasir-decisions.md):
-   │    1. regra determinística (TS6137: '@types/X' → 'X', pela mensagem do tsc)
-   │    2. senão askFor('fix'): prompt com a mensagem, trecho numerado (±15 linhas,
-   │       linha marcada com >>) e a linha atual; pede SÓ a linha em ```ts
-   │       parseCorrectedLine: tira <think>, cercas, rótulos, eco do trecho e prosa;
-   │       mantém a indentação; descarta se for igual à original
-   │    backup em ~/.kvasir/backups/fix/<ts>-<nome>.kvasir-original.<ext>
-   │    preserva CRLF/LF → mostra ANTES/DEPOIS → abre diff lado a lado no VS Code
-   │    nada corrigido → oferece investigação com askFor('architect') (só mostra)
+   ├─ classifyError (alvo = 1º erro colado):
+   │    complexo = erros em vários arquivos · > 5 erros · arquivo de config · código de
+   │               resolução de módulo/config (TS2307, 2305, 2614, 2792, 2688, 1259, 1192, 5xxx, 18003)
+   │               · mensagem citando tsconfig/babel/moduleResolution
+   │    simples  = o resto
    │
-   ├─ roda o typecheck (tsc local via node, --pretty false) e conta os erros
-   │  com o mesmo código: "Encontrei mais N erro(s) TSxxxx em M arquivo(s)"
-   │    confirm("Corrigir os outros também?") → regra determinística ou
-   │    askLocal('fix') (modelo local direto, sem clipboard) → typecheck final
+   ├─ simples: corrige cada erro colado nesse arquivo SEM PERGUNTAR
+   │    1. regra determinística comprovada (TS6137: '@types/X' → 'X', pela mensagem do tsc)
+   │    2. senão askFor('fix'): trecho numerado ±15 linhas, linha marcada com >>, pede SÓ a linha
+   │    backup em ~/.kvasir/backups/fix/ · preserva CRLF/LF · ANTES/DEPOIS · diff no VS Code
+   │    → nota em knowledge/errors/<código>.md
    │
-   └─ "kvasir fix --undo" restaura todos os arquivos do último fix (last-fix.json)
+   ├─ complexo (ou simples que falhou, sem perguntar): só a regra determinística mexe no
+   │  arquivo; o resto vai para investigateComplexError → askFor('architect', timeout 300s) com:
+   │    arquivo do erro (trecho), imports locais resolvidos (relativos + paths do tsconfig, até 5,
+   │    120 linhas cada), tsconfig.json, versões das libs, e para import que não resolve:
+   │    "arquivos do projeto com o mesmo nome" · pode perguntar (PERGUNTA:) até 3 vezes
+   │    → mostra o relatório; se "útil", vira nota em errors/
+   │
+   ├─ depois de aplicar: typecheck, "Encontrei mais N erro(s) TSxxxx em M arquivo(s)",
+   │  confirm → regra ou askLocal('fix') → nota de expansão em errors/ → typecheck final
+   │
+   └─ kvasir fix --undo restaura todos os arquivos do último fix
 ```
 
 ### `kvasir doc <lib>`
@@ -214,22 +234,22 @@ npm registry → (sem README? tenta `raw.githubusercontent.com` em `main`/`maste
 - Usa `askLocal('doc')` (llama3.2 → qwen2.5-coder, sem clipboard), passa a lista de exports extraída por regex para o modelo não inventar nomes, e ignora `node_modules`, `.git`, `dist`, `build`, `.next`, `coverage` e `DOC`.
 
 ### `kvasir review`
-1. `runReviewChecks` (`review/checks.ts`) varre só as linhas adicionadas do diff, com número de linha: credencial no código, `for (… <= x.length)`, `any`, `console.log`, `debugger`. Mostra como "Checagens automáticas".
-2. `askFor('review', temperature 0.2, repeatPenalty 1.2, maxTokens 700)`: diff (até 12k) + `--stat` + o que as checagens já acharam ("não repita"); pede lista `[bug|segurança|estilo|melhoria] arquivo — problema — sugestão` ou "Nenhum problema encontrado.".
-3. `normalizeFindings` mantém só os itens da lista, sem duplicados, no máximo 10 (modelos locais repetem itens).
-4. "As sugestões foram úteis?" → `patterns.md`. Não aplica nada.
+1. `parseAddedLines` (`utils/diff.ts`) pega as linhas adicionadas com o número real da linha; linhas vazias ou só com chaves saem; máx. 150.
+2. Cada linha recebe um id (`L1`…`Ln`). O prompt pede um veredito **por linha** (`L3: OK` ou `L3: PROBLEMA [bug|segurança|estilo] … — …`), com um exemplo do formato e o que conta como problema. Sem regras fixas: pedido como "lista de problemas", o qwen2.5-coder respondia "nenhum problema"; linha por linha ele encontra.
+3. `parseFindings` mapeia o id de volta para `arquivo:linha` (qualquer veredito que não seja OK conta).
+4. `askFor('review', temperature 0.1, repeatPenalty 1.1, maxTokens = 40 por linha)` → mostra → "As sugestões foram úteis?" → `patterns.md` + métrica; se útil, nota em `knowledge/patterns/review-<projeto>.md`.
 
 ### `kvasir models`
 Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e o primeiro instalado por tarefa.
 
 ### `kvasir learn`
-Últimos 150 registros de feedback dos 3 arquivos + `profile.md` atual → prompt em português → `promptAI` → `extractProfile` (tira frase introdutória e cercas ```, começa no `# `) → mostra → confirm → salva `~/.kvasir/profile.md`.
+Últimos 150 registros de feedback + `profile.md` → `promptAI` → `extractProfile` → confirm → salva `~/.kvasir/profile.md` → escreve `knowledge/agents/<modelo>.md` com o desempenho de cada modelo (métricas dos últimos 30 dias).
 
 ### `kvasir knowledge`
-- `add`: categoria + título + conteúdo (digitado em 1 linha ou lido do clipboard, várias linhas). Nome do arquivo = título sem acentos, só `[a-z0-9-]` (títulos com `/` ou `:` criavam subpasta / stream NTFS). Se a nota existe, pergunta antes de substituir.
-- `search <termo>`: nome e conteúdo; mostra a linha encontrada.
-- `link`: acrescenta `Relacionado: [[nota]]` nas duas notas, sem duplicar.
-- `show`: `index.md` ou a lista de notas.
+- Escrita sempre por `modules/knowledge/notes.ts` (`saveNote` em modo `append` ou `replace`): frontmatter, tags e projetos mesclados, `index.md` regenerado. Notas sem frontmatter (antigas/manuais) são lidas com padrões.
+- Notas automáticas: `modules/knowledge/auto.ts` (`noteFixedError`, `noteBatchFix`, `noteInvestigation`, `noteCommit`, `noteTaskActivated`, `noteTaskBranch`, `noteUsefulReview`, `noteAgentPerformance`). Uma falha ao gravar só avisa; nunca quebra o comando.
+- `add`: categoria (inclui "Erro resolvido") + título + conteúdo (1 linha ou clipboard); nome seguro `[a-z0-9-]`; pergunta antes de substituir.
+- `search` (nome e conteúdo, mostra a linha) · `link` (`Relacionado: [[nota]]` sem duplicar) · `show` (regenera e mostra o `index.md` + caminho do vault).
 
 ### `kvasir task` / `kvasir start`
 - `fetchMyTasks()` (`integrations/planner.ts`): lê `KVASIR_PLANNER_API_URL` / `_TOKEN` na hora da chamada, GET com timeout de 10s, valida a resposta com **zod** (lista de `{ id, title, status }`, `id` numérico vira string). Erros viram mensagens em português (token recusado, sem conexão, formato inesperado).

@@ -10,7 +10,9 @@
 | 1 | Análise de `src/` | ✅ concluída (2026-10-17) |
 | 2 | Correções: `fix`, menu pós-commit, remover `shell: true`, prompts do Ollama | ✅ concluída (2026-10-17) |
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
-| 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`): status, dependências, esforço, ordem | 🟡 mapa entregue, aguardando aprovação da ordem |
+| 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
+| 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ⏳ próxima |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -197,6 +199,25 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | **F: memória e entrega** | OmniContext (MVP: `knowledge/` + `Doc/`) → `kvasir deploy` → `docs update` | O OmniContext vem depois do router e do knowledge |
 | **G: autonomia** | Níveis de autonomia → auto-melhoria em branch → plugins | Exige testes automatizados (hoje não há nenhum) |
 | **H: desktop e infra** | Widget (Electron × Tauri) · `setup`/.exe · sync · servidor 24h + Tailscale · Planner via Graph · task manager ACME · LICENSE | O widget usa tudo o que vem antes |
+
+---
+
+## Onda A: o que mudou (commits `47ce5c3` → `0d1d905`)
+
+Testes com USERPROFILE temporário (o `~/.kvasir` real não foi tocado) e modelos reais do Ollama.
+
+| Item | Mudança | Resultado verificado |
+|---|---|---|
+| Conflito: `review/checks.ts` | Removido. Prompt com um id por linha adicionada (`L1…`) e veredito obrigatório por linha + exemplo; `utils/diff.ts` dá o número real da linha | qwen2.5-coder: de "nenhum problema" para achar off-by-one, chave no código, `console.log`, `fetch` sem tratamento, em 2 arquivos, com `arquivo:linha` certo. deepseek-r1 não serve para review (gasta tudo pensando) |
+| Conflito: classificação do `fix` | `classifyError` voltou; complexo vai direto para `askFor('architect')` (timeout 300s) com arquivo, imports resolvidos (`utils/imports.ts`, entende `paths` do tsconfig com comentários), tsconfig, versões e "arquivos com o mesmo nome" para import que não resolve; simples que falha escala sozinho; clipboard com erro do tsc é usado sem perguntar | TS6137: zero perguntas. TS2307 (`@/utils/money` × `src/util/money.ts`): deepseek-r1 achou a causa (`utils` × `util`) só depois que o contexto ganhou os arquivos de mesmo nome |
+| Métricas | `ai/metrics.ts` + `askOllamaDetailed` (tokens); `recordOutcome` em commit, branch, review, fix e doc; Claude registrado com tamanho e tempo | `kvasir models` mostra tempo, tokens e aprovação por tarefa × modelo e "4 idas ao Claude, ~2.300 tokens" para 2 tarefas |
+| Knowledge v2 | `knowledge/notes.ts` (frontmatter, `index.md` gerado, `errors/`, `agents/`) + `auto.ts` (notas de fix, expansão, investigação útil, commit, task, branch, review útil, learn → agentes, doc) | Fluxo completo gerou `errors/ts6137.md`, `tasks/acme-42.md`, `commits/kvr.md`, `patterns/review-kvr.md`, `agents/qwen2-5-coder.md` e o índice |
+| `profile.md` vivo | Router injeta "Preferências aprendidas" em commit/branch/review/doc | Verificado: entra no commit, fica fora do fix |
+
+### Pendências da onda A
+- O caminho com um Claude real colado no chat continua simulado nos testes
+- Detectar erro recorrente ("3º TS6137 esta semana") ficou para a onda B (os dados já estão em `errors/`)
+- As notas antigas em `~/.kvasir/knowledge/libs/` (sem frontmatter) são lidas normalmente; ganham frontmatter quando o `doc` as atualizar
 
 ---
 
