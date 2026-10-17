@@ -10,7 +10,7 @@
 | 1 | Análise de `src/` | ✅ concluída (2026-10-17) |
 | 2 | Correções: `fix`, menu pós-commit, remover `shell: true`, prompts do Ollama | ✅ concluída (2026-10-17) |
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
-| 4 | Mapa de novos módulos (só listar, aguardar aprovação da ordem) | ⏳ próxima |
+| 4 | Mapa de novos módulos (só listar, aguardar aprovação da ordem) | 🟡 mapa entregue, aguardando aprovação da ordem |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -110,6 +110,24 @@ Todos os textos desses módulos estão em português. Sobra inglês só em `init
 ### Pendências
 - `push` contra um remoto real, `format` e o menu do `branch` não foram testados
 - O caminho interativo com um Claude real (colar no chat) não foi testado; o clipboard foi simulado
+
+---
+
+## Fase 4: mapa de novos módulos (de `Doc/ideas/novos-modulos.md` + `omnicontext.md`)
+
+Fase 3 commitada em `da5c29b`. **Nada implementado: aguardando o usuário aprovar a ordem.**
+
+| # sugerido | Módulo | O que faz | Depende de | Esforço |
+|---|---|---|---|---|
+| 1 | `guard` | Bloqueia segredos, arquivos proibidos e dados pessoais no diff staged; integrado ao `commit` | `getDiff` (existe), regras do `review/checks.ts` (reaproveitar), validadores novos (Luhn, CPF, CNPJ, entropia), IA opcional (`askLocal`) | Médio |
+| 2 | `doctor` | Diagnóstico do ambiente: Node, Git, JDK/Android/Expo/EAS, Ollama + modelos, `~/.kvasir`, `gh` | `runCommand` (existe), `listInstalledModels` + `MODEL_MAP` (existem); sem IA | Baixo |
+| 3 | `pr` | Título e descrição do PR em português; copia ou cria com `gh pr create` | `getDiffStat` (existe), `getBaseBranch`/`getCommitsSince` (novos), `AiTask 'pr'` novo, `writeClipboard` (expor), `gh` (opcional, checado pelo `doctor`) | Médio |
+| 4 | `daily` | Resumo "ontem / hoje / impedimentos" dos commits, pronto para colar | `git log --author --since` (novo), task ativa (existe), config de repositórios em `~/.kvasir/config` (novo; `cosmiconfig` já é dependência), IA para português (`llama3.2`), clipboard | Baixo/médio |
+| 5 | `release` | SemVer pelos Conventional Commits, `CHANGELOG.md`, versão no `package.json`/`app.json`, commit + tag | Tags git, `createTag` (novo), escrita de JSON; IA só opcional (notas); passo do EAS Update depende do futuro `kvasir deploy` | Médio |
+| 6 | `test` | Gera testes dos arquivos alterados, roda e corrige até 3 vezes | Detecção Jest/Vitest/RTL, `AiTask 'test'`, `runCommand` para rodar, laço de correção no estilo do `fix`, testes existentes como exemplo | Alto |
+| 7 | OmniContext (`index` / `ask`) | RAG local: indexa `knowledge/` e `Doc/`, responde citando arquivos; depois watchers, PDFs, repositórios e sync Win↔Mac | **Fase 5 (router)**, `nomic-embed-text` no Ollama, banco vetorial (Qdrant/Chroma, infra nova), `chokidar`; decisão Tauri × Electron antes do app | Alto |
+
+Motivo da ordem: segurança primeiro (`guard`); `doctor` é barato e checa o que os próximos usam (`gh`, Ollama); `pr`/`daily`/`release` reaproveitam os helpers do git em sequência; `test` é o mais arriscado; OmniContext depende da Fase 5.
 
 ---
 
