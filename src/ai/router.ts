@@ -22,6 +22,7 @@ export interface AskForOptions {
   maxTokens?: number;
   temperature?: number;
   repeatPenalty?: number;
+  timeoutMs?: number;
 }
 
 async function getProjectArchitecture(): Promise<string> {
@@ -114,7 +115,7 @@ async function runWithFallback(
   for (const model of models) {
     let result: string;
     try {
-      result = await askOllama(prompt, { ...options, model, timeoutMs: REQUEST_TIMEOUT_MS });
+      result = await askOllama(prompt, { ...options, model, timeoutMs: options.timeoutMs ?? REQUEST_TIMEOUT_MS });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.log(`⚠️  ${model} falhou (${message}). Tentando o próximo modelo...`);
