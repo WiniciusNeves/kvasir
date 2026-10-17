@@ -1,60 +1,79 @@
 import { getDiff, getDiffStat } from '@utils/git';
+import { parseAddedLines } from '@utils/diff';
+import type { AddedLine } from '@utils/diff';
 import { askFor } from '@ai/router';
-import { answerLines, truncateForPrompt } from '@ai/parse';
+import { answerLines } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/contextWriter';
 import { recordFeedback } from '@utils/feedback';
-import { runReviewChecks } from './checks';
 import type { KvasirContext } from '@ktypes/context';
 
-const MAX_DIFF_CHARS = 12_000;
-const MAX_AI_FINDINGS = 10;
-const REVIEW_MAX_TOKENS = 700;
+const MAX_REVIEW_LINES = 150;
+const TOKENS_PER_LINE = 40;
 const NO_ISSUES = 'Nenhum problema encontrado.';
+const TRIVIAL_LINE = /^\s*[{}()[\];,]*\s*$/;
 
-function buildReviewPrompt(context: KvasirContext, diff: string, stat: string, alreadyFound: string[]): string {
-  return `Você é um revisor de código sênior em ${context.project.stack.join(', ') || 'TypeScript'}.
-
-Projeto: ${context.summary}
-
-Arquivos alterados:
-${stat.trim()}
-
-Diff staged:
-${truncateForPrompt(diff, MAX_DIFF_CHARS)}
-
-Já encontrados por checagem automática (NÃO repita):
-${alreadyFound.length > 0 ? alreadyFound.join('\n') : '(nada)'}
-
-Revise APENAS as linhas adicionadas (+). Procure principalmente:
-- bugs de lógica: índice fora do array, condição invertida, valor nulo/undefined não tratado, await esquecido
-- segurança: dados sensíveis, entrada do usuário sem validação
-- tipos: parâmetros ou retornos sem tipo, conversões inseguras
-
-Responda em português, em lista, um problema por item, no formato:
-- [bug|segurança|estilo|melhoria] arquivo:trecho — problema — sugestão concreta
-
-Regras:
-- No máximo ${MAX_AI_FINDINGS} itens, do mais grave para o menos grave, sem repetir o mesmo problema
-- Antes de apontar algo, confira no diff que é verdade (ex.: não diga que falta um tipo que está escrito)
-- Não elogie e não resuma o diff
-- Se não houver nada além do que já foi encontrado, responda exatamente: ${NO_ISSUES}`;
+interface ReviewLine extends AddedLine {
+  id: string;
 }
 
-// Local models repeat the same item over and over: keep list items, drop duplicates, cap the count.
-function normalizeFindings(response: string): string[] {
-  const seen = new Set<string>();
-  const items: string[] = [];
+// Prompt technique (no fixed rules): the model must give a verdict for EVERY added line, with an
+// example of the format. Asked for "a list of problems", qwen2.5-coder answered "no problems" for a
+// diff with an off-by-one, a hardcoded key and an `any`; line by line it found all three.
+function selectReviewLines(diff: string): ReviewLine[] {
+  return parseAddedLines(diff)
+    .filter((line) => !TRIVIAL_LINE.test(line.text))
+    .slice(0, MAX_REVIEW_LINES)
+    .map((line, index) => ({ ...line, id: `L${index + 1}` }));
+}
 
-  for (const line of answerLines(response)) {
-    if (!line.startsWith('[')) continue;
-    const key = line.toLowerCase().replace(/\s+/g, ' ');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    items.push(`- ${line}`);
+function buildReviewPrompt(context: KvasirContext, lines: ReviewLine[]): string {
+  const listing = lines.map((line) => `${line.id} ${line.filePath}:${line.lineNumber} | ${line.text}`).join('\n');
+
+  return `Você é um revisor de código sênior em ${context.project.stack.join(', ') || 'TypeScript'}. Projeto: ${context.summary}
+
+Abaixo estão as linhas ADICIONADAS num commit. Cada uma tem um identificador (L1, L2...), o arquivo e o número da linha.
+
+${listing}
+
+Analise cada linha, uma por uma. Para CADA identificador escreva exatamente uma linha de resposta:
+<id>: OK
+ou
+<id>: PROBLEMA [bug|segurança|estilo] <o problema> — <como corrigir>
+
+O que conta como problema:
+- bug: limite de laço errado (ex.: "i <= arr.length" lê um índice que não existe), null/undefined não tratado, divisão por zero, await esquecido, condição invertida
+- segurança: senha, token ou chave de API escritos no código; entrada do usuário sem validação
+- estilo: tipo "any", função exportada sem tipo de retorno, console.log/debugger esquecido
+
+Exemplo (outro código, só para mostrar o formato):
+L1 src/x.ts:4 | export function parse(input: any) {
+L2 src/x.ts:5 |   const n = Number(input);
+L1: PROBLEMA [estilo] parâmetro "input" com tipo any e sem tipo de retorno — use "input: string" e ": number"
+L2: OK
+
+Responda só com as linhas no formato acima, uma para cada identificador, sem repetir o código.`;
+}
+
+// Maps "L3: PROBLEMA [bug] ..." back to "file:line". Anything that is not "OK" counts as a finding
+// (the model sometimes writes "SECURITY" instead of "PROBLEMA").
+function parseFindings(response: string, lines: ReviewLine[]): string[] {
+  const byId = new Map(lines.map((line) => [line.id, line]));
+  const findings = new Map<string, string>();
+
+  for (const answer of answerLines(response)) {
+    const match = answer.match(/^(L\d+)\s*:\s*(.+)$/i);
+    if (!match) continue;
+
+    const line = byId.get(match[1].toUpperCase());
+    const verdict = match[2].trim();
+    if (!line || /^ok\b/i.test(verdict) || findings.has(line.id)) continue;
+
+    const description = verdict.replace(/^(problema|problem|security|seguran[cç]a)\s*/i, '');
+    findings.set(line.id, `- ${line.filePath}:${line.lineNumber} ${description}`);
   }
 
-  return items.slice(0, MAX_AI_FINDINGS);
+  return [...findings.values()];
 }
 
 export async function runReview(): Promise<void> {
@@ -66,26 +85,29 @@ export async function runReview(): Promise<void> {
   }
 
   const context = await loadContext();
-  const automatic = runReviewChecks(diff);
-
-  if (automatic.length > 0) {
-    console.log('\n🧪 Checagens automáticas:');
-    automatic.forEach((finding) => console.log(finding));
+  const lines = selectReviewLines(diff);
+  if (lines.length === 0) {
+    console.log('Nenhuma linha de código adicionada para revisar.');
+    return;
   }
 
-  const response = await askFor('review', buildReviewPrompt(context, diff, getDiffStat(), automatic), {
-    temperature: 0.2,
-    repeatPenalty: 1.2,
-    maxTokens: REVIEW_MAX_TOKENS,
-  });
-  const findings = normalizeFindings(response);
+  console.log(`\n${getDiffStat().trim()}`);
+  if (parseAddedLines(diff).length > lines.length) {
+    console.log(`(revisando ${lines.length} linhas; linhas vazias/só com chaves e o que passou de ${MAX_REVIEW_LINES} ficaram de fora)`);
+  }
 
-  console.log('\n🔎 Revisão da IA:');
+  const response = await askFor('review', buildReviewPrompt(context, lines), {
+    temperature: 0.1,
+    repeatPenalty: 1.1,
+    maxTokens: Math.max(400, lines.length * TOKENS_PER_LINE),
+  });
+  const findings = parseFindings(response, lines);
+
+  console.log('\n🔎 Revisão:');
   console.log(findings.length > 0 ? findings.join('\n') : NO_ISSUES);
 
   // The review only suggests; applying is up to the developer (see Doc/kvasir-current.md #3).
   const useful = await confirm('As sugestões foram úteis?');
-  const summary = [...automatic, ...findings][0] ?? NO_ISSUES;
-  await recordFeedback('patterns', useful ? 'approved' : 'rejected', `review: ${summary}`);
+  await recordFeedback('patterns', useful ? 'approved' : 'rejected', `review: ${findings[0] ?? NO_ISSUES}`);
   console.log('Feedback registrado.');
 }
