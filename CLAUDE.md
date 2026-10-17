@@ -11,6 +11,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 | `Doc/kvasir-current.md` | What exists, module status, **known issues** |
 | `Doc/kvasir-architecture.md` | How the code works: layers, AI router, flow of each command |
 | `Doc/kvasir-roadmap.md` | Implementation order (current: **`kvasir fix`**) |
+| `Doc/ideas/backlog.md` | **Source of truth for all ideas** (backlog v2, 14 blocks + principles). Wins over `novos-modulos.md` on conflict |
 | `Doc/ideas/novos-modulos.md` | Specs for upcoming modules (`guard`, `pr`, `daily`, `release`, `doctor`, `test`) |
 | `Doc/ideas/omnicontext.md` | Local RAG module (after AI Router v2) |
 | `Doc/kvasir-decisions.md` | Why things are the way they are; don't re-litigate without reason |

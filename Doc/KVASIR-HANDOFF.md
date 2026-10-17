@@ -10,7 +10,7 @@
 | 1 | Análise de `src/` | ✅ concluída (2026-10-17) |
 | 2 | Correções: `fix`, menu pós-commit, remover `shell: true`, prompts do Ollama | ✅ concluída (2026-10-17) |
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
-| 4 | Mapa de novos módulos (só listar, aguardar aprovação da ordem) | 🟡 mapa entregue, aguardando aprovação da ordem |
+| 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`): status, dependências, esforço, ordem | 🟡 mapa entregue, aguardando aprovação da ordem |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -113,21 +113,90 @@ Todos os textos desses módulos estão em português. Sobra inglês só em `init
 
 ---
 
-## Fase 4: mapa de novos módulos (de `Doc/ideas/novos-modulos.md` + `omnicontext.md`)
+## Fase 4: mapa completo (fonte: `Doc/ideas/backlog.md`, backlog v2)
 
-Fase 3 commitada em `da5c29b`. **Nada implementado: aguardando o usuário aprovar a ordem.**
+Fase 3 commitada em `da5c29b`. Status conferido no `src/` em 2026-10-17. **Nada implementado: aguardando o usuário aprovar a ordem.**
+Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (médio) · A (alto)
 
-| # sugerido | Módulo | O que faz | Depende de | Esforço |
+### ⚠️ Conflitos com os princípios no que já foi feito (corrigir primeiro)
+| O quê | Princípio | Proposta |
+|---|---|---|
+| `review/checks.ts` (Fase 3): regex para `<= .length`, `any` e `console.log` compensam a IA que errou | "Nunca contornar IA com regra fixa" | Mover só as regras de **segredo** para o `guard` (lá são determinísticas por especificação) e tirar as outras; melhorar o review pelo prompt/contexto (linhas numeradas, exemplos do feedback, deepseek-r1 para bugs) |
+| `fix` (Fase 2): a classificação simples × complexo foi removida; a investigação só roda se a troca de linha falhar, e **pergunta** antes | Bloco 8 + "corrige direto sem perguntar sim/não" | Voltar a classificar; complexo → deepseek-r1 investiga direto, lendo arquivos relacionados e o `tsconfig` |
+| `askFor` manda o prompt inteiro ao Claude 2 vezes (escolher modelo + validar) | "Zero token desperdiçado" | Escolha determinística pelo desempenho registrado; Claude valida só quando vale (Fase 5) |
+| Soluções do `fix`/`review` não são salvas | "Conhecimento gerado fica salvo" | Notas automáticas em `knowledge/errors/` (bloco 1) |
+
+### Status por bloco
+| Bloco | Item | Status | Depende de | Esforço |
 |---|---|---|---|---|
-| 1 | `guard` | Bloqueia segredos, arquivos proibidos e dados pessoais no diff staged; integrado ao `commit` | `getDiff` (existe), regras do `review/checks.ts` (reaproveitar), validadores novos (Luhn, CPF, CNPJ, entropia), IA opcional (`askLocal`) | Médio |
-| 2 | `doctor` | Diagnóstico do ambiente: Node, Git, JDK/Android/Expo/EAS, Ollama + modelos, `~/.kvasir`, `gh` | `runCommand` (existe), `listInstalledModels` + `MODEL_MAP` (existem); sem IA | Baixo |
-| 3 | `pr` | Título e descrição do PR em português; copia ou cria com `gh pr create` | `getDiffStat` (existe), `getBaseBranch`/`getCommitsSince` (novos), `AiTask 'pr'` novo, `writeClipboard` (expor), `gh` (opcional, checado pelo `doctor`) | Médio |
-| 4 | `daily` | Resumo "ontem / hoje / impedimentos" dos commits, pronto para colar | `git log --author --since` (novo), task ativa (existe), config de repositórios em `~/.kvasir/config` (novo; `cosmiconfig` já é dependência), IA para português (`llama3.2`), clipboard | Baixo/médio |
-| 5 | `release` | SemVer pelos Conventional Commits, `CHANGELOG.md`, versão no `package.json`/`app.json`, commit + tag | Tags git, `createTag` (novo), escrita de JSON; IA só opcional (notas); passo do EAS Update depende do futuro `kvasir deploy` | Médio |
-| 6 | `test` | Gera testes dos arquivos alterados, roda e corrige até 3 vezes | Detecção Jest/Vitest/RTL, `AiTask 'test'`, `runCommand` para rodar, laço de correção no estilo do `fix`, testes existentes como exemplo | Alto |
-| 7 | OmniContext (`index` / `ask`) | RAG local: indexa `knowledge/` e `Doc/`, responde citando arquivos; depois watchers, PDFs, repositórios e sync Win↔Mac | **Fase 5 (router)**, `nomic-embed-text` no Ollama, banco vetorial (Qdrant/Chroma, infra nova), `chokidar`; decisão Tauri × Electron antes do app | Alto |
+| **1 Knowledge (PRIORIDADE)** | Pastas `libs/ patterns/ decisions/ tasks/ commits/` | ✅ | — | — |
+| | Pastas `errors/` e `agents/` | ❌ | — | B |
+| | Links `[[nota]]` (`link`, `doc` "Usado em") | ✅ | — | — |
+| | Frontmatter (tags, projeto, data, origem) | ❌ | — | B |
+| | `index.md` automático | ❌ (o `show` só lê se existir) | frontmatter | B |
+| | Notas automáticas | 🟡 só o `doc` grava em `libs/`; falta `fix`, `commit`, `task`, `review`, `learn` | frontmatter | M |
+| | `search/add/link/show` | ✅ básico (corrigido na Fase 3) | — | — |
+| | `show` como grafo HTML | ❌ | infra HTML do bloco 5/10 | M |
+| | Sync entre PCs | ❌ | bloco 13 | B |
+| | `profile.md` usado nos prompts | ❌ (o `learn` grava, ninguém lê) | — | B |
+| **2 OmniContext** | `src/rag/`, `index`/`ask`, embeddings, banco vetorial, watchers, PDFs, sync LAN, contexto 256k | ❌ tudo | bloco 1 + Fase 5 + `nomic-embed-text` + Qdrant/Chroma + `chokidar` | A |
+| **3 Novos módulos** | `guard` | ❌ (regex de segredo existe no `review/checks.ts`) | diff staged ✅ | M |
+| | `doctor` | ❌ | `runCommand` ✅, `listInstalledModels` ✅ | B |
+| | `pr` | ❌ | helpers de git (base, commits), `gh` opcional | M |
+| | `daily` | ❌ | `git log --author`, task ativa ✅, config de repos | B/M |
+| | `release` | ❌ | tags, `createTag`, `package.json`/`app.json` | M |
+| | `test` | ❌ | detecção Jest/Vitest, laço de correção do `fix` | A |
+| **4 Time de agentes** | Papéis Arquiteto/Revisor/Executor no `MODEL_MAP` | 🟡 (Documentador sem Gemini; não há Testador) | Fase 5 | B |
+| | Claude orquestra e valida | ✅ (`askFor`) | — | — |
+| | Contexto isolado por agente, dono único da tarefa | ❌ (não existe a abstração "agente") | métricas | M |
+| | Avaliar agentes extras (claude, codex, opencode, hermes, cline, copilot, qwen, openclaw) | ❌ | métricas | M |
+| **5 Agent Board** | Kanban por agente, dono único, métricas (chamadas, tokens, tempo, aprovação, erros), "em que cada IA é melhor", HTML dark + Chart.js | ❌ tudo; **hoje nenhuma métrica é registrada** (o Ollama devolve `eval_count`/`total_duration`, e o código ignora) | métricas no router | A |
+| **6 AI Router** | Gemini Flash + Groq + fallback Ollama | ❌ | chaves gratuitas | M |
+| | Mapa por tarefa | 🟡 só Ollama | — | — |
+| | Escolha por desempenho | ❌ | métricas | M |
+| | Detecta modelos instalados | ✅ (Fase 2) | — | — |
+| | Oferece baixar o que falta | ❌ | `ollama pull` via `runCommand` | B |
+| | `kvasir models` | 🟡 (o "ativo" não bate com a escolha do Claude) | — | B |
+| | Claude chefe via clipboard | ✅ | — | — |
+| **7 Intenção** | `src/ai/intent.ts`, seguras direto / destrutivas confirmam, texto agora / voz depois | ❌ | módulos estáveis | M |
+| **8 `fix` inteligente** | Corrige sem perguntar + oferece expandir | ✅ | — | — |
+| | Classificação simples × complexo | 🟡 (removida na Fase 2, ver conflitos) | — | B |
+| | Complexo: deepseek-r1 lê arquivos relacionados e config | 🟡 investiga, mas só com o texto do erro | — | M |
+| | Diff no VS Code + backup + `--undo` | ✅ | — | — |
+| | Aprende erros recorrentes ("3º TS6137 esta semana") | ❌ | `knowledge/errors/` | B/M |
+| **9 Aprendizado** | Feedback aprovado/rejeitado | ✅ | — | — |
+| | `learn` → `profile.md` vivo | 🟡 grava, mas nenhum prompt usa | — | B |
+| | Perguntas proativas (commit sem review, lib sem doc, branch parada, erro repetido) | ❌ | métricas + knowledge | M |
+| | `kvasir watch` (terminal/clipboard) | ❌ | intenção | M |
+| **10 Stats e deploy** | `kvasir stats` (radar, semana × mês, cards, barras, "o que aprendeu") | ❌ | métricas + feedback | M |
+| | `kvasir deploy` (EAS Build/Submit/Update; Vercel) | ❌ | `doctor`, `release` | A |
+| **11 Desktop** | Widget, wake word, Whisper, TTS, ver a tela, estados do robô | ❌ tudo; Electron × Tauri pendente | CLI estável + router + intenção | A |
+| **12 Auto-melhoria** | Níveis de autonomia (perguntar / seguro sozinho / autônomo em branch) | ❌ (hoje: confirm em tudo, exceto `fix`) | config | B/M |
+| | Detecta módulo fraco → patch em `chore/self-improve-*` → build + testes → relatório | ❌ | métricas + testes automatizados (não existem) | A |
+| | Plugins (`plugin install/create`, sugestão por uso) | ❌ | API de módulos estável | A |
+| **13 Infra/produto** | Repositório no GitHub | ✅ (`origin` = WiniciusNeves/kvasir) | — | — |
+| | `kvasir setup` (detecta Node/Git/Ollama, baixa modelos, cria `~/.kvasir`), .exe/Docker | ❌ | `doctor` | M |
+| | `~/.kvasir` sincronizado, servidor 24h + Tailscale | ❌ (infra, quase sem código) | — | B |
+| | Contexto entre Claudes via `CLAUDE.md`/`kvasir.context.md` | ✅ (adapters) | — | — |
+| | Personas: criar/listar/remover | 🟡 só ACME; `loadPersona`/`savePersona` existem, sem comando | — | B |
+| | Open source: LICENSE | ❌ (repo sem LICENSE) | decisão do usuário | B |
+| **14 Tarefas** | Planner | 🟡 GET genérico com Bearer, testado com servidor falso; **Microsoft Planner real usa Graph API + OAuth**, não integrado | conta Microsoft | M |
+| | Task manager da ACME | ❌ | API da ACME | M |
+| | Task ativa ↔ branch ↔ contexto | ✅ (Fase 3) | — | — |
+| | `kvasir start` | ✅ | — | — |
+| | `kvasir docs update` | ❌ | knowledge + `doc --code` | M |
 
-Motivo da ordem: segurança primeiro (`guard`); `doctor` é barato e checa o que os próximos usam (`gh`, Ollama); `pr`/`daily`/`release` reaproveitam os helpers do git em sequência; `test` é o mais arriscado; OmniContext depende da Fase 5.
+### Ordem sugerida (ondas)
+| Onda | Conteúdo | Por quê |
+|---|---|---|
+| **A: corrigir e fundar** | 1) Resolver os conflitos com os princípios (review, classificação do `fix`) · 2) **Métricas no router** (chamadas, tokens, tempo, aprovação por modelo/tarefa em `~/.kvasir/metrics/`) · 3) **Knowledge v2** (frontmatter, `index.md` automático, `errors/`, `agents/`, notas automáticas, `profile.md` nos prompts) | Knowledge é PRIORIDADE; as métricas destravam Agent Board, stats, router por desempenho e auto-melhoria |
+| **B: módulos CLI** | `guard` → `doctor` (+ oferecer baixar modelos, base do `setup`) → `pr` → `daily` → `release` → `test` · `fix` aprende erros recorrentes · personas criar/listar/remover | Segurança primeiro; cada um reaproveita os helpers do anterior |
+| **C: Fase 5 (router)** | Gemini + Groq + fallback Ollama · escolha por desempenho · time de agentes formal (contexto isolado, dono único) | Precisa das métricas da onda A |
+| **D: painéis** | `kvasir stats` + Agent Board + grafo do knowledge (mesma base HTML + Chart.js) | Precisa de métricas e de dados acumulados |
+| **E: conversa** | `intent.ts` → proatividade → `kvasir watch` | Módulos estáveis antes de expor por linguagem natural |
+| **F: memória e entrega** | OmniContext (MVP: `knowledge/` + `Doc/`) → `kvasir deploy` → `docs update` | O OmniContext vem depois do router e do knowledge |
+| **G: autonomia** | Níveis de autonomia → auto-melhoria em branch → plugins | Exige testes automatizados (hoje não há nenhum) |
+| **H: desktop e infra** | Widget (Electron × Tauri) · `setup`/.exe · sync · servidor 24h + Tailscale · Planner via Graph · task manager ACME · LICENSE | O widget usa tudo o que vem antes |
 
 ---
 

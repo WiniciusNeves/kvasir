@@ -1,6 +1,7 @@
 # Novos módulos — especificação
 
 > Ordem de implementação definida em `Doc/kvasir-roadmap.md` (Fase 1.5).
+> **A fonte da verdade das ideias é `Doc/ideas/backlog.md`** (backlog v2); em caso de conflito, ela vale mais que este arquivo.
 > Todos seguem o padrão de 3 camadas do `CLAUDE.md`: `src/cli/<modulo>.ts` (fino) → `src/modules/<modulo>/index.ts` (runner) → `src/utils/` (helpers puros).
 > Regras gerais: interface em português, commits/branches/código em inglês, `spawnSync` para git, **nada executa sem `confirm()`**.
 
