@@ -1,5 +1,6 @@
 import path from 'path';
-import { askOllama } from '@ai/ollama';
+import { askLocal } from '@ai/router';
+import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { confirm, checkbox, select, input } from '@utils/prompt';
 import { writeFile, readFile, pathExists, isDirectory, listFilesRecursive } from '@utils/fs';
 
@@ -27,35 +28,53 @@ function toDocOutputPath(relativeFilePath: string): string {
   return `DOC/code/${withoutExt}.md`;
 }
 
+const MAX_CODE_CHARS = 12_000;
+const EXPORT_REGEX =
+  /^export\s+(?:default\s+)?(?:async\s+)?(?:function\*?|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm;
+
+// Exports are listed deterministically so the model documents real names instead of inventing them.
+function extractExports(code: string): string[] {
+  const names = [...code.matchAll(EXPORT_REGEX)].map((match) => match[1]);
+  if (/^export\s+default\s+(?!async|function|class|const|let|var|interface|type|enum)/m.test(code)) names.push('default');
+  return Array.from(new Set(names));
+}
+
 function buildCodeDocPrompt(relativeFilePath: string, code: string): string {
-  return `Você é um assistente técnico. Documente o arquivo de código abaixo em português.
+  const exportsList = extractExports(code);
+
+  return `Você documenta código-fonte em português do Brasil, para outros desenvolvedores do time.
 
 Arquivo: ${relativeFilePath}
+Exports encontrados: ${exportsList.length > 0 ? exportsList.join(', ') : '(nenhum)'}
 
-Inclua exatamente estas seções:
+Código:
+\`\`\`
+${truncateForPrompt(code, MAX_CODE_CHARS)}
+\`\`\`
+
+Escreva a documentação em markdown com exatamente estas seções:
 
 ## Propósito
 O que este arquivo faz, em 2-3 frases.
 
 ## Exports
-Lista das principais funções, componentes ou hooks exportados, com uma frase de descrição cada.
+Um item por export da lista "Exports encontrados" (e só eles), com uma frase do que faz. Se não houver exports, escreva "Nenhum".
 
 ## Como usar
-Um exemplo simples de uso, se aplicável.
+Um exemplo curto de uso de um export real deste arquivo. Se não fizer sentido, escreva "Não se aplica".
 
-Código:
-${code.slice(0, 6000)}`;
+Regras: descreva só o que está no código; não invente funções, parâmetros nem dependências. Comece direto em "## Propósito".`;
 }
 
 async function documentFile(relativeFilePath: string): Promise<void> {
   const code = await readFile(relativeFilePath);
   if (code === null) {
-    console.log(`Could not read file: ${relativeFilePath}`);
+    console.log(`Não foi possível ler o arquivo: ${relativeFilePath}`);
     return;
   }
 
-  const summary = await askOllama(buildCodeDocPrompt(relativeFilePath, code));
-  await writeFile(toDocOutputPath(relativeFilePath), summary);
+  const summary = cleanAnswer(await askLocal('doc', buildCodeDocPrompt(relativeFilePath, code), { temperature: 0.2 }));
+  await writeFile(toDocOutputPath(relativeFilePath), `# ${relativeFilePath}\n\n${summary}\n`);
 }
 
 function summarizeRootFolders(files: string[]): RootFolderSummary[] {

@@ -1,4 +1,15 @@
 import { spawnSync } from 'child_process';
+import type { SpawnSyncReturns } from 'child_process';
+
+// spawnSync only sets `error` when git can't start; a failed git command (hook rejected the commit,
+// branch already exists, push rejected) only shows up in `status`.
+function assertGitSuccess(result: SpawnSyncReturns<string>, action: string): void {
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const detail = (result.stderr ?? '').trim();
+    throw new Error(`git ${action} falhou${detail ? `: ${detail}` : ` (código ${result.status})`}`);
+  }
+}
 
 export function getDiff(): string {
   const result = spawnSync('git', ['diff', '--cached'], {
@@ -27,7 +38,7 @@ export function createBranch(name: string): void {
     stdio: 'inherit',
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'checkout -b');
 }
 
 export function listLocalBranches(): string[] {
@@ -81,7 +92,7 @@ export function checkoutPreviousBranch(): void {
     stdio: 'inherit',
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'checkout -');
 }
 
 export function commitWithMessage(message: string): void {
@@ -91,7 +102,7 @@ export function commitWithMessage(message: string): void {
     stdio: 'inherit',
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'commit');
 }
 
 export function stageAll(): void {
@@ -100,7 +111,7 @@ export function stageAll(): void {
     cwd: process.cwd(),
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'add');
 }
 
 export interface PushOptions {
@@ -117,7 +128,7 @@ export function pushCurrentBranch(branch: string, options: PushOptions = {}): vo
     stdio: 'inherit',
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'push');
 }
 
 export function undoLastCommit(): void {
@@ -127,7 +138,7 @@ export function undoLastCommit(): void {
     stdio: 'inherit',
   });
 
-  if (result.error) throw result.error;
+  assertGitSuccess(result, 'reset');
 }
 
 export function getRecentLog(count: number = 10): string {
@@ -147,7 +158,7 @@ export function mergeBranchInto(targetBranch: string, sourceBranch: string): voi
     stdio: 'inherit',
   });
 
-  if (checkoutResult.error) throw checkoutResult.error;
+  assertGitSuccess(checkoutResult, 'checkout');
 
   const mergeResult = spawnSync('git', ['merge', sourceBranch], {
     encoding: 'utf-8',
@@ -155,5 +166,25 @@ export function mergeBranchInto(targetBranch: string, sourceBranch: string): voi
     stdio: 'inherit',
   });
 
-  if (mergeResult.error) throw mergeResult.error;
+  assertGitSuccess(mergeResult, 'merge');
+}
+
+export function checkoutBranch(name: string): void {
+  const result = spawnSync('git', ['checkout', name], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
+
+  assertGitSuccess(result, 'checkout');
+}
+
+export function getDiffStat(): string {
+  const result = spawnSync('git', ['diff', '--cached', '--stat'], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+  });
+
+  if (result.error) throw result.error;
+  return result.stdout ?? '';
 }

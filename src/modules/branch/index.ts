@@ -1,4 +1,5 @@
 import { askFor } from '@ai/router';
+import { answerLines, pickLine } from '@ai/parse';
 import { confirm, input, select } from '@utils/prompt';
 import {
   createBranch,
@@ -13,32 +14,48 @@ import { loadContext } from '@modules/init/contextWriter';
 type BranchChoice = 'yes' | 'no' | 'edit';
 type PostBranchAction = 'none' | 'delete' | 'list' | 'previous';
 
+const BRANCH_PREFIXES = ['feature', 'fix', 'hotfix', 'release', 'chore'];
+const BRANCH_NAME = new RegExp(`^(${BRANCH_PREFIXES.join('|')})/[a-z0-9][a-z0-9._-]*$`);
+const BRANCH_LIKE = new RegExp(`\\b(${BRANCH_PREFIXES.join('|')})/[^\\n\`'"]+`, 'i');
+const MAX_BRANCH_SLUG = 50;
+
 function buildBranchPrompt(descricao: string): string {
-  return `Gere APENAS o nome de uma branch git em inglês seguindo
-Git Flow ACME. Responda somente com o nome da branch,
-sem explicações, sem aspas, sem markdown.
+  return `Você cria nomes de branch git no padrão Git Flow ACME.
 
-Prefixos válidos: feature/ fix/ hotfix/ release/ chore/
+Tarefa descrita pelo desenvolvedor (pode estar em português):
+${descricao}
 
-Tarefa: ${descricao}
+Escolha o prefixo pelo tipo da tarefa:
+- feature/  funcionalidade nova
+- fix/      correção de bug
+- hotfix/   correção urgente em produção
+- release/  preparação de versão
+- chore/    manutenção, configuração, dependências
 
-IMPORTANTE: Gere um nome baseado APENAS na tarefa descrita.
-Não use exemplos genéricos.`;
+Depois do prefixo: um resumo da tarefa TRADUZIDO para o inglês, em kebab-case (minúsculas, palavras separadas por hífen), de 2 a 5 palavras, só letras, números e hífens.
+
+Responda com UMA única linha: só o nome da branch (prefixo/resumo). Sem aspas, sem markdown, sem explicação.`;
 }
 
+// Normalizes whatever the model returned ("Branch: Feature/Add Login!") into a valid git branch name.
 function parseBranchName(response: string): string {
-  const firstLine =
-    response
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? '';
+  const exact = pickLine(response, BRANCH_NAME);
+  const lines = answerLines(response);
+  const embedded = lines.map((line) => line.match(BRANCH_LIKE)?.[0]).find((match) => match !== undefined);
+  const raw = (exact ?? embedded ?? lines[0] ?? '').replace(/^[^:/]{2,40}:\s*/, '').toLowerCase();
+  const [maybePrefix, ...rest] = raw.split('/');
+  const hasPrefix = rest.length > 0 && BRANCH_PREFIXES.includes(maybePrefix.trim());
+  const prefix = hasPrefix ? maybePrefix.trim() : 'feature';
 
-  return firstLine
-    .replace(/`/g, '')
-    .replace(/"/g, '')
-    .replace(/'/g, '')
-    .replace(/\s+/g, '-')
-    .toLowerCase();
+  const slug = (hasPrefix ? rest.join('-') : raw)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, MAX_BRANCH_SLUG)
+    .replace(/-+$/, '');
+
+  return slug ? `${prefix}/${slug}` : '';
 }
 
 export async function runBranch(): Promise<void> {
@@ -46,7 +63,7 @@ export async function runBranch(): Promise<void> {
 
   const taskDescription = await input('Descreva a tarefa para esta branch:');
 
-  const response = await askFor('branch', buildBranchPrompt(taskDescription));
+  const response = await askFor('branch', buildBranchPrompt(taskDescription), { temperature: 0.2 });
   const branchName = parseBranchName(response);
 
   console.log(`\nBranch atual: ${getCurrentBranch()}`);

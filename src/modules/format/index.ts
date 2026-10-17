@@ -1,6 +1,6 @@
-import { execSync } from 'child_process';
 import { confirm } from '@utils/prompt';
 import { readJson } from '@utils/fs';
+import { runCommand, commandSucceeded } from '@utils/process';
 
 interface PackageJson {
   scripts?: Record<string, string>;
@@ -8,17 +8,22 @@ interface PackageJson {
 
 export async function runFormat(): Promise<void> {
   const pkg = await readJson<PackageJson>('package.json');
-  const formatScript = pkg?.scripts?.format;
+  const [bin, args] = pkg?.scripts?.format
+    ? (['npm', ['run', 'format']] as const)
+    : (['npx', ['prettier', '--write', '.']] as const);
+  const command = `${bin} ${args.join(' ')}`;
 
-  const command = formatScript ? 'npm run format' : 'npx prettier --write .';
-
-  console.log(`\nThis will run: ${command}`);
-  const approved = await confirm('Run formatter?');
+  console.log(`\nIsso vai rodar: ${command}`);
+  const approved = await confirm('Rodar o formatador?');
   if (!approved) {
-    console.log('Format cancelled.');
+    console.log('Formatação cancelada.');
     return;
   }
 
-  execSync(command, { stdio: 'inherit' });
-  console.log('Formatting complete.');
+  const result = runCommand(bin, [...args], { inherit: true });
+  if (!commandSucceeded(result)) {
+    throw new Error(`"${command}" falhou (código ${result.status ?? '?'}). Verifique se o Prettier está instalado no projeto.`);
+  }
+
+  console.log('✅ Formatação concluída.');
 }

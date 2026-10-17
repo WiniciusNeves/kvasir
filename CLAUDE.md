@@ -1,380 +1,236 @@
-# CLAUDE.md — Kvasir CLI
+# CLAUDE.md: Kvasir CLI
 
-Kvasir is a modular productivity ecosystem for developers. It detects the project type, applies the right persona, and assists with branch, commit, doc, fix, format, and task workflows.
+Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScript). It detects the project, applies a persona (ACME), generates AI context files, and automates branch, commit, fix, review, doc and task workflows using **local AI (Ollama)** orchestrated by **Claude via clipboard**. Nothing runs without user approval.
+
+---
+
+## Read before working
+
+| File | When |
+|---|---|
+| `Doc/kvasir-current.md` | What exists, module status, **known issues** |
+| `Doc/kvasir-architecture.md` | How the code works: layers, AI router, flow of each command |
+| `Doc/kvasir-roadmap.md` | Implementation order (current: **`kvasir fix`**) |
+| `Doc/ideas/novos-modulos.md` | Specs for upcoming modules (`guard`, `pr`, `daily`, `release`, `doctor`, `test`) |
+| `Doc/ideas/omnicontext.md` | Local RAG module (after AI Router v2) |
+| `Doc/kvasir-decisions.md` | Why things are the way they are; don't re-litigate without reason |
+
+**Finish the current module before starting the next one.** After changing behavior, update `Doc/kvasir-current.md` (and `kvasir-architecture.md` if the flow changed).
 
 ---
 
 ## Tech Stack
 
-| Layer       | Technology                        |
-| ----------- | --------------------------------- |
-| Runtime     | Node.js                           |
-| Language    | TypeScript (strict)               |
-| CLI         | Commander.js                      |
-| Config/FS   | fs-extra, cosmiconfig             |
-| AI          | Anthropic SDK (@anthropic-ai/sdk) |
-| HTTP        | axios                             |
-| Validation  | zod                               |
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js >= 18 |
+| Language | TypeScript (strict, `noUnusedLocals`, `noImplicitReturns`) |
+| CLI | commander |
+| Prompts | @inquirer/prompts (wrapped in `@utils/prompt`) |
+| HTTP | axios |
+| FS | fs-extra (wrapped in `@utils/fs`) |
+| AI (executor) | Ollama at `http://localhost:11434` |
+| AI (orchestrator) | Claude via clipboard (`clipboardy`), **no Anthropic SDK, no API key** |
+| Validation | zod (available, not yet used) |
+| Build | `tsc` + `tsc-alias`; templates copied to `dist/personas/templates` |
+
+Scripts: `npm run dev -- <cmd>` · `npm run build` · `npm run typecheck` · `npm link` for global `kvasir`.
 
 ---
 
 ## Folder Architecture
 
 ```
-kvasir/
-├── src/
-│   ├── cli/                        # Command entry points — thin, no logic
-│   │   ├── index.ts                # Root CLI: registers all commands
-│   │   ├── init.ts                 # kvasir init command
-│   │   ├── branch.ts               # kvasir branch command
-│   │   ├── commit.ts               # kvasir commit command
-│   │   ├── fix.ts                  # kvasir fix command
-│   │   ├── format.ts               # kvasir format command
-│   │   ├── doc.ts                  # kvasir doc command
-│   │   └── task.ts                 # kvasir task command
-│   ├── modules/                    # Core logic — one folder per module
-│   │   ├── init/
-│   │   │   ├── index.ts            # runInit(): orchestrates the init flow
-│   │   │   ├── detector.ts         # detectProject(): reads package.json, infers type
-│   │   │   ├── personaLoader.ts    # loadPersona(): loads from ~/.kvasir/personas/
-│   │   │   └── contextWriter.ts    # writeContext(): writes kvasir.context.md
-│   │   ├── branch/
-│   │   │   └── index.ts            # runBranch(): generates branch name from task
-│   │   ├── commit/
-│   │   │   └── index.ts            # runCommit(): reads git diff, generates message
-│   │   ├── fix/
-│   │   │   └── index.ts            # runFix(): reads error, proposes fix
-│   │   ├── format/
-│   │   │   └── index.ts            # runFormat(): runs formatter before commit
-│   │   ├── doc/
-│   │   │   └── index.ts            # runDoc(): fetches lib docs, saves to doc/
-│   │   └── task/
-│   │       └── index.ts            # runTask(): fetches tasks from Planner/API
-│   ├── adapters/                   # Output adapters — one file per target AI
-│   │   ├── claude.ts               # Writes CLAUDE.md from kvasir.context.md
-│   │   ├── copilot.ts              # Writes .github/copilot-instructions.md
-│   │   └── cursor.ts               # Writes .cursor/rules
-│   ├── personas/                   # Built-in personas (loaded at runtime)
-│   │   └── acme.ts                  # ACME persona: stack, branch, commit rules
-│   ├── ai/                         # Anthropic SDK wrapper
-│   │   └── client.ts               # askAI(prompt): returns string response
-│   ├── integrations/               # External API integrations
-│   │   └── planner.ts              # fetchMyTasks(): calls Planner or custom API
-│   ├── utils/                      # Shared helpers
-│   │   ├── git.ts                  # getDiff(), getCurrentBranch(), etc.
-│   │   ├── fs.ts                   # readJson(), writeFile(), ensureDir()
-│   │   └── prompt.ts               # confirm(), select(), input() wrappers
-│   └── types/                      # All TypeScript types
-│       ├── persona.ts              # Persona, PersonaStore types
-│       ├── context.ts              # KvasirContext type
-│       └── task.ts                 # Task type
-├── ~/.kvasir/                      # Global user config (outside repo)
-│   ├── profile.md                  # Developer profile: preferences, rules
-│   └── personas/                   # Saved personas (auto-generated or custom)
-│       └── acme.json
-├── package.json
-├── tsconfig.json
-└── README.md
+src/
+├── cli/            # one file per command + index.ts (registers all), thin
+├── modules/<name>/ # runner: index.ts (+ helpers, e.g. init/detector.ts, doc/code.ts)
+├── ai/
+│   ├── router.ts   # askFor / askLocal(task, prompt, { maxTokens?, temperature? }), MODEL_MAP, AiTask
+│   ├── parse.ts    # defensive parsing of model answers
+│   ├── ollama.ts   # askOllama(prompt, { model?, maxTokens?, timeoutMs? }), listInstalledModels()
+│   └── client.ts   # promptAI(prompt): clipboard bridge to Claude
+├── adapters/       # claude.ts, copilot.ts, cursor.ts (read kvasir.context.md)
+├── personas/       # acme.ts + templates/acme-mobile.md, acme-web.md
+├── integrations/   # planner.ts (KVASIR_PLANNER_API_URL / _TOKEN)
+├── utils/          # git, fs, prompt, editor, typecheck, process, feedback, errors
+└── types/          # context, persona, feedback, knowledge, task
 ```
 
----
-
-## Module Pattern
-
-Every module follows three tiers. Each tier has one strict responsibility.
-
-| Tier        | Location          | Responsibility                                      |
-| ----------- | ----------------- | --------------------------------------------------- |
-| CLI command | `src/cli/`        | Parse args, call module runner, nothing else        |
-| Runner      | `src/modules/`    | Orchestrate: read context → call AI → write output  |
-| Utility     | `src/utils/`      | Pure helpers: git, fs, prompts — no business logic  |
-
----
-
-### Tier 1 — CLI command (`src/cli/`)
-
-Only parses arguments and calls the runner. No logic lives here.
-
-```ts
-// src/cli/commit.ts
-import { Command } from 'commander';
-import { runCommit } from '@modules/commit';
-
-export function registerCommit(program: Command) {
-  program
-    .command('commit')
-    .description('Generate a commit message from git diff')
-    .action(async () => {
-      await runCommit();
-    });
-}
-```
-
----
-
-### Tier 2 — Runner (`src/modules/`)
-
-Orchestrates the full flow: reads context, calls AI if needed, writes output, asks for approval.
-
-```ts
-// src/modules/commit/index.ts
-import { getDiff } from '@utils/git';
-import { askAI } from '@ai/client';
-import { confirm } from '@utils/prompt';
-import { loadContext } from '@modules/init/contextWriter';
-
-export async function runCommit() {
-  const diff = await getDiff();
-  const context = await loadContext();
-
-  const message = await askAI(`
-    Project context: ${context.summary}
-    Commit conventions: ${context.commitRules}
-    Git diff:
-    ${diff}
-    Generate a commit message following the conventions above.
-  `);
-
-  console.log('\nSuggested commit message:');
-  console.log(message);
-
-  const approved = await confirm('Use this message?');
-  if (approved) {
-    // execute git commit
-  }
-}
-```
-
----
-
-### Tier 3 — Utils (`src/utils/`)
-
-Pure helpers. No AI calls, no business decisions.
-
-```ts
-// src/utils/git.ts
-import { execSync } from 'child_process';
-
-export function getDiff(): string {
-  return execSync('git diff --staged').toString();
-}
-
-export function getCurrentBranch(): string {
-  return execSync('git branch --show-current').toString().trim();
-}
-```
-
----
-
-## Project Detection (kvasir init)
-
-```ts
-// src/modules/init/detector.ts
-import { readJson } from '@utils/fs';
-
-export async function detectProject(): Promise<'acme' | 'unknown'> {
-  const pkg = await readJson('package.json');
-  if (pkg?.name?.startsWith('acme-')) return 'acme';
-  return 'unknown';
-}
-```
-
-Detection rules:
-- `name` starts with `acme-` → ACME persona
-- No match → prompt user to create a new persona
-
----
-
-## ACME Persona
-
-Applied automatically when project is detected as ACME.
-
-### Repository naming
-`ACME-<NAME>-<TYPE>` → `-WEB` · `-API` · `-MOBILE` · `-DESKTOP` · `-INFRA` · `-LIB`
-
-### Branch naming (Git Flow)
-| Branch      | When                                        |
-| ----------- | ------------------------------------------- |
-| `feature/*` | New features                                |
-| `fix/*`     | Bug fixes in development                    |
-| `hotfix/*`  | Critical fixes from production              |
-| `release/*` | Deploy preparation                          |
-| `chore/*`   | Build, tooling, dependency updates          |
-
-### Commit messages (Conventional Commits)
-Structure: `<type>(<scope>): <description in English>`
-
-Types: `feat` · `fix` · `docs` · `style` · `refactor` · `perf` · `test` · `ci` · `chore` · `revert`
-
-Examples:
-- `feat(HomePage): create interactive header`
-- `fix(Auth): solve login timeout on mobile`
-- `docs(README): add setup instructions for API`
-
-### Stack
-- Web: Next.js + TypeScript
-- Mobile: React Native + Expo + TypeScript
-
-### Language rule
-All branch names, commit messages, and repository names must be in **English**.
-
----
-
-## kvasir.context.md — Neutral Format
-
-This file is the source of truth. Adapters read it to generate AI-specific files.
-
-```md
-# kvasir.context.md
-
-## Project
-- name: acme-web-app
-- type: ACME
-- stack: Next.js, TypeScript
-- persona: acme
-
-## Developer
-- profile: ~/.kvasir/profile.md
-
-## Branch rules
-- pattern: Git Flow ACME
-- prefix: feature/ fix/ hotfix/ release/ chore/
-- language: English
-
-## Commit rules
-- convention: Conventional Commits
-- language: English
-- format: <type>(<scope>): <description>
-
-## Active modules
-- branch, commit, fix, format, doc, task
-
-## Active task
-- id: TASK-123
-- title: Add face recognition flow
-- linked branch: feature/add-face-recognition-flow
-```
-
----
-
-## AI Client
-
-All AI calls go through one single function.
-
-```ts
-// src/ai/client.ts
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic();
-
-export async function askAI(prompt: string): Promise<string> {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const block = response.content[0];
-  if (block.type !== 'text') throw new Error('Unexpected response type');
-  return block.text;
-}
-```
-
----
-
-## Adapters
-
-Each adapter reads `kvasir.context.md` and writes the AI-specific file.
-
-```ts
-// src/adapters/claude.ts
-import { readContext } from '@modules/init/contextWriter';
-import { writeFile } from '@utils/fs';
-
-export async function writeClaude() {
-  const ctx = await readContext();
-  const content = buildClaudemd(ctx);
-  await writeFile('CLAUDE.md', content);
-}
-```
-
-Adapters: `claude.ts` · `copilot.ts` · `cursor.ts`
-
----
-
-## TypeScript Rules
-
-- Always define explicit interfaces — no `any`, no implicit `{}`.
-- All async functions must have explicit return types.
-- Prefer `type` for unions/intersections, `interface` for object shapes.
-- All types live in `src/types/`, imported via `@types/*`.
-
----
-
-## Function Nomenclature
-
-| Context                | Style                  | Example                          |
-| ---------------------- | ---------------------- | -------------------------------- |
-| Module runners         | `async function`       | `export async function runInit` |
-| Utility functions      | `function` declaration | `export function getDiff`        |
-| Inline callbacks       | Arrow function         | `.action(async () => { … })`     |
-| `useCallback` bodies   | Arrow function         | `useCallback(() => { … }, [])`   |
-
-Never use arrow functions for top-level exported functions.
-
-```ts
-// ✅ correct
-export async function runCommit() { … }
-export function detectProject() { … }
-
-// ❌ wrong
-export const runCommit = async () => { … };
-```
-
----
-
-## Path Aliases
-
-| Alias          | Maps to          |
-| -------------- | ---------------- |
-| `@cli/*`       | `src/cli/*`      |
-| `@modules/*`   | `src/modules/*`  |
-| `@adapters/*`  | `src/adapters/*` |
-| `@ai/*`        | `src/ai/*`       |
-| `@utils/*`     | `src/utils/*`    |
-| `@types/*`     | `src/types/*`    |
+### Path aliases
+
+| Alias | Maps to |
+|---|---|
+| `@cli/*` | `src/cli/*` |
+| `@modules/*` | `src/modules/*` |
+| `@adapters/*` | `src/adapters/*` |
+| `@ai/*` | `src/ai/*` |
+| `@utils/*` | `src/utils/*` |
+| `@ktypes/*` | `src/types/*` (**not** `@types`: that conflicts with DefinitelyTyped) |
 | `@integrations/*` | `src/integrations/*` |
 
 ---
 
-## Semi-automatic Rule
+## Module Pattern (3 tiers)
 
-**Nothing runs without user approval.**
+| Tier | Location | Responsibility |
+|---|---|---|
+| CLI | `src/cli/<name>.ts` | Register command/flags, wrap with `withErrorHandling`, call runner. **No logic.** |
+| Runner | `src/modules/<name>/index.ts` | Orchestrate: context → AI → show → `confirm()` → execute → `recordFeedback()` |
+| Utils | `src/utils/` | Pure helpers. No AI calls, no business decisions. |
 
-Every module that writes a file or executes a command must:
-1. Show what it will do
-2. Ask for confirmation via `confirm()`
-3. Only then execute
+### Tier 1: CLI (real example)
 
 ```ts
-const approved = await confirm('Create branch feature/add-login?');
-if (!approved) return;
+// src/cli/fix.ts
+import { Command } from 'commander';
+import { runFix } from '@modules/fix';
+import { withErrorHandling } from '@utils/errors';
+
+export function registerFix(program: Command): void {
+  program
+    .command('fix')
+    .description('Analyze an error and propose a fix')
+    .action(withErrorHandling(runFix));
+}
 ```
+
+Then register it in `src/cli/index.ts` (`registerFix(program)`).
+
+### Tier 2: Runner (real pattern, from `commit`)
+
+```ts
+// src/modules/commit/index.ts (simplified)
+export async function runCommit(): Promise<void> {
+  const diff = getDiff();                                   // @utils/git
+  if (!diff.trim()) { /* offer stageAll() */ }
+
+  await loadContext();                                      // throws if no kvasir.context.md
+
+  const response = await askFor('commit', buildCommitPrompt(diff)); // @ai/router
+  const message = parseMessage(response);                   // handle backticks / extra text
+
+  const action = await select<CommitChoice>('Usar esta mensagem?', [
+    { name: 'Sim — commitar', value: 'yes' },
+    { name: 'Não — cancelar', value: 'no' },
+    { name: 'Editar — modificar antes de commitar', value: 'edit' },
+  ]);
+  if (action === 'no') {
+    await recordFeedback('commits', 'rejected', message);
+    return;
+  }
+
+  commitWithMessage(finalMessage);                          // only after approval
+  await recordFeedback('commits', 'approved', message);
+}
+```
+
+### Tier 3: Utils (real example)
+
+```ts
+// src/utils/git.ts
+export function getDiff(): string {
+  const result = spawnSync('git', ['diff', '--cached'], { encoding: 'utf-8', cwd: process.cwd() });
+  if (result.error) throw result.error;
+  return result.stdout ?? '';
+}
+```
+
+---
+
+## AI Layer: how to call models
+
+| Use | Function | Notes |
+|---|---|---|
+| **Default** | `askFor(task, prompt, opts?)` | Claude picks a model from the installed ones in `MODEL_MAP[task]` (clipboard), Ollama runs with fallback + 120s timeout, Claude validates (clipboard). `opts`: `maxTokens`, `temperature` |
+| Batch / fast, no orchestration | `askLocal(task, prompt, opts?)` | First installed model of `MODEL_MAP[task]` with fallback, no clipboard (`doc --code`, `fix` expansion) |
+| Raw | `askOllama(prompt, { model })` | Used by the router. Prefer `askLocal`; if you call it, pass `model` explicitly (default is `codellama`) |
+| Claude only | `promptAI(prompt)` | Prompt goes to the clipboard; the user copies Claude's answer and presses Enter (read back from the clipboard, multi-line safe) |
+
+- New task type? Add it to `AiTask` and `MODEL_MAP` in `router.ts`; `kvasir models` picks it up automatically.
+- **Never** import `axios`/Ollama/clipboardy directly in a module; go through `src/ai/`.
+- Prompts are written in Portuguese. When the output must be English (commits, branches), say it explicitly.
+- Local models often wrap answers in backticks, labels, `<think>` blocks or explanations: **always parse defensively** with `@ai/parse` (`cleanAnswer`, `answerLines`, `pickLine`, `truncateForPrompt`); see `parseBranchName`, `parseCommitMessage`, `parseCorrectedLine`.
+- Prompt shape that works with local models: data first (diff, snippet), instructions last, the exact output format, "one line only" when parsing a line; pass known facts (install command, links, export names) instead of letting the model invent them.
+- Prefer **deterministic fixes/rules before AI** when the answer is known (see `DETERMINISTIC_FIXES` in `fix`).
+
+---
+
+## Project Context
+
+- `kvasir.context.md` (in the target project) is the source of truth. Read it with `loadContext()` / `readContext()` from `@modules/init/contextWriter`; both throw if it's missing ("Run kvasir init first").
+- `KvasirContext` type: `project { name, type, stack[], persona }`, `developer.profile`, `branchRules`, `commitRules`, `activeModules[]`, `activeTask | null`, `summary`.
+- Detection (`init/detector.ts`): ACME if `package.json` `name` **includes** `acme`; stack from deps (`next`, `expo`, `express`/`fastify`).
+- `CLAUDE.md` generated by `adapters/claude.ts` refreshes **only** the block between `<!-- kvasir:header:start -->` and `<!-- kvasir:header:end -->`.
+
+## Global data (`~/.kvasir/`)
+
+`profile.md` · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `knowledge/{libs,patterns,decisions,tasks,commits}/`
+
+---
+
+## Rules
+
+### Approval (semi-automatic)
+**Nothing runs without user approval.** Every module that writes a file, runs git or a shell command must:
+1. Show what it will do
+2. Ask via `confirm()` / `select()` from `@utils/prompt`
+3. Only then execute
+
+When modifying a user file, back it up first and restore on rejection. Exception: `kvasir fix` applies the pasted error's fix without asking (user decision, see `kvasir-decisions.md`), backing up to `~/.kvasir/backups/fix/` with `kvasir fix --undo`.
+
+### Shell & git
+- Git and shell commands use **`spawnSync` with an args array**. Never `execSync` (Windows breaks on flags). Add new git helpers to `@utils/git`.
+- **Never `shell: true`, `exec` or `execSync`.** For `npm`/`npx`/`code` use `runCommand(bin, args)` from `@utils/process` (on Windows it calls `cmd.exe /d /s /c` with escaped args, because spawning a `.cmd` without a shell throws `EINVAL`). Git helpers check `status` via `assertGitSuccess`.
+
+### Language
+- **User-facing text (console, prompts, confirmations): Portuguese.**
+- Commit messages, branch names, code, identifiers, CLI `.description()`: English.
+
+### TypeScript
+- Explicit interfaces, no `any`. Explicit return types on exported functions.
+- `type` for unions, `interface` for object shapes. Shared types live in `src/types/` (`@ktypes/*`); file-local types may stay in the module.
+- `import type` for type-only imports.
+
+### Function style
+| Context | Style |
+|---|---|
+| Exported runners | `export async function runX(): Promise<void>` |
+| Utilities / helpers | `function` declaration |
+| Callbacks | arrow function |
+
+Never use arrow functions for top-level exported functions.
+
+### Errors
+- Throw `Error` with a clear message; `withErrorHandling` prints it in red. Don't `process.exit` inside modules.
+- Network/Ollama failures: catch and show a Portuguese hint (e.g. "Verifique se o Ollama está rodando").
+
+---
+
+## Adding a new module (checklist)
+
+1. `src/modules/<name>/index.ts` with `export async function run<Name>(): Promise<void>`
+2. `src/cli/<name>.ts` with `register<Name>(program)` using `withErrorHandling`
+3. Register in `src/cli/index.ts`
+4. If it uses AI: add an `AiTask` + `MODEL_MAP` entry, call `askFor`
+5. New git operations go in `@utils/git`; new types go in `src/types/`
+6. `confirm()` before any side effect; `recordFeedback()` if user approves/rejects AI output
+7. `npm run typecheck`
+8. Update `README.md` (commands table), `Doc/kvasir-current.md`, and `Doc/kvasir-architecture.md`
 
 ---
 
 ## Do's and Don'ts
 
 ### ✅ Do
-- Keep CLI files thin — only parse args and call the runner.
-- All AI calls go through `src/ai/client.ts`.
-- Always ask for user approval before writing files or running git commands.
-- Use `kvasir.context.md` as source of truth — adapters read from it.
-- One module per folder in `src/modules/`.
+- Keep CLI files thin.
+- Go through `src/ai/` for every model call.
+- Ask for approval before writing files or running git.
+- Parse AI output defensively.
+- Update `Doc/` when behavior changes.
 
 ### ❌ Don't
-- Put business logic in `src/cli/` files.
-- Call Anthropic SDK directly from runners — always use `askAI()`.
-- Run git commands without user confirmation.
-- Hardcode persona rules inline — load from `src/personas/` or `~/.kvasir/personas/`.
-- Mix module responsibilities — each module handles one command only.
+- Use the Anthropic SDK or require an API key (company account has none; see decisions).
+- Use `execSync` for git.
+- Hardcode persona rules inline; load them via `personaLoader`.
+- Put business logic in `src/cli/` or `src/utils/`.
+- Start a roadmap module before the current one is finished.

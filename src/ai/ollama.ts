@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 const DEFAULT_MODEL = 'codellama';
+// Ollama's default context (2048–4096 tokens) silently drops the START of long prompts,
+// which is exactly where the instructions are.
+const DEFAULT_NUM_CTX = 8192;
 
 interface OllamaGenerateResponse {
   response: string;
@@ -15,10 +18,17 @@ export interface AskOllamaOptions {
   model?: string;
   maxTokens?: number;
   timeoutMs?: number;
+  temperature?: number;
+  numCtx?: number;
+}
+
+// Reasoning models (deepseek-r1) prefix the answer with a <think>…</think> block.
+export function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
 export async function askOllama(prompt: string, options: AskOllamaOptions = {}): Promise<string> {
-  const { model = DEFAULT_MODEL, maxTokens, timeoutMs } = options;
+  const { model = DEFAULT_MODEL, maxTokens, timeoutMs, temperature, numCtx = DEFAULT_NUM_CTX } = options;
 
   const response = await axios.post<OllamaGenerateResponse>(
     `${OLLAMA_BASE_URL}/api/generate`,
@@ -26,12 +36,16 @@ export async function askOllama(prompt: string, options: AskOllamaOptions = {}):
       model,
       prompt,
       stream: false,
-      ...(maxTokens ? { options: { num_predict: maxTokens } } : {}),
+      options: {
+        num_ctx: numCtx,
+        ...(maxTokens ? { num_predict: maxTokens } : {}),
+        ...(temperature !== undefined ? { temperature } : {}),
+      },
     },
     timeoutMs ? { timeout: timeoutMs } : undefined
   );
 
-  return response.data.response;
+  return stripThinking(response.data.response);
 }
 
 export async function listInstalledModels(): Promise<string[]> {

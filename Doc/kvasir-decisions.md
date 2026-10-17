@@ -1,120 +1,168 @@
-# Kvasir — Decisões Técnicas
+# Kvasir: decisões técnicas
 
-> Por que cada decisão foi tomada. Importante para não repetir discussões.
+> Por que cada decisão foi tomada. Serve para não repetir discussões.
+> Quando uma decisão mudar, atualize aqui (não apague; marque como **substituída**).
 
 ---
 
 ## Linguagem: Node.js + TypeScript
 
-**Decisão:** Kvasir é construído em Node.js + TypeScript.
+**Decisão:** O Kvasir é construído em Node.js + TypeScript strict.
 
-**Por quê:** Mesma stack dos projetos que o Kvasir vai servir (Next.js, RN/Expo). Zero fricção — o dev já conhece a linguagem, não precisa aprender nada novo para contribuir.
+**Por quê:** É a mesma stack dos projetos que ele atende (Next.js, RN/Expo). Zero fricção para contribuir.
 
 ---
 
-## Comunicação com IA: clipboard bridge (clipboardy)
+## Comunicação com o Claude: ponte via clipboard (`clipboardy`)
 
-**Decisão:** Em vez de chamar a API da Anthropic diretamente, o Kvasir gera o prompt, copia para o clipboard e aguarda o usuário colar a resposta.
+**Decisão:** Em vez de chamar a API da Anthropic, o Kvasir copia o prompt para o clipboard e espera o usuário colar a resposta (`src/ai/client.ts` → `promptAI()`).
 
-**Por quê:** A conta da empresa não expõe API key programática — é autenticada via OAuth no VS Code. Usar `@anthropic-ai/sdk` exigiria uma API key paga separada. O clipboard bridge permite usar o Claude do VS Code (já pago pela empresa) sem custo adicional.
+**Por quê:** A conta da empresa não tem API key programática (é OAuth no VS Code). Usar o SDK exigiria uma chave paga separada; o clipboard usa o Claude que a empresa já paga.
 
-**Impacto futuro:** Quando houver API key disponível (pessoal ou via Groq/Gemini gratuito), o `src/ai/client.ts` é substituído sem mudar nada nos módulos.
+**Impacto:** Quando houver uma API (Gemini/Groq gratuitos ou uma chave pessoal), basta trocar `src/ai/`. Os módulos não mudam.
 
 ---
 
 ## Executor local: Ollama
 
-**Decisão:** Ollama rodando localmente como executor de tarefas mecânicas.
+**Decisão:** O Ollama roda localmente como executor das tarefas.
 
-**Por quê:**
-- Gratuito — sem custo por token
-- Privado — nada sai do PC
-- Offline — funciona sem internet
-- Rápido para tarefas simples
+**Por quê:** É gratuito, privado (nada sai do PC), funciona offline e é rápido para tarefas simples.
 
-**Modelos escolhidos:**
-- `codellama` → código, commits, review, fix
-- `llama3.2` → texto, documentação, português
+**Modelos:**
+- `codellama`: commit, branch
+- `qwen2.5-coder`: fix, review
+- `deepseek-r1`: erros complexos e arquitetura
+- `llama3.2`: texto e documentação em português
 
 ---
 
-## Comandos git: spawnSync em vez de execSync
+## AI Router: orquestrador + executor + validador
 
-**Decisão:** Todos os comandos git usam `spawnSync` com array de argumentos.
+**Decisão:** Todo módulo chama `askFor(task, prompt)` (`src/ai/router.ts`). O Claude escolhe o modelo entre os do `MODEL_MAP[task]`, o Ollama executa (com fallback e timeout de 30s) e o Claude valida o resultado.
 
-**Por quê:** O `execSync` no Windows não aceita flags como `--cached` e `--staged` da mesma forma. O `spawnSync(['git', 'diff', '--cached'])` funciona em todas as plataformas sem adaptação.
+**Por quê:** Um modelo grande decide e confere, e modelos locais pequenos fazem o trabalho. Assim a qualidade melhora sem custo por token.
 
----
-
-## Formato neutro: kvasir.context.md
-
-**Decisão:** Um arquivo markdown neutro como fonte da verdade. Cada IA lê via adaptador próprio.
-
-**Por quê:** Evita lock-in em uma única IA. Adicionar suporte ao Cursor, Copilot ou qualquer outra IA é só criar um novo adapter que lê o `kvasir.context.md` e gera o arquivo específico.
-
-**Adaptadores:**
-- `claude.ts` → `CLAUDE.md`
-- `copilot.ts` → `.github/copilot-instructions.md`
-- `cursor.ts` → `.cursor/rules`
+**Custo conhecido:** São duas idas ao clipboard por chamada. Fica a reavaliar na Fase 2 do roadmap: escolha determinística por padrão e validação opcional.
 
 ---
 
-## Detecção de projeto: deps do package.json
+## Comandos git: `spawnSync` em vez de `execSync`
 
-**Decisão:** O tipo de projeto é detectado pelas dependências, não pelo nome.
+**Decisão:** Todo comando git usa `spawnSync('git', [args])` e confere o `status` (`assertGitSuccess`): um commit recusado por hook ou um push rejeitado vira erro, não "✅".
 
-**Por quê:** O nome pode variar (`app_acmeexample`, `acme-web-app`, etc). As dependências são mais confiáveis — se tem `expo`, é mobile; se tem `next`, é web.
-
-**Regra adicional:** Se o nome contém `acme` em qualquer posição → persona ACME aplicada.
+**Por quê:** O `execSync` com string não trata flags como `--cached` do mesmo jeito no Windows. `spawnSync` com array funciona em todas as plataformas.
 
 ---
 
-## Templates de CLAUDE.md: por stack
+## Formato neutro: `kvasir.context.md`
 
-**Decisão:** Dois templates separados — `acme-mobile.md` e `acme-web.md`.
+**Decisão:** Um markdown neutro é a fonte da verdade, e cada IA tem um adapter.
 
-**Por quê:** As regras de código são completamente diferentes entre RN/Expo e Next.js. Um template único ficaria genérico demais para ser útil. O Kvasir detecta a stack e usa o template certo.
+**Por quê:** Evita lock-in. Suportar uma IA nova é só criar um adapter.
 
----
-
-## Interface: português, código: inglês
-
-**Decisão:** Toda interface do Kvasir (perguntas, confirmações, mensagens) em português. Commits, branch names e código sempre em inglês.
-
-**Por quê:** O dev é brasileiro — a interface em português reduz fricção. Commits em inglês é padrão da ACME e da indústria — facilita code review internacional e histórico legível.
+**Adapters:** `claude.ts` → `CLAUDE.md` · `copilot.ts` → `.github/copilot-instructions.md` · `cursor.ts` → `.cursor/rules`
 
 ---
 
-## Documentação de libs: DOC/libs/ separado de DOC/code/
+## `CLAUDE.md`: cabeçalho gerado + corpo preservado
 
-**Decisão:** Duas pastas separadas dentro de `DOC/`.
+**Decisão:** O `kvasir init` escreve um cabeçalho entre `<!-- kvasir:header:start -->` e `<!-- kvasir:header:end -->`. Nas próximas execuções, só esse bloco é atualizado.
 
-**Por quê:** Conteúdo de origem diferente:
-- `DOC/libs/` → buscado externamente (npm, GitHub)
-- `DOC/code/` → gerado a partir do código do próprio projeto
-
-Misturar os dois tornaria difícil saber o que é doc interna e o que é doc externa.
+**Por quê:** O dev pode editar o corpo do `CLAUDE.md` à vontade sem o `init` apagar as mudanças.
 
 ---
 
-## Aprendizado: assíncrono e não intrusivo
+## Detecção de projeto: deps para a stack, nome para a persona
 
-**Decisão:** O Kvasir registra aprovações/rejeições em background sem interromper o fluxo.
+**Decisão:**
+- **Stack** pelas dependências: `expo` → mobile, `next` → web, `express`/`fastify` → API
+- **Persona ACME** se o `name` do `package.json` **contém** `acme` em qualquer posição
 
-**Por quê:** Perguntar "por que você rejeitou?" após cada ação seria irritante. O sistema registra o comportamento silenciosamente e consolida periodicamente com `kvasir learn`.
-
----
-
-## CLI: módulos separados por responsabilidade
-
-**Decisão:** Cada módulo em sua própria pasta em `src/modules/`. Arquivos CLI em `src/cli/` são thin — só registram o comando e chamam o runner.
-
-**Por quê:** Facilita testar, manter e expandir. Um bug no `commit` não afeta o `branch`. Adicionar um novo módulo é criar uma pasta nova sem tocar no resto.
+**Por quê:** O nome dos projetos varia (`app_acmeexample`, `acme-web-app`...). As dependências são confiáveis para a stack.
 
 ---
 
-## Ollama: não empacotado com o Kvasir
+## Templates de `CLAUDE.md` por stack
 
-**Decisão:** Ollama é uma dependência externa, instalada separadamente na máquina.
+**Decisão:** Dois templates separados, `acme-mobile.md` e `acme-web.md`, em `src/personas/templates/`, copiados para `dist/` no build.
 
-**Por quê:** Mesmo modelo do Node.js — você não empacota o runtime junto com o projeto. O `README.md` lista como requisito e o `setup.sh` verifica se está instalado antes de continuar.
+**Por quê:** As regras de RN/Expo e de Next.js são muito diferentes; um template único seria genérico demais.
+
+---
+
+## Interface em português, código em inglês
+
+**Decisão:** As mensagens, perguntas e confirmações do Kvasir são em português. Commits, nomes de branch e código são em inglês.
+
+**Por quê:** A interface em português reduz a fricção para o dev. Commits em inglês são o padrão da ACME e do mercado.
+
+---
+
+## `DOC/libs/` separado de `DOC/code/`
+
+**Decisão:** Duas pastas dentro de `DOC/`.
+
+**Por quê:** As origens são diferentes: a doc externa (npm/GitHub) e a doc gerada a partir do próprio código.
+
+---
+
+## Aprendizado assíncrono e não intrusivo
+
+**Decisão:** As aprovações e rejeições são gravadas em `~/.kvasir/feedback/` sem interromper o fluxo, e o `kvasir learn` consolida tudo no `profile.md`.
+
+**Por quê:** Perguntar "por que rejeitou?" a cada ação seria irritante.
+
+---
+
+## Módulos separados por responsabilidade
+
+**Decisão:** Uma pasta por módulo em `src/modules/`. Os arquivos de `src/cli/` são finos: só registram o comando e chamam o runner.
+
+**Por quê:** Um bug no `commit` não afeta o `branch`, e um módulo novo é uma pasta nova sem tocar no resto.
+
+---
+
+## Correções determinísticas antes da IA (`kvasir fix`)
+
+**Decisão:** Erros com correção conhecida são corrigidos por regra, sem chamar a IA. A regra usa a própria mensagem do tsc (ex.: TS6137 "Consider importing 'X' instead of '@types/X'" → troca o caminho do import). Uma regra que não muda a linha conta como "não se aplica".
+
+**Por quê:** É mais rápido, não falha e não depende de o modelo acertar. (A primeira versão da regra do TS6137 removia `type` do import, o que não resolve o erro.)
+
+---
+
+## `kvasir fix` aplica sem perguntar (exceção à regra de aprovação)
+
+**Decisão:** (2026-10-17, pedido do usuário) O `fix` corrige o arquivo do erro colado **sem confirmação**. Depois informa quantos erros iguais existem no projeto e só então pergunta se deve corrigir os outros.
+
+**Por quê:** O erro colado é um pedido explícito de correção; a confirmação extra virava atrito. A segurança fica no backup: cada arquivo é copiado para `~/.kvasir/backups/fix/` antes da 1ª mudança, o diff abre no VS Code e `kvasir fix --undo` restaura tudo.
+
+---
+
+## Nenhum `shell: true`
+
+**Decisão:** (2026-10-17) Nenhum `spawn`/`spawnSync` usa `shell: true`, `exec` ou `execSync`. No Windows, `.cmd` (`npm`, `npx`, `code`) passa por `runCommand` (`utils/process.ts`), que chama `cmd.exe /d /s /c` com os argumentos escapados. O typecheck roda o `tsc` do projeto direto pelo `node`.
+
+**Por quê:** Desde o Node 18.20/20.12, spawnar `.cmd` sem shell lança `EINVAL`; com `shell: true` o Node concatena os argumentos sem escapar (caminhos com espaço, `&` ou aspas quebram). Escapar em um lugar só resolve as duas coisas. Também não usamos `npx tsc`: sem TypeScript instalado ele baixa um pacote não relacionado chamado `tsc`.
+
+---
+
+## Ollama não vem empacotado
+
+**Decisão:** O Ollama é um requisito externo, instalado separadamente.
+
+**Por quê:** Funciona como o Node.js: não se empacota o runtime com o projeto. O README lista como requisito e o `kvasir models` verifica.
+
+---
+
+## OmniContext (RAG) dentro do Kvasir
+
+**Decisão:** O RAG local será um módulo isolado (`src/rag/`) dentro do Kvasir, não um projeto separado. Ele entra depois do AI router.
+
+**Por quê:** Aproveita o Ollama, o router e o `~/.kvasir/knowledge`, e deixa os outros módulos mais inteligentes. Por ser isolado, pode virar outro repositório depois sem reescrever.
+
+---
+
+## Pendente: Electron ou Tauri
+
+O app desktop pode ser feito com **Tauri** (mais leve, ensina Rust) ou **Electron** (tudo em Node/TS). Decidir antes da fase do app desktop.
