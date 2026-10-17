@@ -1,3 +1,5 @@
+import os from 'os';
+import path from 'path';
 import { askOllamaDetailed, listInstalledModels } from '@ai/ollama';
 import type { OllamaResult } from '@ai/ollama';
 import { recordAiCall } from '@ai/metrics';
@@ -143,8 +145,32 @@ async function runWithFallback(
   );
 }
 
-export async function askFor(task: AiTask, prompt: string, options: AskForOptions = {}): Promise<string> {
+// profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
+// matters. Not into fix/architect, where only correctness counts.
+const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc'];
+const MAX_PREFERENCES_CHARS = 1200;
+
+function getProfilePath(): string {
+  return path.join(os.homedir(), '.kvasir', 'profile.md');
+}
+
+async function withDeveloperPreferences(task: AiTask, prompt: string): Promise<string> {
+  if (!PREFERENCE_TASKS.includes(task)) return prompt;
+
+  const profile = (await readFile(getProfilePath())) ?? '';
+  const section = profile.replace(/\r\n/g, '\n').match(/## Preferências aprendidas\n([\s\S]*?)(?=\n## |$)/);
+  const preferences = section?.[1].trim() ?? '';
+  if (!preferences) return prompt;
+
+  return `Preferências aprendidas deste desenvolvedor (siga quando não conflitarem com as regras abaixo):
+${preferences.slice(0, MAX_PREFERENCES_CHARS)}
+
+${prompt}`;
+}
+
+export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const models = await resolveInstalledModels(task);
+  const prompt = await withDeveloperPreferences(task, basePrompt);
 
   const architecture = await getProjectArchitecture();
   const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, models), { task, role: 'orchestrator' });
@@ -157,7 +183,8 @@ export async function askFor(task: AiTask, prompt: string, options: AskForOption
 }
 
 // Batch / fast path: first installed model of MODEL_MAP[task], no clipboard round trips.
-export async function askLocal(task: AiTask, prompt: string, options: AskForOptions = {}): Promise<string> {
+export async function askLocal(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const models = await resolveInstalledModels(task);
+  const prompt = await withDeveloperPreferences(task, basePrompt);
   return runWithFallback(task, models, prompt, options, async (_model, result) => result);
 }
