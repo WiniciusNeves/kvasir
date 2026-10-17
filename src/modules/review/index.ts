@@ -2,6 +2,7 @@ import { getDiff, getDiffStat } from '@utils/git';
 import { parseAddedLines } from '@utils/diff';
 import type { AddedLine } from '@utils/diff';
 import { askFor } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
 import { answerLines } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/contextWriter';
@@ -109,5 +110,6 @@ export async function runReview(): Promise<void> {
   // The review only suggests; applying is up to the developer (see Doc/kvasir-current.md #3).
   const useful = await confirm('As sugestões foram úteis?');
   await recordFeedback('patterns', useful ? 'approved' : 'rejected', `review: ${findings[0] ?? NO_ISSUES}`);
+  await recordOutcome('review', useful ? 'approved' : 'rejected');
   console.log('Feedback registrado.');
 }

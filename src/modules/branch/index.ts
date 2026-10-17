@@ -1,4 +1,5 @@
 import { askFor } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
 import { answerLines, pickLine } from '@ai/parse';
 import { confirm, input, select } from '@utils/prompt';
 import {
@@ -78,6 +79,8 @@ export async function runBranch(): Promise<void> {
     { name: 'Não — cancelar', value: 'no' },
     { name: 'Editar — modificar o nome', value: 'edit' },
   ]);
+
+  await recordOutcome('branch', action === 'yes' ? 'approved' : 'rejected');
 
   if (action === 'no') {
     console.log('❌ Criação de branch cancelada.');

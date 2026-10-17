@@ -1,4 +1,6 @@
-import { askOllama, listInstalledModels } from '@ai/ollama';
+import { askOllamaDetailed, listInstalledModels } from '@ai/ollama';
+import type { OllamaResult } from '@ai/ollama';
+import { recordAiCall } from '@ai/metrics';
 import { promptAI } from '@ai/client';
 import { readFile } from '@utils/fs';
 
@@ -113,16 +115,27 @@ async function runWithFallback(
   const failures: string[] = [];
 
   for (const model of models) {
-    let result: string;
+    const startedAt = Date.now();
+    let result: OllamaResult;
     try {
-      result = await askOllama(prompt, { ...options, model, timeoutMs: options.timeoutMs ?? REQUEST_TIMEOUT_MS });
+      result = await askOllamaDetailed(prompt, { ...options, model, timeoutMs: options.timeoutMs ?? REQUEST_TIMEOUT_MS });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.log(`⚠️  ${model} falhou (${message}). Tentando o próximo modelo...`);
       failures.push(`${model}: ${message}`);
+      await recordAiCall({
+        task, provider: 'ollama', model, role: 'executor', ok: false, error: message,
+        durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: 0,
+      });
       continue;
     }
-    return onResult(model, result);
+
+    await recordAiCall({
+      task, provider: 'ollama', model, role: 'executor', ok: true,
+      durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: result.text.length,
+      promptTokens: result.promptTokens, outputTokens: result.outputTokens,
+    });
+    return onResult(model, result.text);
   }
 
   throw new Error(
@@ -134,12 +147,12 @@ export async function askFor(task: AiTask, prompt: string, options: AskForOption
   const models = await resolveInstalledModels(task);
 
   const architecture = await getProjectArchitecture();
-  const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, models));
+  const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, models), { task, role: 'orchestrator' });
   const chosenModel = extractChosenModel(decision, models);
   const orderedModels = [chosenModel, ...models.filter((model) => model !== chosenModel)];
 
   return runWithFallback(task, orderedModels, prompt, options, (model, result) =>
-    promptAI(buildValidationPrompt(task, prompt, model, result))
+    promptAI(buildValidationPrompt(task, prompt, model, result), { task, role: 'validator' })
   );
 }
 

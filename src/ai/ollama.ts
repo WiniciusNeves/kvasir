@@ -8,6 +8,8 @@ const DEFAULT_NUM_CTX = 8192;
 
 interface OllamaGenerateResponse {
   response: string;
+  prompt_eval_count?: number;
+  eval_count?: number;
 }
 
 interface OllamaTagsResponse {
@@ -28,7 +30,18 @@ export function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
+export interface OllamaResult {
+  text: string;
+  promptTokens?: number;
+  outputTokens?: number;
+}
+
 export async function askOllama(prompt: string, options: AskOllamaOptions = {}): Promise<string> {
+  return (await askOllamaDetailed(prompt, options)).text;
+}
+
+// Same call, plus the token counts Ollama reports (used by the metrics).
+export async function askOllamaDetailed(prompt: string, options: AskOllamaOptions = {}): Promise<OllamaResult> {
   const { model = DEFAULT_MODEL, maxTokens, timeoutMs, temperature, numCtx = DEFAULT_NUM_CTX, repeatPenalty } = options;
 
   const response = await axios.post<OllamaGenerateResponse>(
@@ -47,7 +60,11 @@ export async function askOllama(prompt: string, options: AskOllamaOptions = {}):
     timeoutMs ? { timeout: timeoutMs } : undefined
   );
 
-  return stripThinking(response.data.response);
+  return {
+    text: stripThinking(response.data.response),
+    promptTokens: response.data.prompt_eval_count,
+    outputTokens: response.data.eval_count,
+  };
 }
 
 export async function listInstalledModels(): Promise<string[]> {

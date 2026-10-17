@@ -1,6 +1,8 @@
 import os from 'os';
 import path from 'path';
 import { askFor, askLocal } from '@ai/router';
+import type { AiTask } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
 import { readClipboard } from '@ai/client';
 import { stripThinking } from '@ai/ollama';
 import { cleanAnswer } from '@ai/parse';
@@ -440,13 +442,14 @@ async function investigateComplexError(erro: string, target: TscDiagnostic | nul
   return cleanAnswer(await askFor('architect', buildInvestigationPrompt(context), { timeoutMs: ARCHITECT_TIMEOUT_MS }));
 }
 
-async function showSuggestion(title: string, suggestion: string, erro: string): Promise<void> {
+async function showSuggestion(title: string, suggestion: string, erro: string, task: AiTask): Promise<void> {
   console.log(`\n${title}`);
   console.log(suggestion);
   console.log('\nAplique a mudança acima manualmente no seu editor.');
 
   const useful = await confirm('A sugestão foi útil?');
   await recordFeedback('fixes', useful ? 'approved' : 'rejected', erro.trim().split('\n')[0]);
+  await recordOutcome(task, useful ? 'approved' : 'rejected');
 }
 
 // ---------------------------------------------------------------------------
@@ -525,7 +528,7 @@ export async function runFix(options: FixOptions = {}): Promise<void> {
   const diagnostics = parseTscDiagnostics(erro);
   if (diagnostics.length === 0) {
     const suggestion = await askFor('fix', buildGenericFixPrompt(erro));
-    await showSuggestion('💡 Sugestão de correção:', suggestion, erro);
+    await showSuggestion('💡 Sugestão de correção:', suggestion, erro, 'fix');
     return;
   }
 
@@ -554,12 +557,13 @@ export async function runFix(options: FixOptions = {}): Promise<void> {
   if (applied.length === 0) {
     // No yes/no question: a failed line fix escalates to the investigation on its own.
     const report = await investigateComplexError(erro, target);
-    await showSuggestion('🔎 Investigação:', report, erro);
+    await showSuggestion('🔎 Investigação:', report, erro, 'architect');
     return;
   }
 
   openDiffInEditor(applied[0].backupPath, applied[0].filePath);
   await recordFeedback('fixes', 'approved', `${target.code} ${target.filePath}:${target.lineIndex + 1} (aplicado)`);
+  await recordOutcome('fix', 'approved');
   console.log(`\n✅ ${applied.length} correção(ões) aplicada(s) em ${target.filePath}.`);
 
   await offerSameCodeFixes(target.code, attempted, session);

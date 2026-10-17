@@ -9,6 +9,7 @@ import {
 } from '@utils/git';
 import { printCliError } from '@utils/errors';
 import { askFor } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
 import { answerLines, pickLine, truncateForPrompt } from '@ai/parse';
 import { confirm, editor, select, input } from '@utils/prompt';
 import { loadContext } from '@modules/init/contextWriter';
@@ -136,6 +137,7 @@ export async function runCommit(): Promise<void> {
 
   if (action === 'no') {
     await recordFeedback('commits', 'rejected', message);
+    await recordOutcome('commit', 'rejected');
     console.log('❌ Commit cancelado.');
     return;
   }
@@ -145,8 +147,10 @@ export async function runCommit(): Promise<void> {
   if (action === 'edit') {
     finalMessage = (await editor('Editar a mensagem de commit', message)).trim();
     await recordFeedback('commits', 'rejected', message);
+    await recordOutcome('commit', 'rejected');
   } else {
     await recordFeedback('commits', 'approved', message);
+    await recordOutcome('commit', 'approved');
   }
 
   if (!finalMessage) {

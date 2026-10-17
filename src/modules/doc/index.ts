@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import axios from 'axios';
 import { askFor } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { writeFile, readFile } from '@utils/fs';
@@ -162,6 +163,7 @@ export async function runDoc(libraryName: string): Promise<void> {
   console.log(summary);
 
   const approved = await confirm(`Salvar documentação de "${libraryName}"?`);
+  await recordOutcome('doc', approved ? 'approved' : 'rejected');
   if (!approved) {
     console.log('Documentação descartada.');
     return;

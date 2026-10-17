@@ -58,7 +58,7 @@ export async function runLearn(): Promise<void> {
   const currentProfile = (await readFile(getProfilePath())) ?? DEFAULT_PROFILE;
   console.log(`\nAnalisando ${entries.length} registro(s) de feedback com o Claude...`);
 
-  const updatedProfile = extractProfile(await promptAI(buildLearnPrompt(currentProfile, entries)));
+  const updatedProfile = extractProfile(await promptAI(buildLearnPrompt(currentProfile, entries), { task: 'learn', role: 'direct' }));
 
   console.log('\nPerfil proposto:\n');
   console.log(updatedProfile);
