@@ -49,8 +49,13 @@ ${links.map((link) => `- ${link}`).join('\n')}
 Regras: responda só em português; não invente funcionalidades que não estão no README; copie as seções "Instalação" e "Links úteis" exatamente como estão acima. Comece direto em "## O que é".`;
 }
 
+// Scoped packages ("@tanstack/react-query") must not become a sub-folder: "tanstack__react-query".
+function toLibFileName(libraryName: string): string {
+  return `${libraryName.replace(/^@/, '').replace(/\//g, '__')}.md`;
+}
+
 function getKnowledgeLibPath(libraryName: string): string {
-  return path.join(os.homedir(), '.kvasir', 'knowledge', 'libs', `${libraryName}.md`);
+  return path.join(os.homedir(), '.kvasir', 'knowledge', 'libs', toLibFileName(libraryName));
 }
 
 async function fetchNpmData(libraryName: string): Promise<NpmRegistryResponse> {
@@ -147,7 +152,7 @@ export async function runDoc(libraryName: string): Promise<void> {
     })
   );
 
-  const projectDocPath = `DOC/libs/${libraryName}.md`;
+  const projectDocPath = `DOC/libs/${toLibFileName(libraryName)}`;
   const knowledgePath = getKnowledgeLibPath(libraryName);
 
   console.log(`\nIsso vai salvar a documentação em:`);

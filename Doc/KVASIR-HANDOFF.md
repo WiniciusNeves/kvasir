@@ -9,8 +9,8 @@
 |---|---|---|
 | 1 | Análise de `src/` | ✅ concluída (2026-10-17) |
 | 2 | Correções: `fix`, menu pós-commit, remover `shell: true`, prompts do Ollama | ✅ concluída (2026-10-17) |
-| 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ⏳ próxima |
-| 4 | Mapa de novos módulos (só listar, aguardar aprovação da ordem) | ⏳ |
+| 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
+| 4 | Mapa de novos módulos (só listar, aguardar aprovação da ordem) | ⏳ próxima |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -88,6 +88,28 @@ Removido de `utils/typecheck.ts`; `exec` saiu do `editor.ts`, `execSync` saiu do
 - O caminho interativo do `fix` com `askFor` (2 idas ao Claude) não foi testado com um Claude real, só o `askLocal`
 - `branch` (menu e `-d`) e `push` contra remoto real não foram retestados
 - A regra do TS6137 troca `'@types/X'` por `'X'`; num projeto com alias `@types/*` (como o kvasir antigo) o certo é renomear o alias, e o typecheck depois vai mostrar isso
+
+---
+
+## Fase 3: testes e correções
+
+Fase 2 commitada em `42ee7d0`. Os testes da Fase 3 rodaram com `USERPROFILE` temporário (não tocam o `~/.kvasir` real) e um repositório git temporário; o Claude foi simulado colocando a resposta no clipboard. (Os testes da Fase 2 tinham gravado 4 linhas de feedback no `~/.kvasir` real; foram removidas.)
+
+| Módulo | O que quebrou | Correção | Resultado |
+|---|---|---|---|
+| `review` | qwen2.5-coder não viu um `<=` fora do array, repetiu o mesmo item 10x e inventou "falta tipo" | `review/checks.ts`: checagens determinísticas nas linhas adicionadas (segredo, `<= .length`, `any`, `console.log`, `debugger`) com nº da linha; prompt com o que já foi achado; `repeat_penalty` 1.2 + `maxTokens` 700; itens sem duplicata, máx. 10 | Os 3 problemas achados com a linha exata; a IA respondeu "Nenhum problema encontrado." em vez de inventar |
+| `task` | Erro cru do axios (`status code 401`); dizia "rode kvasir branch para vincular a task", mas nada era gravado; resposta da API sem validação | Mensagens em português; zod valida `{ id, title, status }`; confirmação grava `## Active task` (`setActiveTask`, só essa seção) | Testado com Planner falso: lista, escolhe, grava |
+| `start` | `ECONNREFUSED` abortava o resumo do dia | Falha do Planner vira aviso; resumo segue até "Pronto para trabalhar" | ok com e sem API, com servidor fora e com token errado |
+| `branch` | Não usava a task | Descrição pré-preenchida com a task ativa; branch criada é gravada em `linked branch` | Testado: `feature/google-login` vinculada a `ACME-42` |
+| `learn` | Salvava a frase "Aqui está…" e as cercas ``` dentro do `profile.md`; prompt em inglês; feedback sem limite | `extractProfile`; prompt em português; últimos 150 registros | `profile.md` salvo limpo; sem feedback, mensagem clara |
+| `knowledge` | Título com `/` e `:` criava subpasta + **stream NTFS**: a nota sumia do `show`/`search`; sobrescrevia sem avisar; conteúdo de 1 linha; `link` duplicava | Nome seguro `[a-z0-9-]`; pergunta antes de substituir; conteúdo pelo clipboard; link sem duplicar; `search` mostra a linha | add/show/search/link ok |
+| `doc <lib>` | (achado junto) `@tanstack/react-query` criaria subpasta `@tanstack/` | `toLibFileName` → `tanstack__react-query.md` | — |
+
+Todos os textos desses módulos estão em português. Sobra inglês só em `init` e `doc --code` (#7).
+
+### Pendências
+- `push` contra um remoto real, `format` e o menu do `branch` não foram testados
+- O caminho interativo com um Claude real (colar no chat) não foi testado; o clipboard foi simulado
 
 ---
 

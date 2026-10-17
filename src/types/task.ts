@@ -1,13 +1,12 @@
 export interface Task {
   id: string;
   title: string;
-  description: string;
-  status: 'not-started' | 'in-progress' | 'completed';
-  assignedTo: string;
-  dueDate: string | null;
+  status: string;
 }
+
+export type TaskSource = 'none' | 'planner';
 
 export interface TaskFetchResult {
   tasks: Task[];
-  source: string;
+  source: TaskSource;
 }

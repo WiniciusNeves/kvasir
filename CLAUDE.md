@@ -31,7 +31,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 | FS | fs-extra (wrapped in `@utils/fs`) |
 | AI (executor) | Ollama at `http://localhost:11434` |
 | AI (orchestrator) | Claude via clipboard (`clipboardy`), **no Anthropic SDK, no API key** |
-| Validation | zod (available, not yet used) |
+| Validation | zod (used for external data: `integrations/planner.ts`) |
 | Build | `tsc` + `tsc-alias`; templates copied to `dist/personas/templates` |
 
 Scripts: `npm run dev -- <cmd>` · `npm run build` · `npm run typecheck` · `npm link` for global `kvasir`.

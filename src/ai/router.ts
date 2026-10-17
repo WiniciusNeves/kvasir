@@ -21,6 +21,7 @@ const CONTEXT_FILE = 'kvasir.context.md';
 export interface AskForOptions {
   maxTokens?: number;
   temperature?: number;
+  repeatPenalty?: number;
 }
 
 async function getProjectArchitecture(): Promise<string> {

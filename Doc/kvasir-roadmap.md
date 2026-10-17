@@ -12,8 +12,9 @@
 - [x] Menu pós-commit em loop
 - [x] `kvasir undo`, `kvasir push`, `kvasir log` separados (com tabela ASCII)
 - [x] `kvasir fix` (2026-10-17)
-- [ ] Testar `review`, `push`, `undo`, `log`, `format`, `knowledge`, `learn`, `task`, `start`
-- [ ] Corrigir os problemas conhecidos #4, #7 a #11 de `kvasir-current.md` (#3, #5 e #6 resolvidos)
+- [x] Testar `review`, `knowledge`, `learn`, `task`, `start` (2026-10-17)
+- [ ] Testar `push` contra remoto real, `format`, menu do `branch`
+- [ ] Corrigir os problemas conhecidos #7 a #11 de `kvasir-current.md` (#3 a #6 resolvidos)
 
 ---
 
@@ -53,7 +54,7 @@ Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboa
 
 ## Fase 3: contexto e aprendizado
 
-- [ ] `task` grava a task ativa no `kvasir.context.md`; `branch` usa a task
+- [x] `task` grava a task ativa no `kvasir.context.md`; `branch` usa a task (2026-10-17)
 - [ ] Injetar `profile.md` e notas relevantes do `knowledge/` nos prompts
 - [ ] `kvasir stats`: dashboard HTML com gráfico radar (Chart.js): uso × aprovação por módulo, semana × mês
 - [ ] `kvasir docs update`: atualiza os docs do projeto automaticamente

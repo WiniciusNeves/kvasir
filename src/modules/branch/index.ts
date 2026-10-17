@@ -9,7 +9,7 @@ import {
   deleteBranch,
   checkoutPreviousBranch,
 } from '@utils/git';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext, setActiveTask } from '@modules/init/contextWriter';
 
 type BranchChoice = 'yes' | 'no' | 'edit';
 type PostBranchAction = 'none' | 'delete' | 'list' | 'previous';
@@ -59,9 +59,13 @@ function parseBranchName(response: string): string {
 }
 
 export async function runBranch(): Promise<void> {
-  await loadContext();
+  const context = await loadContext();
+  const activeTask = context.activeTask;
 
-  const taskDescription = await input('Descreva a tarefa para esta branch:');
+  const taskDescription = await input(
+    activeTask ? `Descreva a tarefa (Enter usa a task ativa ${activeTask.id}):` : 'Descreva a tarefa para esta branch:',
+    activeTask?.title
+  );
 
   const response = await askFor('branch', buildBranchPrompt(taskDescription), { temperature: 0.2 });
   const branchName = parseBranchName(response);
@@ -93,6 +97,11 @@ export async function runBranch(): Promise<void> {
 
   createBranch(finalBranchName);
   console.log(`✅ Branch criada: ${finalBranchName}`);
+
+  if (activeTask && taskDescription.trim() === activeTask.title.trim()) {
+    await setActiveTask({ ...activeTask, linkedBranch: finalBranchName });
+    console.log(`🔗 Task ${activeTask.id} vinculada à branch ${finalBranchName}.`);
+  }
 
   await runPostBranchMenu();
 }

@@ -214,32 +214,40 @@ npm registry → (sem README? tenta `raw.githubusercontent.com` em `main`/`maste
 - Usa `askLocal('doc')` (llama3.2 → qwen2.5-coder, sem clipboard), passa a lista de exports extraída por regex para o modelo não inventar nomes, e ignora `node_modules`, `.git`, `dist`, `build`, `.next`, `coverage` e `DOC`.
 
 ### `kvasir review`
-Diff staged (cortado em 12k) + `--stat` + contexto → `askFor('review')` pede lista "[bug|segurança|estilo|melhoria] arquivo — problema — sugestão" → mostra → "As sugestões foram úteis?" → registra em `patterns.md`. Não aplica nada.
+1. `runReviewChecks` (`review/checks.ts`) varre só as linhas adicionadas do diff, com número de linha: credencial no código, `for (… <= x.length)`, `any`, `console.log`, `debugger`. Mostra como "Checagens automáticas".
+2. `askFor('review', temperature 0.2, repeatPenalty 1.2, maxTokens 700)`: diff (até 12k) + `--stat` + o que as checagens já acharam ("não repita"); pede lista `[bug|segurança|estilo|melhoria] arquivo — problema — sugestão` ou "Nenhum problema encontrado.".
+3. `normalizeFindings` mantém só os itens da lista, sem duplicados, no máximo 10 (modelos locais repetem itens).
+4. "As sugestões foram úteis?" → `patterns.md`. Não aplica nada.
 
 ### `kvasir models`
 Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e o primeiro instalado por tarefa.
 
 ### `kvasir learn`
-Junta os 3 arquivos de feedback + o `profile.md` atual → `promptAI` → confirm → sobrescreve o `profile.md`.
+Últimos 150 registros de feedback dos 3 arquivos + `profile.md` atual → prompt em português → `promptAI` → `extractProfile` (tira frase introdutória e cercas ```, começa no `# `) → mostra → confirm → salva `~/.kvasir/profile.md`.
 
 ### `kvasir knowledge`
-`search <termo>` (busca texto em todos os `.md`) · `add` (categoria + título + conteúdo) · `link` (adiciona `Related: [[nota]]` nas duas notas) · `show` (`index.md` ou a lista de notas).
+- `add`: categoria + título + conteúdo (digitado em 1 linha ou lido do clipboard, várias linhas). Nome do arquivo = título sem acentos, só `[a-z0-9-]` (títulos com `/` ou `:` criavam subpasta / stream NTFS). Se a nota existe, pergunta antes de substituir.
+- `search <termo>`: nome e conteúdo; mostra a linha encontrada.
+- `link`: acrescenta `Relacionado: [[nota]]` nas duas notas, sem duplicar.
+- `show`: `index.md` ou a lista de notas.
 
 ### `kvasir task` / `kvasir start`
-Usam `fetchMyTasks()`, que faz um GET em `KVASIR_PLANNER_API_URL` com token Bearer. O `start` mostra projeto, persona, branch atual e tasks. O `task` deixa escolher uma task e só a mostra.
+- `fetchMyTasks()` (`integrations/planner.ts`): lê `KVASIR_PLANNER_API_URL` / `_TOKEN` na hora da chamada, GET com timeout de 10s, valida a resposta com **zod** (lista de `{ id, title, status }`, `id` numérico vira string). Erros viram mensagens em português (token recusado, sem conexão, formato inesperado).
+- `task`: mostra a task ativa, deixa escolher outra e, com confirmação, grava em `## Active task` do `kvasir.context.md` via `setActiveTask` (reescreve só essa seção). Sem URL configurada, explica o que configurar.
+- `start`: projeto, persona, task ativa, branch e tasks do Planner. Falha do Planner mostra o erro e **não** interrompe o resumo.
+- `branch` usa a task ativa: a descrição já vem preenchida com o título e, se usada, a branch criada é gravada em `linked branch`.
 
 ### `kvasir push` / `undo` / `log` / `format`
-- `push`: normal ou `--force-with-lease` para `origin/<branch atual>`
+- `push`: normal, `--force-with-lease` ou cancelar
 - `undo`: `git reset HEAD~1 --soft` com confirmação
 - `log`: os últimos 10 commits numa tabela ASCII
-- `format`: `npm run format` se existir, senão `npx prettier --write .`
+- `format`: `npm run format` se existir, senão `npx prettier --write .`, via `runCommand` (sem shell)
 
 ---
-
 ## Regras transversais
 
-- **Nada executa sem `confirm()`**: git, escrita de arquivo, formatter.
-- **Git sempre via `spawnSync` com array de argumentos**, para funcionar no Windows.
+- **Nada executa sem `confirm()`**: git, escrita de arquivo, formatter. Exceção: o `kvasir fix` aplica a correção do erro colado direto (com backup e `--undo`).
+- **Git sempre via `spawnSync` com array de argumentos** e conferindo o `status`; outros comandos via `runCommand` (nunca `shell: true`).
 - **Erros:** os comandos são envolvidos por `withErrorHandling()`, que imprime `✖ mensagem` em vermelho.
 - **Ctrl+C:** `SIGINT` encerra com "👋 Kvasir encerrado."
 - **Idioma:** interface em português; commits, branches e código em inglês.

@@ -20,6 +20,7 @@ export interface AskOllamaOptions {
   timeoutMs?: number;
   temperature?: number;
   numCtx?: number;
+  repeatPenalty?: number;
 }
 
 // Reasoning models (deepseek-r1) prefix the answer with a <think>…</think> block.
@@ -28,7 +29,7 @@ export function stripThinking(text: string): string {
 }
 
 export async function askOllama(prompt: string, options: AskOllamaOptions = {}): Promise<string> {
-  const { model = DEFAULT_MODEL, maxTokens, timeoutMs, temperature, numCtx = DEFAULT_NUM_CTX } = options;
+  const { model = DEFAULT_MODEL, maxTokens, timeoutMs, temperature, numCtx = DEFAULT_NUM_CTX, repeatPenalty } = options;
 
   const response = await axios.post<OllamaGenerateResponse>(
     `${OLLAMA_BASE_URL}/api/generate`,
@@ -40,6 +41,7 @@ export async function askOllama(prompt: string, options: AskOllamaOptions = {}):
         num_ctx: numCtx,
         ...(maxTokens ? { num_predict: maxTokens } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
+        ...(repeatPenalty !== undefined ? { repeat_penalty: repeatPenalty } : {}),
       },
     },
     timeoutMs ? { timeout: timeoutMs } : undefined

@@ -1,5 +1,5 @@
 import { writeFile, readFile } from '@utils/fs';
-import type { KvasirContext } from '@ktypes/context';
+import type { KvasirContext, ActiveTaskInfo } from '@ktypes/context';
 
 const CONTEXT_FILE = 'kvasir.context.md';
 
@@ -116,4 +116,27 @@ export async function readContext(): Promise<KvasirContext> {
 
 export async function loadContext(): Promise<KvasirContext> {
   return readContext();
+}
+
+function buildActiveTaskSection(task: ActiveTaskInfo): string {
+  return ['## Active task', `- id: ${task.id}`, `- title: ${task.title}`, `- linked branch: ${task.linkedBranch}`, ''].join('\n');
+}
+
+// Rewrites only the "## Active task" section, so anything else edited by hand in the file survives.
+export async function setActiveTask(task: ActiveTaskInfo): Promise<void> {
+  const markdown = await readFile(CONTEXT_FILE);
+  if (!markdown) {
+    throw new Error(`${CONTEXT_FILE} não encontrado. Rode "kvasir init" primeiro.`);
+  }
+
+  const eol = markdown.includes('\r\n') ? '\r\n' : '\n';
+  const normalized = markdown.replace(/\r\n/g, '\n');
+  const section = buildActiveTaskSection(task);
+  const sectionRegex = /## Active task\n[\s\S]*?(?=\n## |$)/;
+
+  const updated = sectionRegex.test(normalized)
+    ? normalized.replace(sectionRegex, section.trimEnd())
+    : `${normalized.trimEnd()}\n\n${section}`;
+
+  await writeFile(CONTEXT_FILE, `${updated.trimEnd()}\n`.replace(/\n/g, eol));
 }
