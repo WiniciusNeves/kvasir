@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`); próximo: `release` |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`), `release` ✅ (`299220a`); próximo: `test` |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -278,6 +278,21 @@ Arquivos: `src/modules/daily/{index,config,summary}.ts`, `src/cli/daily.ts`; `ut
 - Prompt melhorado depois do 1º teste: "cart" virava "cartão" e sobrava " - " depois de `[repo]`; com exemplo de formato e "traduza o sentido" o llama3.2 escreveu "Corrigi o travamento ao abrir o carrinho vazio"
 
 **Pendência:** o llama3.2 às vezes repete um assunto em dois itens; o usuário revisa antes de copiar (e "gerar de novo" fica registrado como rejeição nas métricas).
+
+---
+
+## Onda B: `release` (commit `299220a`)
+
+Arquivos: `src/modules/release/{index,semver,changelog,versionFiles}.ts`, `src/cli/release.ts`; `utils/git.ts` ganhou `getLastTag`, `getCommitsWithBody`, `stageFiles`, `createAnnotatedTag`, `pushBranchWithTags`, `getChangedPaths`; nova `AiTask 'release'` (qwen2.5-coder → llama3.2).
+
+**Testado:**
+- `detectBump`: só chore/docs → nada; fix+perf → patch; feat → minor; `feat!` e rodapé `BREAKING CHANGE` → major
+- Repo Expo descartável com `v1.4.2`: 1.5.0 sugerida, CHANGELOG com novidades/correções/outras, `package.json` com 4 espaços preservado, lock (raiz + `packages[""]`), `app.json` `versionCode` 7→8 e `buildNumber` "7"→"8", commit + tag anotada + `push --follow-tags` para remoto local
+- Proteções: stage sujo → recusa; tag já existente → recusa sem alterar nada; nada novo desde a tag → avisa
+- **Notas de release:** a 1ª versão do prompt (resumir com exemplo) fez o llama3.2 inventar itens e copiar o exemplo; virou "reescrever cada mudança que o usuário percebe"; comparei os dois modelos e o qwen2.5-coder ficou primeiro
+- **Bugs encontrados e corrigidos no teste:** limpeza do "- -" comia a linha em branco e estragaria `**negrito**`
+
+**Pendências:** `app.json` com objetos numa linha é reformatado em várias linhas (inofensivo); `app.config.js/ts` só gera aviso; versão 0.x com breaking sobe para 1.0.0 (como na especificação).
 
 ---
 

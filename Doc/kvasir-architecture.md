@@ -209,6 +209,16 @@ askFor('fix', prompt)
 4. "Ontem": `askLocal('daily')` (llama3.2 → qwen2.5-coder, sem clipboard: é texto de baixo risco que o usuário revisa) com exemplo de formato e "traduza o sentido"; sem commits, pergunta. "Hoje": sugere a task ativa. "Impedimentos": padrão "Nenhum".
 5. `buildDailyMessage` monta o texto; copiar · editar · gerar o "Ontem" de novo · cancelar. Copiada → `knowledge/commits/daily.md`.
 
+### `kvasir release`
+1. Recusa se há algo no stage, mudança pendente em `package.json`/`package-lock.json`/`app.json`/`CHANGELOG.md`, ou se a tag já existe (nada é alterado).
+2. Commits desde `git describe --tags --abbrev=0` (todos, se não há tag), com corpo; `parseCommit` (`release/semver.ts`) lê tipo, escopo, `!` e `BREAKING CHANGE:`.
+3. `detectBump` (determinístico): breaking → major · feat → minor · fix/perf → patch · só manutenção → avisa. O usuário escolhe a sugerida, outra, ou digita.
+4. `buildChangelogSection` (`release/changelog.ts`): ⚠️ incompatíveis · novidades · correções · desempenho · outras (`chore` fica de fora); entra logo abaixo de `# Changelog`.
+5. `applyVersion` (`release/versionFiles.ts`): `package.json`, `package-lock.json` (raiz e `packages[""]`), `app.json` (`expo.version`, `android.versionCode` +1, `ios.buildNumber` +1), mantendo indentação e EOL; `app.config.*` só gera aviso.
+6. Commit `chore(release): vX.Y.Z` só com esses arquivos + tag anotada com a seção do CHANGELOG → nota em `knowledge/commits/<projeto>.md`.
+7. Notas (opcional): `askLocal('release')` recebe só as mudanças que o usuário percebe (feat/fix/perf/breaking) e reescreve **uma por uma**; copia se aprovado.
+8. Expo: sugere `eas update --branch production --message "vX.Y.Z: …"`. Oferece `git push --follow-tags` se houver upstream.
+
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
 - `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn

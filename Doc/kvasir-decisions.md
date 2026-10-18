@@ -187,6 +187,14 @@
 
 ---
 
+## Prompt de "reescrever item a item" em vez de "resumir com exemplo"
+
+**Decisão:** (2026-10-17) Quando a IA transforma uma lista conhecida (mudanças de uma versão) em texto para pessoas, ela recebe só os itens relevantes, numerados, e a ordem de devolver exatamente um item por entrada.
+
+**Por quê:** Testando as notas do `release`, "resuma o CHANGELOG" com um exemplo concreto fez o llama3.2 copiar o conteúdo do exemplo ("extrato") e inventar itens. Reescrever item a item não deixa espaço para invenção. Comparando os dois modelos nessa tarefa, o qwen2.5-coder escreveu melhor (sem jargão), então ele vem primeiro no `MODEL_MAP.release`.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.
