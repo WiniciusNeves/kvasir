@@ -1,5 +1,5 @@
 import path from 'path';
-import { saveNote, today } from './notes';
+import { saveNote, readNote, today } from './notes';
 import type { SaveNoteInput, SaveMode } from './notes';
 import type { MetricsSummary } from '@ai/metrics';
 
@@ -191,4 +191,35 @@ export async function noteBugFoundByTest(sourceFile: string, explanation: string
     },
     'append'
   );
+}
+
+export interface RecentOccurrences {
+  count: number;
+  files: string[];
+}
+
+// Occurrences of an error code in the last `days`, read from errors/<code>.md: one per
+// "## <date> · <project> · <file>:<line>" entry, N per "expansão: N/M" entry; investigations don't count.
+export async function recentErrorOccurrences(code: string, days: number): Promise<RecentOccurrences> {
+  const note = await readNote('errors', code);
+  if (!note) return { count: 0, files: [] };
+
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const files: string[] = [];
+  let count = 0;
+
+  for (const match of note.body.matchAll(/^## (\d{4}-\d{2}-\d{2}) · [^·]+ · (.+)$/gm)) {
+    const [, date, detail] = match;
+    if (date < since || /investiga/i.test(detail)) continue;
+
+    const batch = detail.match(/expans[aã]o: (\d+)\//);
+    if (batch) {
+      count += Number(batch[1]);
+    } else {
+      count += 1;
+      files.push(detail.trim());
+    }
+  }
+
+  return { count, files };
 }

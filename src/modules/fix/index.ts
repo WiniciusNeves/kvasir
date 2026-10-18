@@ -5,7 +5,7 @@ import type { AiTask } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { readClipboard } from '@ai/client';
 import { stripThinking } from '@ai/ollama';
-import { cleanAnswer } from '@ai/parse';
+import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { input, confirm, select } from '@utils/prompt';
 import { loadContext } from '@modules/init/contextWriter';
 import { recordFeedback } from '@utils/feedback';
@@ -13,7 +13,8 @@ import { readFile, writeFile, readJson, copyFile, removeFile } from '@utils/fs';
 import { runTypecheck, parseTscDiagnostics } from '@utils/typecheck';
 import type { TscDiagnostic } from '@utils/typecheck';
 import { openDiffInEditor } from '@utils/editor';
-import { noteFixedError, noteBatchFix, noteInvestigation } from '@modules/knowledge/auto';
+import { noteFixedError, noteBatchFix, noteInvestigation, recentErrorOccurrences } from '@modules/knowledge/auto';
+import { readNote } from '@modules/knowledge/notes';
 import { resolveLocalImports, readTsconfigText, findFilesNamedLike, isResolvableImport } from '@utils/imports';
 
 const MAX_INVESTIGATION_ROUNDS = 3;
@@ -446,6 +447,51 @@ async function investigateComplexError(erro: string, target: TscDiagnostic | nul
   return cleanAnswer(await askFor('architect', buildInvestigationPrompt(context), { timeoutMs: ARCHITECT_TIMEOUT_MS }));
 }
 
+// ---------------------------------------------------------------------------
+// Recurring errors: the same code again and again usually has one cause (config, a project pattern)
+// ---------------------------------------------------------------------------
+
+const RECURRING_DAYS = 7;
+const RECURRING_THRESHOLD = 3;
+const MAX_HISTORY_CHARS = 6_000;
+
+function buildRecurringPrompt(code: string, history: string, tsconfig: string | null, versions: string): string {
+  return `Você é um especialista sênior em TypeScript. O erro ${code} apareceu várias vezes nos últimos ${RECURRING_DAYS} dias neste desenvolvedor.
+
+Histórico das ocorrências (o que foi corrigido em cada uma):
+${truncateForPrompt(history, MAX_HISTORY_CHARS)}
+
+tsconfig.json:
+${tsconfig ?? '(não existe)'}
+
+Versões: ${versions}
+
+Encontre a CAUSA COMUM e o que mudar para o erro parar de acontecer (configuração, padrão de import do projeto, regra de lint, versão de biblioteca). Não repita as correções pontuais.
+
+Responda em português com:
+## Causa comum
+## Como evitar
+(mudança concreta: arquivo e trecho)
+## Se não houver causa comum
+(diga isso em uma frase, se for o caso)`;
+}
+
+async function offerRecurringInvestigation(code: string): Promise<void> {
+  const occurrences = await recentErrorOccurrences(code, RECURRING_DAYS);
+  if (occurrences.count < RECURRING_THRESHOLD) return;
+
+  const examples = occurrences.files.slice(-3).join(', ');
+  console.log(`\n🔁 Este é o ${occurrences.count}º ${code} nos últimos ${RECURRING_DAYS} dias${examples ? ` (ex.: ${examples})` : ''}.`);
+
+  const investigate = await confirm('Quer que eu investigue por que ele se repete (config, padrão do projeto)?');
+  if (!investigate) return;
+
+  const history = (await readNote('errors', code))?.body ?? '';
+  const prompt = buildRecurringPrompt(code, history, readTsconfigText(), await describeVersions());
+  const report = cleanAnswer(await askFor('architect', prompt, { timeoutMs: ARCHITECT_TIMEOUT_MS }));
+  await showSuggestion(`🔎 Por que o ${code} se repete:`, report, `${code} recorrente (${occurrences.count}x em ${RECURRING_DAYS} dias)`, 'architect', code);
+}
+
 async function showSuggestion(title: string, suggestion: string, erro: string, task: AiTask, code: string | null): Promise<void> {
   console.log(`\n${title}`);
   console.log(suggestion);
@@ -586,6 +632,7 @@ export async function runFix(options: FixOptions = {}): Promise<void> {
   console.log(`\n✅ ${applied.length} correção(ões) aplicada(s) em ${target.filePath}.`);
 
   await offerSameCodeFixes(target.code, attempted, session);
+  await offerRecurringInvestigation(target.code);
 
   console.log('\nPara desfazer tudo o que este kvasir fix alterou: kvasir fix --undo');
 }
