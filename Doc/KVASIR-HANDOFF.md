@@ -12,8 +12,8 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`c550d50`), `doctor` (`4fa36a2`), `pr` (`c487239`), `daily` (`c030292`), `release` (`299220a`), `test` (`bad5560`), recorrência no `fix` (`a53cd89`), personas (`9c4551b`) |
-| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`3da3e69`); falta: escolha por desempenho, time de agentes formal |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); falta: escolha por desempenho, time de agentes formal |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -96,7 +96,7 @@ Removido de `utils/typecheck.ts`; `exec` saiu do `editor.ts`, `execSync` saiu do
 
 ## Fase 3: testes e correções
 
-Fase 2 commitada em `42ee7d0`. Os testes da Fase 3 rodaram com `USERPROFILE` temporário (não tocam o `~/.kvasir` real) e um repositório git temporário; o Claude foi simulado colocando a resposta no clipboard. (Os testes da Fase 2 tinham gravado 4 linhas de feedback no `~/.kvasir` real; foram removidas.)
+Fase 2 commitada em `418918d`. Os testes da Fase 3 rodaram com `USERPROFILE` temporário (não tocam o `~/.kvasir` real) e um repositório git temporário; o Claude foi simulado colocando a resposta no clipboard. (Os testes da Fase 2 tinham gravado 4 linhas de feedback no `~/.kvasir` real; foram removidas.)
 
 | Módulo | O que quebrou | Correção | Resultado |
 |---|---|---|---|
@@ -118,7 +118,7 @@ Todos os textos desses módulos estão em português. Sobra inglês só em `init
 
 ## Fase 4: mapa completo (fonte: `Doc/ideas/backlog.md`, backlog v2)
 
-Fase 3 commitada em `da5c29b`. Status conferido no `src/` em 2026-10-17. **Nada implementado: aguardando o usuário aprovar a ordem.**
+Fase 3 commitada em `66160e2`. Status conferido no `src/` em 2026-10-17. **Nada implementado: aguardando o usuário aprovar a ordem.**
 Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (médio) · A (alto)
 
 ### ⚠️ Conflitos com os princípios no que já foi feito (corrigir primeiro)
@@ -203,7 +203,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 
 ---
 
-## Onda A: o que mudou (commits `47ce5c3` → `0d1d905`)
+## Onda A: o que mudou (commits `32590c8` → `6c7bcaa`)
 
 Testes com USERPROFILE temporário (o `~/.kvasir` real não foi tocado) e modelos reais do Ollama.
 
@@ -222,7 +222,7 @@ Testes com USERPROFILE temporário (o `~/.kvasir` real não foi tocado) e modelo
 
 ---
 
-## Onda B: `guard` (commit `c550d50`)
+## Onda B: `guard` (commit `5c2b1da`)
 
 Arquivos: `src/modules/guard/{index,rules,validators,allowlist}.ts`, `src/types/guard.ts`, `src/cli/guard.ts`; `utils/git.ts` ganhou `getStagedFiles` e `unstageFiles`; nova `AiTask 'guard'` (qwen2.5-coder → llama3.2); `commit --no-guard`.
 
@@ -237,7 +237,7 @@ Arquivos: `src/modules/guard/{index,rules,validators,allowlist}.ts`, `src/types/
 
 ---
 
-## Onda B: `doctor` (commit `4fa36a2`)
+## Onda B: `doctor` (commit `3c1c78f`)
 
 Arquivos: `src/modules/doctor/index.ts` + `checks/{shared,node,git,mobile,ollama,kvasir}.ts`, `src/types/doctor.ts`, `src/cli/doctor.ts`.
 
@@ -253,7 +253,7 @@ Arquivos: `src/modules/doctor/index.ts` + `checks/{shared,node,git,mobile,ollama
 
 ---
 
-## Onda B: `pr` (commit `c487239`)
+## Onda B: `pr` (commit `685f7bd`)
 
 Arquivos: `src/modules/pr/{index,description}.ts`, `src/cli/pr.ts`; `utils/git.ts` ganhou `refExists`, `getCommitsSince`, `getDiffAgainst`, `getDiffStatAgainst`, `getChangedFilesAgainst`, `getUpstream`, `pushWithUpstream`; `ai/client.ts` ganhou `writeClipboard`; `utils/process.ts` ganhou `commandExists`; nova `AiTask 'pr'` (qwen2.5-coder → llama3.2, com preferências do `profile.md`).
 
@@ -268,7 +268,7 @@ Arquivos: `src/modules/pr/{index,description}.ts`, `src/cli/pr.ts`; `utils/git.t
 
 ---
 
-## Onda B: `daily` (commit `c030292`)
+## Onda B: `daily` (commit `b4ec48f`)
 
 Arquivos: `src/modules/daily/{index,config,summary}.ts`, `src/cli/daily.ts`; `utils/git.ts` ganhou `isGitRepo`, `getRepoRoot`, `getGitConfigIn`, `getCommitsByAuthor`; nova `AiTask 'daily'` (llama3.2 → qwen2.5-coder); `~/.kvasir/config.json`.
 
@@ -282,7 +282,7 @@ Arquivos: `src/modules/daily/{index,config,summary}.ts`, `src/cli/daily.ts`; `ut
 
 ---
 
-## Onda B: `release` (commit `299220a`)
+## Onda B: `release` (commit `ba2036f`)
 
 Arquivos: `src/modules/release/{index,semver,changelog,versionFiles}.ts`, `src/cli/release.ts`; `utils/git.ts` ganhou `getLastTag`, `getCommitsWithBody`, `stageFiles`, `createAnnotatedTag`, `pushBranchWithTags`, `getChangedPaths`; nova `AiTask 'release'` (qwen2.5-coder → llama3.2).
 
@@ -297,7 +297,7 @@ Arquivos: `src/modules/release/{index,semver,changelog,versionFiles}.ts`, `src/c
 
 ---
 
-## Onda B: `test` (commit `bad5560`)
+## Onda B: `test` (commit `c23372d`)
 
 Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.ts`, `src/cli/test.ts`; `listExports` foi para `utils/imports.ts` (o `doc --code` usa o mesmo); `getChangedPaths` passou a listar arquivos dentro de pastas novas (`--untracked-files=all`); nova `AiTask 'test'` (qwen2.5-coder → deepseek-r1).
 
@@ -312,7 +312,7 @@ Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.
 
 ---
 
-## Onda B: erros recorrentes no `fix` e personas (commits `a53cd89`, `9c4551b`)
+## Onda B: erros recorrentes no `fix` e personas (commits `6f8d467`, `42b6a8f`)
 
 **Recorrência no `fix`:** `recentErrorOccurrences` (`knowledge/auto.ts`) conta as ocorrências de um código em `knowledge/errors/<código>.md` nos últimos 7 dias. A partir da 3ª, o `fix` avisa ("🔁 Este é o 3º TS6137…", com arquivos de exemplo) e oferece investigar a causa comum com o `architect` (histórico + tsconfig + versões). Testado: TS6137 provocado 3 vezes → aviso na 3ª; deepseek-r1 real respondeu "importe do pacote, não de `@types/`".
 
@@ -322,7 +322,7 @@ Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.
 
 ---
 
-## Onda C: Gemini Flash e Groq (commit `3da3e69`)
+## Onda C: Gemini Flash e Groq (commit `45624ea`)
 
 Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config compartilhada; o `daily` passou a usar), `src/modules/doctor/checks/cloud.ts`; `router.ts` reescrito com candidatos (`CLOUD_MAP` + `MODEL_MAP`); métricas por provedor; `kvasir models --cloud on|off`.
 
@@ -347,7 +347,7 @@ O projeto é open source: a persona da empresa do autor e os templates de `CLAUD
 - Templates: `~/.kvasir/templates/<persona>-<mobile|web>.md`, de qualquer persona
 - O build não copia mais templates para `dist/`
 - `kvasir-architecture.md` da raiz (visão antiga com nomes de projetos reais) saiu do git e foi para o `.gitignore`; o arquivo continua no disco
-- **Histórico do git:** os arquivos antigos da persona continuam nos commits anteriores (inclusive no GitHub); tirar de lá exige reescrever o histórico (decisão do autor)
+- **Histórico do git reescrito (2026-10-17, a pedido do autor):** os arquivos da persona e o documento antigo saíram de todos os commits; o nome da empresa e os nomes de projetos reais viraram exemplos genéricos ("ACME", `acme-web-app`…); a linha `Co-Authored-By` do primeiro commit da Fase 2 saiu junto. A árvore final ficou idêntica. `main` e a branch foram atualizadas no GitHub com force push (`--force-with-lease`). **Todos os IDs de commit mudaram** (os citados neste arquivo já são os novos). Clones antigos (outros PCs) precisam ser clonados de novo. Backup do histórico antigo: `kvasir-backup-antes-de-limpar-historico.bundle` no Desktop do autor (contém a persona antiga: guardar em local privado e apagar quando não precisar mais).
 
 ---
 
