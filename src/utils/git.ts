@@ -198,3 +198,24 @@ export function getHeadShortHash(): string {
   if (result.error) throw result.error;
   return (result.stdout ?? '').trim();
 }
+
+export function getStagedFiles(): string[] {
+  const result = spawnSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+  });
+
+  if (result.error) throw result.error;
+  return (result.stdout ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+// Removes files from the index only; the working copy is untouched.
+export function unstageFiles(files: string[]): void {
+  if (files.length === 0) return;
+  const result = spawnSync('git', ['restore', '--staged', '--', ...files], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+  });
+
+  assertGitSuccess(result, 'restore --staged');
+}

@@ -6,7 +6,7 @@ import { recordAiCall } from '@ai/metrics';
 import { promptAI } from '@ai/client';
 import { readFile } from '@utils/fs';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard';
 
 export const MODEL_MAP: Record<AiTask, string[]> = {
   commit: ['qwen2.5-coder', 'codellama'],
@@ -15,6 +15,7 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   review: ['qwen2.5-coder', 'deepseek-r1', 'codellama'],
   doc: ['llama3.2', 'qwen2.5-coder'],
   architect: ['deepseek-r1', 'llama3.2'],
+  guard: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // 30s was not enough for a cold model load or deepseek-r1 thinking: the chosen model timed out

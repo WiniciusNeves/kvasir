@@ -19,6 +19,7 @@ import { runPush } from '@modules/push';
 import { confirmAndUndoLastCommit } from '@modules/undo';
 import { runLog } from '@modules/log';
 import { noteCommit } from '@modules/knowledge/auto';
+import { guardStagedChanges } from '@modules/guard';
 
 type CommitChoice = 'yes' | 'no' | 'edit';
 type PostCommitAction = 'push' | 'undo' | 'log' | 'merge' | 'none';
@@ -102,7 +103,12 @@ async function runPostCommitMenu(): Promise<void> {
   }
 }
 
-export async function runCommit(): Promise<void> {
+export interface CommitOptions {
+  // commander turns --no-guard into guard: false
+  guard?: boolean;
+}
+
+export async function runCommit(options: CommitOptions = {}): Promise<void> {
   let diff = getDiff();
 
   if (!diff.trim()) {
@@ -119,6 +125,20 @@ export async function runCommit(): Promise<void> {
   }
 
   await loadContext();
+
+  // Security gate before anything reaches a model or the history.
+  if (options.guard !== false) {
+    const allowed = await guardStagedChanges();
+    if (!allowed) return;
+
+    diff = getDiff();
+    if (!diff.trim()) {
+      console.log('Nada sobrou no stage para commitar.');
+      return;
+    }
+  } else {
+    console.log('⚠️  kvasir guard pulado (--no-guard).');
+  }
 
   const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat()), { temperature: 0.2 });
   const message = parseCommitMessage(response);
