@@ -171,6 +171,14 @@
 
 ---
 
+## `guard`: regras determinísticas, IA só no duvidoso, allowlist com hash
+
+**Decisão:** (2026-10-17) O `guard` decide por regras fixas (formato das chaves, Luhn, dígito verificador de CPF/CNPJ, nomes de arquivo). A IA só avalia strings aleatórias que nenhuma regra reconheceu. O `.kvasirignore` gerado guarda `hash:<sha256>` do valor, nunca o valor.
+
+**Por quê:** É uma barreira de segurança: tem que ser previsível e funcionar com o Ollama desligado. Isso não contradiz "não contornar a IA", porque aqui a regra é a especificação, não um remendo para um modelo que errou. O hash existe porque o `.kvasirignore` costuma ser commitado: na primeira versão ele gravava a chave em texto e vazava o próprio segredo.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.

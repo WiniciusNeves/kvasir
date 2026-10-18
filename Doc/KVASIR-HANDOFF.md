@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ⏳ próxima |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`); próximo: `doctor` |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -218,6 +218,21 @@ Testes com USERPROFILE temporário (o `~/.kvasir` real não foi tocado) e modelo
 - O caminho com um Claude real colado no chat continua simulado nos testes
 - Detectar erro recorrente ("3º TS6137 esta semana") ficou para a onda B (os dados já estão em `errors/`)
 - As notas antigas em `~/.kvasir/knowledge/libs/` (sem frontmatter) são lidas normalmente; ganham frontmatter quando o `doc` as atualizar
+
+---
+
+## Onda B: `guard` (commit `c550d50`)
+
+Arquivos: `src/modules/guard/{index,rules,validators,allowlist}.ts`, `src/types/guard.ts`, `src/cli/guard.ts`; `utils/git.ts` ganhou `getStagedFiles` e `unstageFiles`; nova `AiTask 'guard'` (qwen2.5-coder → llama3.2); `commit --no-guard`.
+
+**Testado** (repo descartável, dados de teste públicos):
+- Validadores: Luhn, CPF e CNPJ com casos válidos, inválidos e todos-iguais ✅
+- Regras: chave AWS de exemplo, senha atribuída, cartão 4111…, JWT 🔴; CPF e `console.log(token)` 🟡; `process.env`, `changeme` e telefone ignorados; `.env`, `.pem` e `google-services.json` 🔴, `.env.example` liberado
+- IA (qwen2.5-coder): classificou uma string aleatória de 25 caracteres como segredo; `buildId` curto nem virou candidato
+- `commit`: cancelar (stage intacto), tirar do stage (sobrou só `.env.example`, seguiu para a mensagem), ignorar com dupla confirmação + `.kvasirignore` (rodar de novo: limpo), `--no-guard`
+- **Falha encontrada e corrigida no teste:** o `.kvasirignore` gravava o segredo em texto (`match:AKIA…`); agora grava `hash:`
+
+**Pendências:** o `guard` ainda não roda como hook do git (`pre-commit`); só pelo `kvasir commit` ou `kvasir guard`.
 
 ---
 

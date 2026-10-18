@@ -181,10 +181,18 @@ askFor('fix', prompt)
 
 ### `kvasir commit`
 1. Lê `git diff --cached`. Se estiver vazio, oferece `git add -A`.
-2. `askFor('commit', temperature 0.2)` com `--stat` + diff cortado em 12k caracteres → `pickLine` pega a linha no padrão Conventional Commits; avisa se não seguir o padrão ou passar de 72 caracteres.
-3. Pergunta: Sim / Não / Editar (abre o editor). Registra o feedback em `commits.md`.
-4. `git commit -m`.
-5. Menu em loop: push (com cancelar) · undo (encerra o menu) · log · merge (pede confirmação e oferece voltar à branch) · sair. Uma ação git que falha mostra o erro e volta ao menu.
+2. `guardStagedChanges()` (a menos que `--no-guard`): se o guard cancelar, para; se tirou arquivos do stage, relê o diff.
+3. `askFor('commit', temperature 0.2)` com `--stat` + diff cortado em 12k caracteres → `pickLine` pega a linha no padrão Conventional Commits; avisa se não seguir o padrão ou passar de 72 caracteres.
+4. Pergunta: Sim / Não / Editar (abre o editor). Registra o feedback em `commits.md`.
+5. `git commit -m` → nota em `knowledge/commits/<projeto>.md`.
+6. Menu em loop: push (com cancelar) · undo (encerra o menu) · log · merge (pede confirmação e oferece voltar à branch) · sair. Uma ação git que falha mostra o erro e volta ao menu.
+
+### `kvasir guard` (também chamado pelo `commit`)
+1. Arquivos no stage (`getStagedFiles`) e linhas adicionadas (`parseAddedLines`), menos o que o `.kvasirignore` cobre.
+2. Regras determinísticas (`guard/rules.ts`, por especificação): 🔴 chave AWS/Google/GitHub/Stripe live, chave privada, JWT, senha/segredo atribuído (ignora `process.env` e placeholders), cartão que passa no Luhn, arquivos `.env*` (exceto `.env.example` e parecidos), `.pem/.p12/.key/.keystore/.jks`, `google-services.json`/`GoogleService-Info.plist`; 🟡 CPF/CNPJ válidos (dígito verificador), `console.log` com token/senha/cartão/cpf.
+3. Strings entre aspas com 20+ caracteres e entropia ≥ 4 que nenhuma regra pegou → `askLocal('guard')` decide (`S1: SEGREDO …` / `S1: OK …`); SEGREDO vira 🔴. Ollama fora do ar → 🟡.
+4. Relatório com trecho mascarado (`AKIA****MPLE`). Só 🟡 → "continuar?". Algum 🔴 → cancelar · tirar os arquivos do stage (`git restore --staged`) · ignorar (segunda confirmação, feedback em `guard.md`).
+5. Ao ignorar/continuar, oferece gravar no `.kvasirignore`: arquivo pelo caminho e valores por `hash:<sha256>` (nunca o segredo em texto). Entradas manuais: glob de caminho, `rule:<id>`, `match:<texto>`.
 
 ### `kvasir branch`
 1. Pergunta a descrição da tarefa → `askFor('branch', temperature 0.2)` (o prompt pede tradução para inglês e kebab-case) → `parseBranchName` acha `prefixo/…` na resposta, remove rótulos e acentos e garante um prefixo válido (padrão `feature/`).

@@ -46,11 +46,12 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | Comando | O que faz | Status |
 |---|---|---|
 | `kvasir init` | Detecta o projeto (deps do `package.json`), aplica a persona e gera `kvasir.context.md`, `CLAUDE.md`, `.github/copilot-instructions.md` e `.cursor/rules` | ✅ |
-| `kvasir commit` | Lê o diff staged e sugere uma mensagem Conventional Commits em inglês; depois mostra um menu (push, undo, log, merge) | ✅ |
+| `kvasir commit` | Roda o `guard`, lê o diff staged e sugere uma mensagem Conventional Commits em inglês; depois mostra um menu (push, undo, log, merge). `--no-guard` pula a checagem | ✅ |
+| `kvasir guard` | Procura segredos (chaves AWS/Google/GitHub/Stripe, JWT, senhas), arquivos proibidos (`.env`, chaves, Firebase) e dados pessoais (cartão, CPF, CNPJ) no stage; strings aleatórias suspeitas vão para a IA. Exceções em `.kvasirignore` | ✅ |
 | `kvasir branch` | Descreve a tarefa e ele gera o nome da branch no Git Flow. `-l` lista, `-d` deleta | ✅ |
 | `kvasir doc <lib>` | Busca o README no npm/GitHub, resume em português e salva em `DOC/libs/` e `~/.kvasir/knowledge/libs/` | ✅ |
 | `kvasir doc --code [caminho]` | Documenta o código do projeto em `DOC/code/` (`--all` = projeto inteiro, `--force` = refaz) | ✅ |
-| `kvasir models` | Lista os modelos do Ollama e qual está ativo para cada tarefa | ✅ |
+| `kvasir models` | Lista os modelos do Ollama, qual está ativo para cada tarefa e o desempenho real (tempo, tokens, aprovação) | ✅ |
 | `kvasir fix` | Copie o erro e rode: ele corrige o arquivo do erro (regra determinística ou IA), abre o diff lado a lado no VS Code, conta os erros iguais no projeto e pergunta se corrige os outros. `kvasir fix --undo` desfaz | ✅ |
 | `kvasir review` | Revisa o diff staged seguindo as regras do projeto | 🧪 |
 | `kvasir push` / `undo` / `log` | Push (normal ou `--force-with-lease`), desfaz o último commit (soft) e mostra o histórico em tabela | 🧪 |

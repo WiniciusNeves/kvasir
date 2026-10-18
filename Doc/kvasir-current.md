@@ -10,7 +10,8 @@
 | Comando | Status | Observação |
 |---|---|---|
 | `init` | ✅ funcionando | Detecta ACME (nome contém `acme`) e a stack, gera contexto e os 3 adapters |
-| `commit` | ✅ funcionando | Prompt novo (stat + diff limitado), aviso se fugir do padrão; menu pós-commit em loop testado (log → undo encerra o menu) |
+| `commit` | ✅ funcionando | Roda o `guard` antes (`--no-guard` pula); prompt com stat + diff limitado; menu pós-commit em loop |
+| `guard` | ✅ testado (2026-10-17) | Regras determinísticas (chaves, JWT, senhas, cartão Luhn 🔴; CPF/CNPJ, logs sensíveis 🟡), arquivos proibidos, IA para strings de alta entropia; cancelar / tirar do stage / ignorar com dupla confirmação; `.kvasirignore` com hashes |
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |

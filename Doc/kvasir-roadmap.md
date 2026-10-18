@@ -22,7 +22,7 @@
 
 > Especificação completa: `Doc/ideas/novos-modulos.md`
 
-1. [ ] `kvasir guard`: bloqueia segredos e dados sensíveis antes do commit (integrado ao `commit`)
+1. [x] `kvasir guard`: bloqueia segredos e dados sensíveis antes do commit (integrado ao `commit`) (2026-10-17)
 2. [ ] `kvasir pr`: título e descrição do Pull Request em português
 3. [ ] `kvasir review`: finalizar
 4. [ ] `kvasir daily`: resumo dos commits para a daily
