@@ -9,7 +9,8 @@
 
 | Comando | Status | Observação |
 |---|---|---|
-| `init` | ✅ funcionando | Detecta ACME (nome contém `acme`) e a stack, gera contexto e os 3 adapters |
+| `init` | ✅ funcionando | Escolhe a persona (a detectada primeiro), mantém a task ativa ao rodar de novo, mensagens em português |
+| `persona` | ✅ testado (2026-10-17) | list/show/create/remove; JSON validado com zod; a persona do projeto define prefixos/idioma de branch e idioma de commit |
 | `commit` | ✅ funcionando | Roda o `guard` antes (`--no-guard` pula); prompt com stat + diff limitado; menu pós-commit em loop |
 | `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow ACME, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
 | `daily` | ✅ testado (2026-10-17) | 2 repos descartáveis: pegou só os commits do autor (inclusive em branch de feature), ignorou o do colega e o antigo; llama3.2 escreve o "Ontem" com exemplo de formato; copia e salva em `knowledge/commits/daily.md` |
@@ -56,8 +57,8 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 | 4 | ✅ resolvido (2026-10-17): `task` grava a task ativa (`setActiveTask`) e o `branch` usa e vincula a branch | `task`, `branch`, `contextWriter` | — |
 | 5 | ✅ resolvido (2026-10-17): `format` usa `runCommand` | `format/index.ts` | — |
 | 6 | ✅ resolvido (2026-10-17): `doc --code` usa `askLocal('doc')` (llama3.2) | `doc/code.ts` | — |
-| 7 | Mensagens em inglês só em `init` e `doc --code` (o resto foi traduzido em 2026-10-17) | `init/index.ts`, `doc/code.ts` | Traduzir |
-| 8 | `activeModules` fixo em `init` e sem `review`, `knowledge` e outros | `init/index.ts` | Gerar a partir dos comandos registrados |
+| 7 | Mensagens em inglês só no `doc --code` (o resto foi traduzido em 2026-10-17) | `doc/code.ts` | Traduzir |
+| 8 | `activeModules` ainda é uma lista fixa no `init` (atualizada em 2026-10-17 com todos os módulos) | `init/index.ts` | Gerar a partir dos comandos registrados |
 | 9 | Pasta de saída é `DOC/` (maiúsculo), mas este repo usa `Doc/`. No Windows é a mesma pasta; no Mac/Linux são diferentes | `doc/` | Padronizar um nome |
 | 10 | `kvasir.context.md` é parseado com regex; se o formato mudar à mão, quebra em silêncio | `contextWriter.ts` | Validar com `zod` (já é dependência) |
 | 11 | `branch`: o menu pós-branch e `-d` não foram retestados depois que os helpers do git passaram a conferir o `status` (a criação com task ativa foi testada) | `branch/index.ts` | Testar |

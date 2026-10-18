@@ -174,10 +174,10 @@ askFor('fix', prompt)
 ## Fluxo de cada comando
 
 ### `kvasir init`
-1. Lê o `package.json`. Se o `name` **contém** `acme`, o projeto é ACME. Senão, pergunta se quer usar a persona ACME ou pular.
+1. Lê o `package.json`. Se o `name` **contém** `acme`, o projeto é ACME (a persona acme vem primeiro na lista).
 2. Detecta a stack pelas deps: `next` → Next.js · `expo` → React Native + Expo · `express`/`fastify` → Node.js API · sempre TypeScript.
-3. Carrega a persona de `~/.kvasir/personas/<nome>.json` (ou a built-in, que salva lá).
-4. Pede `confirm()` e então escreve `kvasir.context.md` e roda os 3 adapters.
+3. O usuário escolhe a persona (`listPersonas`: embutidas + `~/.kvasir/personas/*.json`) ou "nenhuma" (para sem escrever nada). `loadPersona` valida o JSON com zod.
+4. Pede `confirm()` e então escreve `kvasir.context.md` (prefixos, idioma de branch e de commit vêm da persona; a task ativa existente é mantida) e roda os 3 adapters.
 5. `CLAUDE.md` usa o template `acme-mobile.md` (se tem `expo`) ou `acme-web.md` (se tem `next`), ou um corpo gerado (scripts, árvore de pastas, regras).
 
 ### `kvasir commit`
@@ -227,6 +227,12 @@ askFor('fix', prompt)
 5. `runTestFile` (`utils/testRunner.ts`): `node node_modules/jest/bin/jest.js <arq> --ci --colors=false` ou `node node_modules/vitest/vitest.mjs run <arq>` (sem shell, sem npx; `CI=1`, `NO_COLOR=1`).
 6. Falhou → `buildFixPrompt` com a saída: erro de import/sintaxe/tipo é sempre culpa do teste; se uma asserção de comportamento falhou e o código está claramente errado, a IA responde `BUG: …` → o teste fica falhando como evidência e vai para `knowledge/errors/bugs-encontrados-por-testes.md`. Até 3 tentativas; depois, manter ou apagar.
 
+### `kvasir persona`
+- `list`: embutidas (acme) + personalizadas em `~/.kvasir/personas/` (uma embutida editada aparece como "embutida, personalizada").
+- `show <nome>`: stack, padrão de repositório, prefixos de branch com descrição e idioma, convenção e idioma de commit.
+- `create`: nome (slug), copiar uma persona existente ou começar do zero, stack, prefixos (pergunta para que serve cada prefixo novo: é o que o prompt da branch usa), idioma de branch e de commit, padrão de repositório → confirma → salva.
+- `remove <nome>`: personalizada → apaga; embutida → apaga só a cópia local (volta à versão embutida).
+
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
 - `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn
@@ -238,7 +244,7 @@ Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, 
 - No fim: resumo e, se faltar modelo, oferece `ollama pull` (com confirmação).
 
 ### `kvasir branch`
-1. Pergunta a descrição da tarefa → `askFor('branch', temperature 0.2)` (o prompt pede tradução para inglês e kebab-case) → `parseBranchName` acha `prefixo/…` na resposta, remove rótulos e acentos e garante um prefixo válido (padrão `feature/`).
+1. Pergunta a descrição da tarefa → `loadConventions` (prefixos, descrições e idioma da persona do projeto) → `askFor('branch', temperature 0.2)` (resumo em inglês ou em português, conforme a persona) → `parseBranchName` acha `prefixo/…` com os prefixos da persona, remove rótulos e acentos, descarta prefixo desconhecido e usa o primeiro da persona como padrão.
 2. Sim / Não / Editar → `git checkout -b`.
 3. Menu em loop: deletar outra branch · listar · voltar para a anterior · sair.
 - `-l` lista locais e remotas · `-d` deleta (pergunta se força `-D` quando não está mergeada).
@@ -268,6 +274,10 @@ erro: se o clipboard já tem um erro do tsc, usa direto; senão pergunta (clipbo
    │    120 linhas cada), tsconfig.json, versões das libs, e para import que não resolve:
    │    "arquivos do projeto com o mesmo nome" · pode perguntar (PERGUNTA:) até 3 vezes
    │    → mostra o relatório; se "útil", vira nota em errors/
+   │
+   ├─ recorrência: `recentErrorOccurrences` conta o código em knowledge/errors nos últimos 7 dias;
+   │  a partir da 3ª: "🔁 Este é o 3º TSxxxx…" → oferece askFor('architect') com o histórico,
+   │  tsconfig e versões para achar a causa comum (útil → vira nota)
    │
    ├─ depois de aplicar: typecheck, "Encontrei mais N erro(s) TSxxxx em M arquivo(s)",
    │  confirm → regra ou askLocal('fix') → nota de expansão em errors/ → typecheck final

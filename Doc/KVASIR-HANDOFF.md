@@ -12,7 +12,8 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`), `release` ✅ (`299220a`), `test` ✅ (`bad5560`); falta: `fix` aprender erros recorrentes, personas (criar/listar/remover) |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`c550d50`), `doctor` (`4fa36a2`), `pr` (`c487239`), `daily` (`c030292`), `release` (`299220a`), `test` (`bad5560`), recorrência no `fix` (`a53cd89`), personas (`9c4551b`) |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ⏳ próxima |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -308,6 +309,16 @@ Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.
 - **Problemas achados e corrigidos pelo prompt (não por regra):** testes com `null`/`undefined` num `number[]`; `import default` para export nomeado seguido de um "bug" falso no código
 
 **Pendências:** testes de componente com Testing Library não foram exercitados (o projeto de teste não tinha RN/React); a explicação do `BUG:` às vezes é confusa, mas vem com os valores errados como evidência.
+
+---
+
+## Onda B: erros recorrentes no `fix` e personas (commits `a53cd89`, `9c4551b`)
+
+**Recorrência no `fix`:** `recentErrorOccurrences` (`knowledge/auto.ts`) conta as ocorrências de um código em `knowledge/errors/<código>.md` nos últimos 7 dias. A partir da 3ª, o `fix` avisa ("🔁 Este é o 3º TS6137…", com arquivos de exemplo) e oferece investigar a causa comum com o `architect` (histórico + tsconfig + versões). Testado: TS6137 provocado 3 vezes → aviso na 3ª; deepseek-r1 real respondeu "importe do pacote, não de `@types/`".
+
+**Personas:** `kvasir persona list/show/create/remove` (`modules/persona`), validação zod no `personaLoader`, `init` escolhe a persona e mantém a task ativa, `branch` e `commit` seguem a persona, `adapters/claude.ts` carrega a persona do projeto. Testado: criar `empresa-x` (prefixos `feat/ bug/ chore/`, português) copiando a ACME, JSON corrompido recusado, reset da embutida, nome repetido recusado, `init` gravando a persona no `kvasir.context.md` e no `CLAUDE.md`, qwen2.5-coder usando `bug/` e commit em português.
+
+**Limite conhecido:** com persona em português, o qwen2.5-coder ainda escreve algumas branches em inglês (comparado com o llama3.2, que foi pior).
 
 ---
 

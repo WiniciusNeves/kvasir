@@ -203,6 +203,14 @@
 
 ---
 
+## A persona manda nas convenções de branch e commit
+
+**Decisão:** (2026-10-17) Prefixos de branch (com a descrição de cada um), idioma da branch e idioma do commit vêm da persona do projeto (`kvasir.context.md` + `~/.kvasir/personas/`). O código não tem mais a lista ACME fixa (o `adapters/claude.ts` também carrega a persona pelo `personaLoader`).
+
+**Por quê:** Era a regra do CLAUDE.md ("não deixe regras de persona no código") e é o que permite o produto B2B (persona por empresa). Testando uma persona em português, o qwen2.5-coder ainda escreve parte das branches em inglês (2 de 3 saíram em português); o "Editar" resolve e a rejeição fica nas métricas para o router escolher melhor no futuro.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.
