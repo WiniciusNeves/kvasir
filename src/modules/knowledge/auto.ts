@@ -2,6 +2,8 @@ import path from 'path';
 import { saveNote, readNote, today } from './notes';
 import type { SaveNoteInput, SaveMode } from './notes';
 import type { MetricsSummary } from '@ai/metrics';
+import { AGENTS, AGENT_NAMES, TASK_OWNER } from '@ai/agents';
+import type { AiTask } from '@ai/router';
 
 // Notes the other modules write on their own ("conhecimento gerado uma vez fica salvo").
 // Writing a note must never break the command that produced it.
@@ -124,25 +126,30 @@ function percent(approved: number, rejected: number): string {
   return total === 0 ? '—' : `${Math.round((approved / total) * 100)}% (${approved}/${total})`;
 }
 
-// agents/<model>.md: what each local model is good at, from the real usage metrics.
+// agents/<agent>.md: what each agent of the team did and which of its models did best, from the
+// real usage metrics. One note per agent (Arquiteto, Revisor...), never mixing another agent's tasks.
 export async function noteAgentPerformance(summary: MetricsSummary, days: number): Promise<void> {
-  const models = Array.from(new Set(summary.models.map((row) => row.model)));
+  for (const name of AGENT_NAMES) {
+    const agent = AGENTS[name];
+    const rows = summary.models.filter((row) => TASK_OWNER[row.task as AiTask] === name);
+    if (rows.length === 0) continue;
 
-  for (const model of models) {
-    const rows = summary.models.filter((row) => row.model === model);
     const table = [
-      '| tarefa | chamadas | falhas | tempo médio | aprovação |',
-      '|---|---|---|---|---|',
-      ...rows.map((row) => `| ${row.task} | ${row.calls} | ${row.failures} | ${row.avgSeconds.toFixed(1)}s | ${percent(row.approved, row.rejected)} |`),
+      '| tarefa | modelo | chamadas | falhas | tempo médio | aprovação |',
+      '|---|---|---|---|---|---|',
+      ...rows.map((row) => {
+        const model = row.provider === 'ollama' ? row.model.replace(/:latest$/, '') : `${row.provider}/${row.model}`;
+        return `| ${row.task} | ${model} | ${row.calls} | ${row.failures} | ${row.avgSeconds.toFixed(1)}s | ${percent(row.approved, row.rejected)} |`;
+      }),
     ].join('\n');
 
     await trySave(
       {
         category: 'agents',
-        title: model.replace(/:latest$/, ''),
-        body: `Desempenho nos últimos ${days} dias (atualizado em ${today()} pelo \`kvasir learn\`):\n\n${table}`,
+        title: agent.label.toLowerCase(),
+        body: `**${agent.label}**: ${agent.role}.\n\nDesempenho nos últimos ${days} dias (atualizado em ${today()} pelo \`kvasir learn\`):\n\n${table}`,
         origin: 'kvasir learn',
-        tags: ['agente'],
+        tags: ['agente', name],
       },
       'replace',
       true

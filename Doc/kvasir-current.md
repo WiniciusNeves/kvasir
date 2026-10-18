@@ -22,6 +22,7 @@
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
 | menu / intenção | ✅ testado (2026-10-18) | `kvasir` sozinho abre o menu; submenus de keys/persona/knowledge; erro de digitação sugere o comando; frase livre vira comando (Groq: 9 de 9 frases certas; só Ollama: errou gírias como "joga isso no remoto" e aí oferece o menu); comandos oferecem rodar o pré-requisito na hora |
+| `agents` | ✅ testado (2026-10-18) | Time formal: 5 agentes, dono único por tarefa, prompt de papel, modelos trocáveis por agente (`agents set`), nuvem desligável por agente; métricas e notas no knowledge por agente |
 | `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |
 | `models` | ✅ funcionando | Mostra a ordem real de cada tarefa (com o motivo: padrão, desempenho ou pausa) e o desempenho real por tarefa × modelo (métricas) e o custo das idas ao Claude |
 | `fix` | ✅ funcionando | Clipboard com erro do tsc é usado direto; classifica simples × complexo; simples corrige sem perguntar (regra comprovada → IA); complexo investiga a causa raiz com imports, tsconfig, versões e arquivos de mesmo nome; nota em `knowledge/errors/`; expansão e `--undo` |

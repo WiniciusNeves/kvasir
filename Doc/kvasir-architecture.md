@@ -103,6 +103,22 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 - Consentimento: `ai.cloud` no `config.json`; perguntado uma vez quando há chave; `kvasir models --cloud on|off`.
 - Falha (429, chave recusada, 5xx, timeout, sem rede) → próximo candidato; a mensagem nunca inclui a chave.
 
+### Time de agentes (`agents.ts`)
+Cada `AiTask` tem um único dono (`TASK_OWNER`, um `Record`: tarefa nova sem dono não compila):
+
+| Agente | Tarefas | Papel |
+|---|---|---|
+| Arquiteto | architect | causa raiz, decisões técnicas |
+| Revisor | review, fix, guard | avalia e corrige código, segredos |
+| Documentador | doc, pr, daily, release | textos para pessoas |
+| Testador | test | gera e revisa testes |
+| Executor | commit, branch, intent | tarefas curtas e exatas |
+
+- **Contexto isolado:** `buildAgentPrompt` = prompt de papel do dono + preferências do `profile.md` (onde se aplicam) + prompt da tarefa. Nada de outro agente entra.
+- **Dono único:** o router só usa os modelos do dono; no `askFor` o Claude é avisado de quem é a tarefa e escolhe entre os modelos desse agente.
+- **Substituível sem mexer em módulos:** `~/.kvasir/config.json` → `agents.<nome>.models` (cadeia local de todas as tarefas do agente) e `agents.<nome>.cloud: false`. `CLOUD_MAP` vazio (guard, architect) continua mandando: nenhuma configuração liga a nuvem ali. `kvasir agents set` edita isso.
+- Métricas: cada chamada grava `agent`. `kvasir agents` mostra o time, os modelos, a nuvem e chamadas/aprovação de 30 dias; `kvasir learn` escreve `knowledge/agents/<agente>.md`.
+
 ### Escolha pelo desempenho (`performance.ts`)
 `rankedCandidates(task)` pega a ordem padrão acima e aplica `rankCandidates` com as métricas dos últimos 30 dias (só da mesma tarefa):
 - **Pausa:** as 3 últimas chamadas de um candidato falharam e a última foi há menos de 15 min → vai para o fim (continua como último recurso).

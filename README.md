@@ -65,6 +65,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir test [arquivo]` | Gera testes (vitest/jest, no estilo dos testes do projeto) para os arquivos alterados, roda e corrige sozinho até 3 vezes; se o teste revelar um bug real no código, avisa em vez de "consertar" o teste | ✅ |
 | `kvasir doctor` | Diagnóstico do ambiente com ✅/⚠️/❌ e como corrigir: Node × `engines`, Git, JDK/Android/Expo/EAS (projetos mobile), Ollama e modelos (oferece baixar os que faltam), `~/.kvasir`, VS Code, `gh` | ✅ |
 | `kvasir keys` / `keys set` / `keys remove` | Salva a chave do Gemini ou do Groq com um comando: você cola (fica oculta), ele testa na API e grava como variável de ambiente do seu usuário. Nunca vai para o git nem para o `~/.kvasir` | ✅ |
+| `kvasir agents` / `agents set` | Time de agentes: Arquiteto, Revisor, Documentador, Testador e Executor, cada tarefa com um único dono. Mostra quem faz o quê e o desempenho; `set` troca os modelos de um agente ou o deixa só no Ollama local | ✅ |
 | `kvasir models` | Mostra modelos locais e na nuvem, quem responde cada tarefa e o desempenho real (tempo, tokens, aprovação). `--cloud on\|off` liga/desliga Gemini e Groq | ✅ |
 | `kvasir fix` | Copie o erro e rode: ele corrige o arquivo do erro (regra determinística ou IA), abre o diff lado a lado no VS Code, conta os erros iguais no projeto e pergunta se corrige os outros. `kvasir fix --undo` desfaz | ✅ |
 | `kvasir review` | Revisa as linhas adicionadas do diff staged, uma por uma, e aponta `arquivo:linha` | ✅ |

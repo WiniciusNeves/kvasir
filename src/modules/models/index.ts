@@ -5,6 +5,7 @@ import type { CloudProvider } from '@ai/providers';
 import { readMetrics, summarizeMetrics } from '@ai/metrics';
 import type { AiProvider } from '@ai/metrics';
 import { rankCandidates, PERFORMANCE_WINDOW_DAYS } from '@ai/performance';
+import { agentForTask } from '@ai/agents';
 import { readUserConfig } from '@utils/userConfig';
 import { confirm } from '@utils/prompt';
 import { runKeysSet } from '@modules/keys';
@@ -26,6 +27,7 @@ interface RankableRow {
 
 interface TaskModelRow {
   tarefa: AiTask;
+  agente: string;
   'responde primeiro': string;
   'por quê': string;
   'ordem (fallback)': string;
@@ -96,20 +98,24 @@ export async function runModels(options: ModelsOptions = {}): Promise<void> {
 
   // Same order the router uses: default chain reordered by the measured performance.
   const records = await readMetrics(PERFORMANCE_WINDOW_DAYS);
+  const agentSettings = (await readUserConfig()).agents ?? {};
   const taskRows: TaskModelRow[] = [];
   for (const task of Object.keys(MODEL_MAP) as AiTask[]) {
     const chain: RankableRow[] = [];
-    for (const provider of CLOUD_MAP[task].filter((item) => active.has(item))) {
+    const settings = agentSettings[agentForTask(task).name] ?? {};
+    const cloudProviders = settings.cloud === false ? [] : CLOUD_MAP[task].filter((item) => active.has(item));
+    for (const provider of cloudProviders) {
       const model = await cloudModelFor(provider);
       chain.push({ provider, model, label: `${provider}/${model}` });
     }
-    for (const model of MODEL_MAP[task]) {
+    for (const model of settings.models ?? MODEL_MAP[task]) {
       const tag = installed.find((name) => name === model || name.startsWith(`${model}:`));
       if (tag) chain.push({ provider: 'ollama', model: tag, label: tag });
     }
     const ranked = rankCandidates(task, chain, records);
     taskRows.push({
       tarefa: task,
+      agente: agentForTask(task).label,
       'responde primeiro': ranked[0]?.candidate.label ?? '(nenhum disponível)',
       'por quê': ranked[0]?.reason ?? '—',
       'ordem (fallback)': ranked.map((item) => item.candidate.label).join(' → ') || '—',

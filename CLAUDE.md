@@ -148,7 +148,7 @@ export function getDiff(): string {
 | Raw | `askOllama(prompt, { model })` | Used by the router. Prefer `askLocal`; if you call it, pass `model` explicitly (default is `codellama`) |
 | Claude only | `promptAI(prompt)` | Prompt goes to the clipboard; the user copies Claude's answer and presses Enter (read back from the clipboard, multi-line safe) |
 
-- New task type? Add it to `AiTask`, `MODEL_MAP` (local chain) and `CLOUD_MAP` (cloud providers tried first, or `[]` if the prompt must never leave the machine) in `router.ts`; `kvasir models` picks it up automatically.
+- New task type? Add it to `AiTask`, give it an owner in `TASK_OWNER` (`ai/agents.ts`: Arquiteto, Revisor, Documentador, Testador or Executor; the owner's role prompt goes on top of every prompt), `MODEL_MAP` (local chain) and `CLOUD_MAP` (cloud providers tried first, or `[]` if the prompt must never leave the machine) in `router.ts`; `kvasir models` picks it up automatically.
 - **API keys never go in code or in `~/.kvasir/config.json`**: read them from environment variables. Never print them (use `describeHttpError` from `@ai/providers`).
 - **Never** import `axios`/Ollama/clipboardy directly in a module; go through `src/ai/`.
 - Prompts are written in Portuguese. When the output must be English (commits, branches), say it explicitly.

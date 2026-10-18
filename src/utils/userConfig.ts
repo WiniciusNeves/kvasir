@@ -12,9 +12,18 @@ export interface AiSettings {
   groqModel?: string;
 }
 
+// Swaps an agent's models without touching modules (kvasir agents). Names match ai/agents.ts.
+export interface AgentSettings {
+  // local Ollama chain, in order (replaces the default chain of all the agent's tasks)
+  models?: string[];
+  // false = this agent never uses the cloud
+  cloud?: boolean;
+}
+
 export interface UserConfig {
   daily?: { repos?: string[] };
   ai?: AiSettings;
+  agents?: Record<string, AgentSettings>;
   [key: string]: unknown;
 }
 

@@ -13,7 +13,7 @@
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
-| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); falta: time de agentes formal |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -149,7 +149,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | `daily` | ❌ | `git log --author`, task ativa ✅, config de repos | B/M |
 | | `release` | ❌ | tags, `createTag`, `package.json`/`app.json` | M |
 | | `test` | ❌ | detecção Jest/Vitest, laço de correção do `fix` | A |
-| **4 Time de agentes** | Papéis Arquiteto/Revisor/Executor no `MODEL_MAP` | 🟡 (Documentador sem Gemini; não há Testador) | Fase 5 | B |
+| **4 Time de agentes** | 5 agentes, dono único, contexto isolado, substituíveis | ✅ `ai/agents.ts` + `kvasir agents` (2026-10-18); falta avaliar os agentes extras do Ollama | — | — |
 | | Claude orquestra e valida | ✅ (`askFor`) | — | — |
 | | Contexto isolado por agente, dono único da tarefa | ❌ (não existe a abstração "agente") | métricas | M |
 | | Avaliar agentes extras (claude, codex, opencode, hermes, cline, copilot, qwen, openclaw) | ❌ | métricas | M |
@@ -335,6 +335,12 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+### Time de agentes formal (2026-10-18): fim da onda C
+
+`src/ai/agents.ts` (`AGENTS`, `TASK_OWNER`, `agentForTask`, `tasksOf`), `buildAgentPrompt` no router (papel + preferências + prompt), `agents.<nome>.{models,cloud}` no `config.json`, campo `agent` nas métricas, `kvasir agents` / `agents list` / `agents set` (+ submenu no menu), `kvasir models` mostra o agente de cada tarefa e respeita as trocas, `kvasir learn` grava `knowledge/agents/<agente>.md`.
+
+**Testado:** `kvasir agents list` real; commit de verdade (diff do commit do menu) pelo Groq com o papel de Executor → `feat(menu): add interactive menu with intent detection`; com `agents.executor = { models: [llama3.2], cloud: false }` → respondeu o llama3.2 local e a métrica gravou `agent: executor`; `agents set` com respostas simuladas (trocar modelos, nuvem off/on, voltar ao padrão, agente inexistente, Arquiteto sem opção de nuvem); notas `agents/executor.md` e `agents/revisor.md` geradas. As notas antigas por modelo (`agents/<modelo>.md`) continuam no vault, sem atualização.
 
 ### Escolha de modelo pelo desempenho (2026-10-18)
 

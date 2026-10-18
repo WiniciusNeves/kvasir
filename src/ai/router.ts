@@ -6,6 +6,8 @@ import { askGroq, getGroqApiKey, checkGroqKey, DEFAULT_GROQ_MODEL } from '@ai/gr
 import type { CloudProvider, ProviderName, ProviderResult } from '@ai/providers';
 import { recordAiCall, readMetrics } from '@ai/metrics';
 import { rankCandidates, PERFORMANCE_WINDOW_DAYS } from '@ai/performance';
+import { agentForTask } from '@ai/agents';
+import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
 import { promptAI } from '@ai/client';
 import { readFile } from '@utils/fs';
@@ -112,8 +114,14 @@ async function isCloudAllowed(): Promise<boolean> {
   return allowed;
 }
 
+// The owner agent can be swapped in ~/.kvasir/config.json (kvasir agents).
+async function agentSettings(task: AiTask): Promise<AgentSettings> {
+  return (await readUserConfig()).agents?.[agentForTask(task).name] ?? {};
+}
+
 async function cloudCandidates(task: AiTask): Promise<Candidate[]> {
-  if (CLOUD_MAP[task].length === 0 || !(await isCloudAllowed())) return [];
+  // CLOUD_MAP [] (guard, architect) is a privacy rule: no agent setting turns the cloud on there.
+  if (CLOUD_MAP[task].length === 0 || (await agentSettings(task)).cloud === false || !(await isCloudAllowed())) return [];
 
   const candidates: Candidate[] = [];
   for (const provider of CLOUD_MAP[task]) {
@@ -142,14 +150,15 @@ async function localCandidates(task: AiTask): Promise<{ candidates: Candidate[];
     return { candidates: [], problem: 'Não foi possível conectar ao Ollama em http://localhost:11434. Verifique se o Ollama está rodando.' };
   }
 
-  const candidates = MODEL_MAP[task]
+  const chain = (await agentSettings(task)).models ?? MODEL_MAP[task];
+  const candidates = chain
     .map((model) => installed.find((name) => matchesModel(name, model)))
     .filter((name): name is string => name !== undefined)
     .map((name): Candidate => ({ provider: 'ollama', model: name, label: name }));
 
   return {
     candidates,
-    problem: candidates.length > 0 ? null : `Nenhum modelo para "${task}" está instalado no Ollama (${MODEL_MAP[task].join(', ')}). Rode "ollama pull ${MODEL_MAP[task][0]}".`,
+    problem: candidates.length > 0 ? null : `Nenhum modelo para "${task}" está instalado no Ollama (${chain.join(', ')}). Rode "ollama pull ${chain[0]}".`,
   };
 }
 
@@ -206,7 +215,7 @@ async function runWithFallback(
       console.log(`⚠️  ${candidate.label} falhou (${message}). Tentando o próximo...`);
       failures.push(`${candidate.label}: ${message}`);
       await recordAiCall({
-        task, provider: candidate.provider, model: candidate.model, role: 'executor', ok: false, error: message,
+        task, agent: agentForTask(task).name, provider: candidate.provider, model: candidate.model, role: 'executor', ok: false, error: message,
         durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: 0,
       });
       continue;
@@ -214,7 +223,7 @@ async function runWithFallback(
 
     if (candidate.provider !== 'ollama') console.log(`☁️  Respondido por ${candidate.label}`);
     await recordAiCall({
-      task, provider: candidate.provider, model: candidate.model, role: 'executor', ok: true,
+      task, agent: agentForTask(task).name, provider: candidate.provider, model: candidate.model, role: 'executor', ok: true,
       durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: result.text.length,
       promptTokens: result.promptTokens, outputTokens: result.outputTokens,
     });
@@ -238,6 +247,7 @@ function buildOrchestratorPrompt(task: AiTask, prompt: string, architecture: str
   return `Você é o orquestrador. Analise e decida qual modelo usar. Depois valide o resultado antes de retornar.
 
 Tarefa: ${task}
+Agente responsável: ${agentForTask(task).label} (${agentForTask(task).role}). A tarefa é só dele: escolha entre os modelos deste agente.
 
 Arquitetura do projeto (kvasir.context.md):
 ${architecture}
@@ -303,6 +313,12 @@ ${preferences.slice(0, MAX_PREFERENCES_CHARS)}
 ${prompt}`;
 }
 
+// Isolated context: the owner agent's role prompt, then (where taste matters) the developer's
+// preferences, then the task prompt. Nothing from other agents goes in.
+async function buildAgentPrompt(task: AiTask, basePrompt: string): Promise<string> {
+  return `${agentForTask(task).rolePrompt}\n\n${await withDeveloperPreferences(task, basePrompt)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -311,7 +327,7 @@ ${prompt}`;
 export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const ranked = await resolveCandidates(task);
   const candidates = ranked.map((item) => item.candidate);
-  const prompt = await withDeveloperPreferences(task, basePrompt);
+  const prompt = await buildAgentPrompt(task, basePrompt);
 
   const architecture = await getProjectArchitecture();
   const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, ranked), { task, role: 'orchestrator' });
@@ -326,6 +342,6 @@ export async function askFor(task: AiTask, basePrompt: string, options: AskForOp
 // No Claude round trips: cloud provider of the task (if allowed), then the local chain.
 export async function askLocal(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const candidates = (await resolveCandidates(task)).map((item) => item.candidate);
-  const prompt = await withDeveloperPreferences(task, basePrompt);
+  const prompt = await buildAgentPrompt(task, basePrompt);
   return runWithFallback(task, candidates, prompt, options, async (_label, result) => result);
 }

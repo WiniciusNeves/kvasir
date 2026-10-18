@@ -70,6 +70,7 @@ export const MAIN_MENU: CatalogGroup[] = [
       { argv: ['init'], label: 'Configurar o Kvasir neste projeto' },
       { argv: ['keys'], label: 'Chaves de IA na nuvem (Gemini, Groq)', submenu: 'keys' },
       { argv: ['persona'], label: 'Personas (convenções da empresa)', submenu: 'persona' },
+      { argv: ['agents'], label: 'Time de agentes (quem faz cada tarefa, trocar modelos)', submenu: 'agents' },
       { argv: ['models'], label: 'Ver os modelos e o desempenho' },
       { argv: ['doctor'], label: 'Diagnosticar o ambiente' },
     ],
@@ -85,6 +86,13 @@ export const SUBMENUS: Record<string, CatalogGroup> = {
       { argv: ['keys', 'remove'], label: 'Remover uma chave', usage: 'keys remove <gemini|groq>' },
       { argv: ['models', '--cloud', 'on'], label: 'Ligar o uso da nuvem' },
       { argv: ['models', '--cloud', 'off'], label: 'Desligar o uso da nuvem (só Ollama local)' },
+    ],
+  },
+  agents: {
+    title: 'Time de agentes',
+    entries: [
+      { argv: ['agents', 'list'], label: 'Ver o time e o desempenho de cada agente' },
+      { argv: ['agents', 'set'], label: 'Trocar os modelos de um agente', usage: 'agents set <architect|reviewer|documenter|tester|executor>' },
     ],
   },
   persona: {

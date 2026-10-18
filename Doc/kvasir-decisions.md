@@ -235,6 +235,14 @@
 
 ---
 
+## Time de agentes: dono por tarefa, cadeias de modelo continuam por tarefa
+
+**Decisão:** Cada tarefa tem um agente dono (`ai/agents.ts`) com prompt de papel próprio; o agente pode ter os modelos trocados no `config.json`. Sem configuração, cada tarefa mantém a sua cadeia do `MODEL_MAP`.
+
+**Por quê:** As cadeias por tarefa guardam o que já aprendemos (ex.: release com qwen primeiro inventa menos). O agente dá identidade, contexto isolado, dono único e um ponto único para trocar modelos, que é o que o backlog pede. A nuvem nunca é ligada por agente onde a tarefa proíbe (guard, architect).
+
+---
+
 ## Escolha de modelo pelo desempenho: determinística e conservadora
 
 **Decisão:** O router reordena os candidatos por aprovação × taxa de sucesso medidas (`ai/performance.ts`), mas só entre os que têm dados suficientes; os outros ficam na ordem padrão. Quem falhou 3 vezes seguidas nos últimos 15 min vai para o fim.

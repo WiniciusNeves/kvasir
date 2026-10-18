@@ -75,7 +75,7 @@ export async function runLearn(): Promise<void> {
   await writeFile(getProfilePath(), updatedProfile);
   console.log('✅ profile.md atualizado.');
 
-  // What each agent is good at, from real usage: knowledge/agents/<model>.md.
+  // What each agent of the team did, from real usage: knowledge/agents/<agent>.md.
   const summary = summarizeMetrics(await readMetrics(AGENT_STATS_DAYS));
   if (summary.models.length > 0) await noteAgentPerformance(summary, AGENT_STATS_DAYS);
 }

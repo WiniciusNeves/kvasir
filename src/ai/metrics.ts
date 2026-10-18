@@ -15,6 +15,8 @@ export interface AiCallRecord {
   timestamp: string;
   project: string;
   task: string;
+  // owner agent of the task (ai/agents.ts); absent in records from before the agent team
+  agent?: string;
   provider: AiProvider;
   model: string;
   role: AiRole;

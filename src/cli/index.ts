@@ -23,6 +23,7 @@ import { registerRelease } from './release';
 import { registerTest } from './test';
 import { registerPersona } from './persona';
 import { registerKeys } from './keys';
+import { registerAgents } from './agents';
 import { resolveCommandLine } from '@modules/menu';
 import { printCliError } from '@utils/errors';
 
@@ -62,6 +63,7 @@ registerRelease(program);
 registerTest(program);
 registerPersona(program);
 registerKeys(program);
+registerAgents(program);
 
 program.addHelpText(
   'after',
