@@ -43,7 +43,7 @@ export function typeForBranch(branch: string): string {
   return TYPE_BY_PREFIX[branch.split('/')[0].toLowerCase()] ?? 'feat';
 }
 
-// Git Flow ACME: hotfix/ and release/ go to main; everything else to develop (main when there is none).
+// Git Flow: hotfix/ and release/ go to main; everything else to develop (main when there is none).
 export function baseCandidates(branch: string): string[] {
   const toMain = /^(hotfix|release)\//.test(branch);
   const develop = ['develop', 'origin/develop'];

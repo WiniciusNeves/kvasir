@@ -8,3 +8,6 @@ dist/
 
 # configurações locais do Claude
 .claude/settings.local.json
+
+# documento antigo de visão (pessoal, com nomes de projetos reais): fica só no disco
+/kvasir-architecture.md

@@ -41,7 +41,7 @@ src/modules/guard/validators.ts  # luhn(), isCpf(), isCnpj(), entropy()
 **Objetivo:** gerar título e descrição do PR a partir da branch.
 
 **Fluxo:**
-1. Detecta branch atual e branch base (`develop` ou `main`, conforme Git Flow ACME).
+1. Detecta branch atual e branch base (`develop` ou `main`, conforme o Git Flow).
 2. Lê `git log base..HEAD` (commits) e `git diff base...HEAD --stat` + diff resumido.
 3. IA gera em **português**:
    - Título (baseado no tipo da branch: `feature/` → "feat: ...")

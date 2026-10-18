@@ -1,6 +1,6 @@
 import path from 'path';
-import { detectProject, detectStack } from './detector';
-import { loadPersona, listPersonas, getKvasirHome } from './personaLoader';
+import { detectStack, readPackageName } from './detector';
+import { loadPersona, listPersonas, getKvasirHome, findPersonaForPackage } from './personaLoader';
 import { writeContext, readContext } from './contextWriter';
 import { readJson } from '@utils/fs';
 import { confirm, select } from '@utils/prompt';
@@ -16,12 +16,12 @@ interface PackageJson {
 const NO_PERSONA = '__none__';
 const ACTIVE_MODULES = ['branch', 'commit', 'guard', 'fix', 'review', 'test', 'pr', 'daily', 'release', 'doc', 'task', 'knowledge', 'doctor'];
 
-// The detected persona (ACME when the package name contains "acme") comes first; any other can be picked.
-async function choosePersona(detected: 'acme' | 'unknown'): Promise<string | null> {
+// The persona matched by the package name (its "match" field) comes first; any other can be picked.
+async function choosePersona(detected: string | null): Promise<string | null> {
   const personas = await listPersonas();
   const ordered = [...personas].sort((a, b) => (a.name === detected ? -1 : b.name === detected ? 1 : a.name.localeCompare(b.name)));
 
-  const choice = await select<string>(detected === 'acme' ? 'Persona (detectada: acme):' : 'Qual persona este projeto segue?', [
+  const choice = await select<string>(detected ? `Persona (detectada: ${detected}):` : 'Qual persona este projeto segue?', [
     ...ordered.map((persona) => ({ name: `${persona.name} (${persona.source})`, value: persona.name })),
     { name: 'Nenhuma por enquanto', value: NO_PERSONA },
   ]);
@@ -41,14 +41,14 @@ export async function runInit(): Promise<void> {
   const pkg = await readJson<PackageJson>('package.json');
   const projectName = pkg?.name ?? path.basename(process.cwd());
 
-  const projectType = await detectProject();
+  const detected = await findPersonaForPackage(await readPackageName());
   const stack = await detectStack();
 
   console.log(`\nProjeto: ${projectName}`);
-  console.log(`Tipo: ${projectType === 'acme' ? 'ACME' : 'não identificado'}`);
+  console.log(`Persona detectada: ${detected ?? 'nenhuma (escolha abaixo)'}`);
   console.log(`Stack: ${stack.join(', ') || 'não identificada'}`);
 
-  const personaName = await choosePersona(projectType);
+  const personaName = await choosePersona(detected);
   if (!personaName) {
     console.log('Sem persona por enquanto. Rode "kvasir init" de novo quando quiser escolher uma (veja "kvasir persona list").');
     return;
@@ -59,7 +59,7 @@ export async function runInit(): Promise<void> {
   const context: KvasirContext = {
     project: {
       name: projectName,
-      type: projectType === 'acme' ? 'ACME' : 'unknown',
+      type: detected ?? 'unknown',
       stack,
       persona: persona.name,
     },
@@ -67,7 +67,7 @@ export async function runInit(): Promise<void> {
       profile: path.join(getKvasirHome(), 'profile.md'),
     },
     branchRules: {
-      pattern: persona.name === 'acme' ? 'Git Flow ACME' : 'Git Flow',
+      pattern: persona.name === 'default' ? 'Git Flow' : `Git Flow (${persona.name})`,
       prefix: persona.branchRules.map((rule) => rule.prefix).join(' '),
       language: persona.language,
     },
@@ -78,7 +78,7 @@ export async function runInit(): Promise<void> {
     },
     activeModules: ACTIVE_MODULES,
     activeTask: await readExistingTask(),
-    summary: `${projectName} (${projectType}) — stack: ${stack.join(', ')}`,
+    summary: `${projectName} (${persona.name}) — stack: ${stack.join(', ')}`,
   };
 
   console.log('\nIsso vai escrever o kvasir.context.md e gerar as instruções para as IAs (CLAUDE.md, Copilot, Cursor).');

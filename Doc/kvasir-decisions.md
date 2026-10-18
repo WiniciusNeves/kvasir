@@ -77,17 +77,17 @@
 
 **Decisão:**
 - **Stack** pelas dependências: `expo` → mobile, `next` → web, `express`/`fastify` → API
-- **Persona ACME** se o `name` do `package.json` **contém** `acme` em qualquer posição
+- **Persona** pelo campo `match` de cada persona: se algum trecho aparece no `name` do `package.json`, ela vem sugerida no `init`
 
-**Por quê:** O nome dos projetos varia (`app_acmeexample`, `acme-web-app`...). As dependências são confiáveis para a stack.
+**Por quê:** O nome dos projetos de uma empresa varia, mas costuma ter um trecho em comum (a sigla da empresa). As dependências são confiáveis para a stack.
 
 ---
 
-## Templates de `CLAUDE.md` por stack
+## Templates de `CLAUDE.md` por persona e stack, fora do repositório
 
-**Decisão:** Dois templates separados, `acme-mobile.md` e `acme-web.md`, em `src/personas/templates/`, copiados para `dist/` no build.
+**Decisão:** (revista em 2026-10-17) Templates em `~/.kvasir/templates/<persona>-mobile.md` e `<persona>-web.md`, na máquina de quem usa. O Kvasir não traz nenhum template de empresa.
 
-**Por quê:** As regras de RN/Expo e de Next.js são muito diferentes; um template único seria genérico demais.
+**Por quê:** As regras de RN/Expo e de Next.js são muito diferentes, então continua um template por stack. Mas eles descrevem a arquitetura de uma empresa: são pessoais e não podem ir para um repositório open source.
 
 ---
 
@@ -95,7 +95,7 @@
 
 **Decisão:** As mensagens, perguntas e confirmações do Kvasir são em português. Commits, nomes de branch e código são em inglês.
 
-**Por quê:** A interface em português reduz a fricção para o dev. Commits em inglês são o padrão da ACME e do mercado.
+**Por quê:** A interface em português reduz a fricção para o dev. Commits em inglês são o padrão do mercado (e a persona pode mudar isso).
 
 ---
 
@@ -205,7 +205,7 @@
 
 ## A persona manda nas convenções de branch e commit
 
-**Decisão:** (2026-10-17) Prefixos de branch (com a descrição de cada um), idioma da branch e idioma do commit vêm da persona do projeto (`kvasir.context.md` + `~/.kvasir/personas/`). O código não tem mais a lista ACME fixa (o `adapters/claude.ts` também carrega a persona pelo `personaLoader`).
+**Decisão:** (2026-10-17) Prefixos de branch (com a descrição de cada um), idioma da branch e idioma do commit vêm da persona do projeto (`kvasir.context.md` + `~/.kvasir/personas/`). O código não tem mais a lista de prefixos fixa (o `adapters/claude.ts` também carrega a persona pelo `personaLoader`).
 
 **Por quê:** Era a regra do CLAUDE.md ("não deixe regras de persona no código") e é o que permite o produto B2B (persona por empresa). Testando uma persona em português, o qwen2.5-coder ainda escreve parte das branches em inglês (2 de 3 saíram em português); o "Editar" resolve e a rejeição fica nas métricas para o router escolher melhor no futuro.
 
@@ -216,6 +216,14 @@
 **Decisão:** (2026-10-17) Gemini Flash e Groq entram no router antes do Ollama só quando há chave em variável de ambiente **e** o usuário autorizou o envio (`ai.cloud`, perguntado uma vez). O `guard` nunca vai para a nuvem e o `architect` fica no deepseek-r1 local. Qualquer falha cai para o próximo candidato, terminando no Ollama.
 
 **Por quê:** Prompts levam código da empresa (fintech): sair da máquina precisa ser escolha explícita. Chave em variável de ambiente não vai para o repositório (o projeto é open source: cada pessoa usa a própria chave) nem para o `config.json`, que é fácil de sincronizar ou compartilhar sem querer. O fallback para o Ollama também cobre o fim do limite grátis (429) sem custo. Com isso, o `daily` (decisão anterior de usar `askLocal`) passa a ir para o Gemini quando a nuvem está permitida: continua sem idas ao Claude.
+
+---
+
+## Open source: nada pessoal ou de empresa no repositório
+
+**Decisão:** (2026-10-17) O Kvasir traz só a persona `default` (neutra). Personas de empresa, templates de `CLAUDE.md`, `profile.md`, métricas, knowledge e chaves ficam em `~/.kvasir` / variáveis de ambiente, na máquina de cada pessoa. Exemplos em código e docs usam nomes genéricos.
+
+**Por quê:** O projeto é open source. A persona e os templates que existiam no código descreviam a empresa do autor; o perfil é pessoal. Eles foram movidos para o `~/.kvasir` do autor e saíram do repositório (o documento antigo de visão, cheio de nomes de projetos reais, foi para o `.gitignore`).
 
 ---
 

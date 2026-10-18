@@ -32,7 +32,7 @@
 | IA | `src/ai/` | Toda comunicação com modelos (router, Ollama, clipboard) |
 | Utils | `src/utils/` | Helpers puros: git, fs, prompts, editor, typecheck, process (comandos sem shell), feedback, erros |
 | Adapters | `src/adapters/` | Gerar o arquivo de instruções de cada IA a partir do `kvasir.context.md` |
-| Personas | `src/personas/` | Regras de cada empresa/time (ACME) e templates de `CLAUDE.md` |
+| Personas | `src/personas/` | Só a persona `default` (neutra); as de empresa e seus templates ficam em `~/.kvasir` |
 | Integrations | `src/integrations/` | APIs externas (Planner) |
 | Types | `src/types/` | Todos os tipos, importados via `@ktypes/*` |
 
@@ -62,8 +62,7 @@ kvasir/
 │   │   └── parse.ts         # parse defensivo das respostas
 │   ├── adapters/            # claude.ts, copilot.ts, cursor.ts
 │   ├── personas/
-│   │   ├── acme.ts
-│   │   └── templates/       # acme-mobile.md, acme-web.md (copiados para dist/ no build)
+│   │   └── default.ts       # única persona embutida (neutra)
 │   ├── integrations/planner.ts
 │   ├── utils/               # git, fs, prompt, editor, typecheck, process, diff, imports, feedback, errors
 │   └── types/               # context, persona, feedback, knowledge, task
@@ -166,7 +165,8 @@ askFor('fix', prompt)
 ~/.kvasir/
 ├── profile.md              # perfil do dev (atualizado pelo kvasir learn)
 ├── backups/fix/            # backups do último kvasir fix + last-fix.json (usado pelo --undo)
-├── personas/acme.json       # salvo na 1ª vez a partir de src/personas/acme.ts
+├── personas/<nome>.json    # personas (as de empresa são pessoais; a default é salva aqui no 1º uso)
+├── templates/<persona>-mobile.md / -web.md  # templates de CLAUDE.md da empresa (opcionais, pessoais)
 ├── feedback/
 │   ├── commits.md          # aprovações/rejeições do commit
 │   ├── fixes.md            # aprovações/rejeições do fix
@@ -189,11 +189,11 @@ askFor('fix', prompt)
 ## Fluxo de cada comando
 
 ### `kvasir init`
-1. Lê o `package.json`. Se o `name` **contém** `acme`, o projeto é ACME (a persona acme vem primeiro na lista).
+1. Lê o `package.json`; `findPersonaForPackage` sugere a persona cujo `match` aparece no `name` (ela vem primeiro na lista).
 2. Detecta a stack pelas deps: `next` → Next.js · `expo` → React Native + Expo · `express`/`fastify` → Node.js API · sempre TypeScript.
 3. O usuário escolhe a persona (`listPersonas`: embutidas + `~/.kvasir/personas/*.json`) ou "nenhuma" (para sem escrever nada). `loadPersona` valida o JSON com zod.
 4. Pede `confirm()` e então escreve `kvasir.context.md` (prefixos, idioma de branch e de commit vêm da persona; a task ativa existente é mantida) e roda os 3 adapters.
-5. `CLAUDE.md` usa o template `acme-mobile.md` (se tem `expo`) ou `acme-web.md` (se tem `next`), ou um corpo gerado (scripts, árvore de pastas, regras).
+5. `CLAUDE.md` usa `~/.kvasir/templates/<persona>-mobile.md` (se tem `expo`/`react-native`) ou `<persona>-web.md` (se tem `next`), quando existem; senão, um corpo gerado (scripts, árvore de pastas, regras e a seção da persona).
 
 ### `kvasir commit`
 1. Lê `git diff --cached`. Se estiver vazio, oferece `git add -A`.
@@ -211,7 +211,7 @@ askFor('fix', prompt)
 5. Ao ignorar/continuar, oferece gravar no `.kvasirignore`: arquivo pelo caminho e valores por `hash:<sha256>` (nunca o segredo em texto). Entradas manuais: glob de caminho, `rule:<id>`, `match:<texto>`.
 
 ### `kvasir pr`
-1. Branch atual; base sugerida pelo Git Flow ACME (`hotfix/` e `release/` → main/master, o resto → develop), local ou `origin/`, só as que existem; se houver mais de uma, o usuário escolhe.
+1. Branch atual; base sugerida pelo Git Flow (`hotfix/` e `release/` → main/master, o resto → develop), local ou `origin/`, só as que existem; se houver mais de uma, o usuário escolhe.
 2. Fatos por código (`pr/description.ts`): commits `base..HEAD`, `git diff --stat` e diff `base...HEAD` (até 10k), tipo pelo prefixo da branch (`feature/` → `feat`), "mexeu em tela" (`.tsx/.jsx` em `screens/`, `components/`, `pages/`, `app/`…), task ativa.
 3. `askFor('pr', temperature 0.3)` (com as preferências do `profile.md`) devolve `TITULO:`, `## O que mudou` e `## Como testar`; `parsePrDraft` garante o prefixo do tipo e no máx. 72 caracteres.
 4. `buildPrBody` monta o markdown: o que mudou · como testar · prints/vídeos (só com mudança de tela) · checklist (testes, lint, tipos) · task · commits (em `<details>`).
@@ -243,7 +243,7 @@ askFor('fix', prompt)
 6. Falhou → `buildFixPrompt` com a saída: erro de import/sintaxe/tipo é sempre culpa do teste; se uma asserção de comportamento falhou e o código está claramente errado, a IA responde `BUG: …` → o teste fica falhando como evidência e vai para `knowledge/errors/bugs-encontrados-por-testes.md`. Até 3 tentativas; depois, manter ou apagar.
 
 ### `kvasir persona`
-- `list`: embutidas (acme) + personalizadas em `~/.kvasir/personas/` (uma embutida editada aparece como "embutida, personalizada").
+- `list`: embutida (`default`) + personalizadas em `~/.kvasir/personas/` (uma embutida editada aparece como "embutida, personalizada").
 - `show <nome>`: stack, padrão de repositório, prefixos de branch com descrição e idioma, convenção e idioma de commit.
 - `create`: nome (slug), copiar uma persona existente ou começar do zero, stack, prefixos (pergunta para que serve cada prefixo novo: é o que o prompt da branch usa), idioma de branch e de commit, padrão de repositório → confirma → salva.
 - `remove <nome>`: personalizada → apaga; embutida → apaga só a cópia local (volta à versão embutida).

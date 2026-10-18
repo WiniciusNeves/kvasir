@@ -46,7 +46,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | Comando | O que faz | Status |
 |---|---|---|
 | `kvasir init` | Detecta o projeto (deps do `package.json`), deixa escolher a persona e gera `kvasir.context.md`, `CLAUDE.md`, `.github/copilot-instructions.md` e `.cursor/rules` | ✅ |
-| `kvasir persona list \| show \| create \| remove` | Personas = convenções de uma empresa (prefixos e idioma de branch, idioma de commit, padrão de repositório). A ACME vem embutida; crie outras copiando uma existente | ✅ |
+| `kvasir persona list \| show \| create \| remove` | Personas = convenções de uma empresa (prefixos e idioma de branch, idioma de commit, padrão de repositório). Vem só a `default` (neutra); a persona da sua empresa fica no seu `~/.kvasir/personas/` (pessoal, fora do git) | ✅ |
 | `kvasir commit` | Roda o `guard`, lê o diff staged e sugere uma mensagem Conventional Commits em inglês; depois mostra um menu (push, undo, log, merge). `--no-guard` pula a checagem | ✅ |
 | `kvasir guard` | Procura segredos (chaves AWS/Google/GitHub/Stripe, JWT, senhas), arquivos proibidos (`.env`, chaves, Firebase) e dados pessoais (cartão, CPF, CNPJ) no stage; strings aleatórias suspeitas vão para a IA. Exceções em `.kvasirignore` | ✅ |
 | `kvasir branch` | Descreve a tarefa e ele gera o nome da branch no Git Flow. `-l` lista, `-d` deleta | ✅ |

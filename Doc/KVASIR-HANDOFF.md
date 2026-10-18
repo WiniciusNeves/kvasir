@@ -103,7 +103,7 @@ Fase 2 commitada em `42ee7d0`. Os testes da Fase 3 rodaram com `USERPROFILE` tem
 | `review` | qwen2.5-coder não viu um `<=` fora do array, repetiu o mesmo item 10x e inventou "falta tipo" | `review/checks.ts`: checagens determinísticas nas linhas adicionadas (segredo, `<= .length`, `any`, `console.log`, `debugger`) com nº da linha; prompt com o que já foi achado; `repeat_penalty` 1.2 + `maxTokens` 700; itens sem duplicata, máx. 10 | Os 3 problemas achados com a linha exata; a IA respondeu "Nenhum problema encontrado." em vez de inventar |
 | `task` | Erro cru do axios (`status code 401`); dizia "rode kvasir branch para vincular a task", mas nada era gravado; resposta da API sem validação | Mensagens em português; zod valida `{ id, title, status }`; confirmação grava `## Active task` (`setActiveTask`, só essa seção) | Testado com Planner falso: lista, escolhe, grava |
 | `start` | `ECONNREFUSED` abortava o resumo do dia | Falha do Planner vira aviso; resumo segue até "Pronto para trabalhar" | ok com e sem API, com servidor fora e com token errado |
-| `branch` | Não usava a task | Descrição pré-preenchida com a task ativa; branch criada é gravada em `linked branch` | Testado: `feature/google-login` vinculada a `ACME-42` |
+| `branch` | Não usava a task | Descrição pré-preenchida com a task ativa; branch criada é gravada em `linked branch` | Testado: `feature/google-login` vinculada a `TASK-42` |
 | `learn` | Salvava a frase "Aqui está…" e as cercas ``` dentro do `profile.md`; prompt em inglês; feedback sem limite | `extractProfile`; prompt em português; últimos 150 registros | `profile.md` salvo limpo; sem feedback, mensagem clara |
 | `knowledge` | Título com `/` e `:` criava subpasta + **stream NTFS**: a nota sumia do `show`/`search`; sobrescrevia sem avisar; conteúdo de 1 linha; `link` duplicava | Nome seguro `[a-z0-9-]`; pergunta antes de substituir; conteúdo pelo clipboard; link sem duplicar; `search` mostra a linha | add/show/search/link ok |
 | `doc <lib>` | (achado junto) `@tanstack/react-query` criaria subpasta `@tanstack/` | `toLibFileName` → `tanstack__react-query.md` | — |
@@ -181,10 +181,10 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | `kvasir setup` (detecta Node/Git/Ollama, baixa modelos, cria `~/.kvasir`), .exe/Docker | ❌ | `doctor` | M |
 | | `~/.kvasir` sincronizado, servidor 24h + Tailscale | ❌ (infra, quase sem código) | — | B |
 | | Contexto entre Claudes via `CLAUDE.md`/`kvasir.context.md` | ✅ (adapters) | — | — |
-| | Personas: criar/listar/remover | 🟡 só ACME; `loadPersona`/`savePersona` existem, sem comando | — | B |
+| | Personas: criar/listar/remover | 🟡 só a embutida; `loadPersona`/`savePersona` existem, sem comando | — | B |
 | | Open source: LICENSE | ❌ (repo sem LICENSE) | decisão do usuário | B |
 | **14 Tarefas** | Planner | 🟡 GET genérico com Bearer, testado com servidor falso; **Microsoft Planner real usa Graph API + OAuth**, não integrado | conta Microsoft | M |
-| | Task manager da ACME | ❌ | API da ACME | M |
+| | Task manager próprio da empresa | ❌ | API da empresa | M |
 | | Task ativa ↔ branch ↔ contexto | ✅ (Fase 3) | — | — |
 | | `kvasir start` | ✅ | — | — |
 | | `kvasir docs update` | ❌ | knowledge + `doc --code` | M |
@@ -199,7 +199,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | **E: conversa** | `intent.ts` → proatividade → `kvasir watch` | Módulos estáveis antes de expor por linguagem natural |
 | **F: memória e entrega** | OmniContext (MVP: `knowledge/` + `Doc/`) → `kvasir deploy` → `docs update` | O OmniContext vem depois do router e do knowledge |
 | **G: autonomia** | Níveis de autonomia → auto-melhoria em branch → plugins | Exige testes automatizados (hoje não há nenhum) |
-| **H: desktop e infra** | Widget (Electron × Tauri) · `setup`/.exe · sync · servidor 24h + Tailscale · Planner via Graph · task manager ACME · LICENSE | O widget usa tudo o que vem antes |
+| **H: desktop e infra** | Widget (Electron × Tauri) · `setup`/.exe · sync · servidor 24h + Tailscale · Planner via Graph · task manager da empresa · LICENSE | O widget usa tudo o que vem antes |
 
 ---
 
@@ -212,7 +212,7 @@ Testes com USERPROFILE temporário (o `~/.kvasir` real não foi tocado) e modelo
 | Conflito: `review/checks.ts` | Removido. Prompt com um id por linha adicionada (`L1…`) e veredito obrigatório por linha + exemplo; `utils/diff.ts` dá o número real da linha | qwen2.5-coder: de "nenhum problema" para achar off-by-one, chave no código, `console.log`, `fetch` sem tratamento, em 2 arquivos, com `arquivo:linha` certo. deepseek-r1 não serve para review (gasta tudo pensando) |
 | Conflito: classificação do `fix` | `classifyError` voltou; complexo vai direto para `askFor('architect')` (timeout 300s) com arquivo, imports resolvidos (`utils/imports.ts`, entende `paths` do tsconfig com comentários), tsconfig, versões e "arquivos com o mesmo nome" para import que não resolve; simples que falha escala sozinho; clipboard com erro do tsc é usado sem perguntar | TS6137: zero perguntas. TS2307 (`@/utils/money` × `src/util/money.ts`): deepseek-r1 achou a causa (`utils` × `util`) só depois que o contexto ganhou os arquivos de mesmo nome |
 | Métricas | `ai/metrics.ts` + `askOllamaDetailed` (tokens); `recordOutcome` em commit, branch, review, fix e doc; Claude registrado com tamanho e tempo | `kvasir models` mostra tempo, tokens e aprovação por tarefa × modelo e "4 idas ao Claude, ~2.300 tokens" para 2 tarefas |
-| Knowledge v2 | `knowledge/notes.ts` (frontmatter, `index.md` gerado, `errors/`, `agents/`) + `auto.ts` (notas de fix, expansão, investigação útil, commit, task, branch, review útil, learn → agentes, doc) | Fluxo completo gerou `errors/ts6137.md`, `tasks/acme-42.md`, `commits/kvr.md`, `patterns/review-kvr.md`, `agents/qwen2-5-coder.md` e o índice |
+| Knowledge v2 | `knowledge/notes.ts` (frontmatter, `index.md` gerado, `errors/`, `agents/`) + `auto.ts` (notas de fix, expansão, investigação útil, commit, task, branch, review útil, learn → agentes, doc) | Fluxo completo gerou `errors/ts6137.md`, `tasks/task-42.md`, `commits/kvr.md`, `patterns/review-kvr.md`, `agents/qwen2-5-coder.md` e o índice |
 | `profile.md` vivo | Router injeta "Preferências aprendidas" em commit/branch/review/doc | Verificado: entra no commit, fica fora do fix |
 
 ### Pendências da onda A
@@ -261,7 +261,7 @@ Arquivos: `src/modules/pr/{index,description}.ts`, `src/cli/pr.ts`; `utils/git.t
 - Base sugerida `develop` (e `main` para `hotfix/`), tipo `feat`, tela detectada
 - qwen2.5-coder real: título "feat: Adiciona login com Google", mudanças e passos de teste corretos na 1ª tentativa
 - CLI: escolher base, gerar de novo (métricas: rejeitado → aprovado), copiar (clipboard com acentos certos)
-- Criar: `gh` falso + `origin` local → `push -u` confirmado, `gh pr create --base develop --head feature/google-login --title … --body-file …`, temporário apagado, URL na nota `tasks/acme-42.md`
+- Criar: `gh` falso + `origin` local → `push -u` confirmado, `gh pr create --base develop --head feature/google-login --title … --body-file …`, temporário apagado, URL na nota `tasks/task-42.md`
 - **Bug encontrado e corrigido:** a opção "Criar o PR" aparecia sem o `gh` instalado (detecção por código de saída errada; ver correção no doctor)
 
 **Pendências:** não testei com o `gh` real (criaria um PR de verdade) nem a opção "editar" (abre editor externo).
@@ -274,7 +274,7 @@ Arquivos: `src/modules/daily/{index,config,summary}.ts`, `src/cli/daily.ts`; `ut
 
 **Testado:**
 - Período: seg → sexta, ter → ontem, sáb → ontem (sexta), dom → sexta; `--since` repassado ao git
-- 2 repos descartáveis: `app-acme` 3 commits (inclui o da branch `feature/profile`), `api-acme` 2; o commit do colega e o de 10 dias atrás ficaram de fora
+- 2 repos descartáveis: `app-loja` 3 commits (inclui o da branch `feature/profile`), `api-loja` 2; o commit do colega e o de 10 dias atrás ficaram de fora
 - `--repos` salvou a lista em `config.json`; copiou a daily; nota em `knowledge/commits/daily.md`
 - Prompt melhorado depois do 1º teste: "cart" virava "cartão" e sobrava " - " depois de `[repo]`; com exemplo de formato e "traduza o sentido" o llama3.2 escreveu "Corrigi o travamento ao abrir o carrinho vazio"
 
@@ -316,7 +316,7 @@ Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.
 
 **Recorrência no `fix`:** `recentErrorOccurrences` (`knowledge/auto.ts`) conta as ocorrências de um código em `knowledge/errors/<código>.md` nos últimos 7 dias. A partir da 3ª, o `fix` avisa ("🔁 Este é o 3º TS6137…", com arquivos de exemplo) e oferece investigar a causa comum com o `architect` (histórico + tsconfig + versões). Testado: TS6137 provocado 3 vezes → aviso na 3ª; deepseek-r1 real respondeu "importe do pacote, não de `@types/`".
 
-**Personas:** `kvasir persona list/show/create/remove` (`modules/persona`), validação zod no `personaLoader`, `init` escolhe a persona e mantém a task ativa, `branch` e `commit` seguem a persona, `adapters/claude.ts` carrega a persona do projeto. Testado: criar `empresa-x` (prefixos `feat/ bug/ chore/`, português) copiando a ACME, JSON corrompido recusado, reset da embutida, nome repetido recusado, `init` gravando a persona no `kvasir.context.md` e no `CLAUDE.md`, qwen2.5-coder usando `bug/` e commit em português.
+**Personas:** `kvasir persona list/show/create/remove` (`modules/persona`), validação zod no `personaLoader`, `init` escolhe a persona e mantém a task ativa, `branch` e `commit` seguem a persona, `adapters/claude.ts` carrega a persona do projeto. Testado: criar `empresa-x` (prefixos `feat/ bug/ chore/`, português) copiando a persona embutida, JSON corrompido recusado, reset da embutida, nome repetido recusado, `init` gravando a persona no `kvasir.context.md` e no `CLAUDE.md`, qwen2.5-coder usando `bug/` e commit em português.
 
 **Limite conhecido:** com persona em português, o qwen2.5-coder ainda escreve algumas branches em inglês (comparado com o llama3.2, que foi pior).
 
@@ -335,6 +335,19 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+---
+
+## Kvasir genérico: persona da empresa fora do repositório
+
+O projeto é open source: a persona da empresa do autor e os templates de `CLAUDE.md` dela saíram de `src/`. Antes disso foram guardados na máquina do autor (`~/.kvasir/templates/` e `~/.kvasir/personas/`, com o campo `match` para continuar sendo detectada; backup do JSON antigo em `.bak`).
+
+- Embutida agora só a `default` (`src/personas/default.ts`): Git Flow + Conventional Commits em inglês
+- `match` (opcional) na persona substitui a regra fixa "nome do pacote contém a sigla da empresa"; `findPersonaForPackage` no `init`
+- Templates: `~/.kvasir/templates/<persona>-<mobile|web>.md`, de qualquer persona
+- O build não copia mais templates para `dist/`
+- `kvasir-architecture.md` da raiz (visão antiga com nomes de projetos reais) saiu do git e foi para o `.gitignore`; o arquivo continua no disco
+- **Histórico do git:** os arquivos antigos da persona continuam nos commits anteriores (inclusive no GitHub); tirar de lá exige reescrever o histórico (decisão do autor)
 
 ---
 

@@ -3,11 +3,12 @@ import path from 'path';
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { readJson, writeFile, pathExists, removeFile } from '@utils/fs';
-import { acmePersona } from '../../personas/acme';
+import { defaultPersona } from '../../personas/default';
 import type { Persona } from '@ktypes/persona';
 
+// Only neutral personas ship with Kvasir; company personas live in ~/.kvasir/personas (personal, never in git).
 const builtInPersonas: Record<string, Persona> = {
-  acme: acmePersona,
+  default: defaultPersona,
 };
 
 // Custom personas are JSON files people edit by hand: validate instead of trusting them.
@@ -18,6 +19,7 @@ const personaSchema = z.object({
   branchRules: z.array(z.object({ prefix: z.string().min(1), description: z.string() })).min(1),
   commitRules: z.object({ convention: z.string(), language: z.string(), format: z.string(), types: z.array(z.string()) }),
   language: z.string(),
+  match: z.array(z.string()).optional(),
 });
 
 export type PersonaSource = 'embutida' | 'personalizada' | 'embutida, personalizada';
@@ -88,4 +90,20 @@ export async function removePersona(name: string): Promise<void> {
 
 export async function personaFileExists(name: string): Promise<boolean> {
   return pathExists(personaPath(name));
+}
+
+// The persona whose "match" substrings appear in the package name (e.g. "acme-app" → persona with match ["acme"]).
+export async function findPersonaForPackage(packageName: string | null): Promise<string | null> {
+  if (!packageName) return null;
+  const lower = packageName.toLowerCase();
+
+  for (const item of await listPersonas()) {
+    try {
+      const persona = await loadPersona(item.name);
+      if (persona.match?.some((fragment) => fragment && lower.includes(fragment.toLowerCase()))) return persona.name;
+    } catch {
+      // an invalid custom persona must not break init: it just isn't matched
+    }
+  }
+  return null;
 }

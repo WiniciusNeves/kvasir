@@ -1,3 +1,4 @@
+import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { readContext } from '@modules/init/contextWriter';
@@ -20,29 +21,28 @@ interface TsconfigJson {
 
 interface TemplateInfo {
   label: string;
-  fileName: string;
+  // absolute path of the template file
+  path: string;
 }
 
 const IGNORED_ENTRIES = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.turbo', 'coverage']);
 const MAX_TREE_DEPTH = 2;
-const TEMPLATES_DIR = path.join(__dirname, '../personas/templates');
 const HEADER_START = '<!-- kvasir:header:start -->';
 const HEADER_END = '<!-- kvasir:header:end -->';
 
-function getTemplatePath(fileName: string): string {
-  return path.join(TEMPLATES_DIR, fileName);
+// Company CLAUDE.md templates are personal (they describe a company's architecture), so they are
+// never shipped with Kvasir: ~/.kvasir/templates/<persona>-mobile.md or <persona>-web.md.
+function getTemplatesDir(): string {
+  return path.join(os.homedir(), '.kvasir', 'templates');
 }
 
-function resolveTemplate(pkg: PackageJson): TemplateInfo | null {
+function resolveTemplate(pkg: PackageJson, personaName: string): TemplateInfo | null {
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const kind = deps.expo || deps['react-native'] ? 'mobile' : deps.next ? 'web' : null;
+  if (!kind || !personaName) return null;
 
-  if (deps.expo) {
-    return { label: 'ACME Mobile (React Native + Expo)', fileName: 'acme-mobile.md' };
-  }
-  if (deps.next) {
-    return { label: 'ACME Web (Next.js)', fileName: 'acme-web.md' };
-  }
-  return null;
+  const file = path.join(getTemplatesDir(), `${personaName}-${kind}.md`);
+  return fs.pathExistsSync(file) ? { label: `${personaName} ${kind}`, path: file } : null;
 }
 
 async function buildDirectoryTree(dir: string, depth: number = 0, prefix: string = ''): Promise<string[]> {
@@ -107,7 +107,7 @@ function buildHeader(
   ctx: KvasirContext,
   pkg: PackageJson,
   paths: Record<string, string[]> | undefined,
-  template: (TemplateInfo & { path: string }) | null
+  template: TemplateInfo | null
 ): string {
   const lines: string[] = [];
 
@@ -115,7 +115,7 @@ function buildHeader(
   lines.push(`# CLAUDE.md — ${ctx.project.name}`, '');
   lines.push(`- Persona: ${ctx.project.persona}`);
   if (template) {
-    lines.push(`- Template: ${template.label} — ${template.path}`);
+    lines.push(`- Template: ${template.label} — ~/.kvasir/templates/${path.basename(template.path)}`);
   }
   lines.push(`- Stack: ${ctx.project.stack.join(', ') || 'unknown'}`, '');
 
@@ -213,21 +213,14 @@ export async function writeClaude(): Promise<void> {
   const tsconfig = await readJson<TsconfigJson>('tsconfig.json');
   const paths = tsconfig?.compilerOptions?.paths;
 
-  const template = ctx.project.persona === 'acme' ? resolveTemplate(pkg) : null;
-  const templateRelativePath = template ? `src/personas/templates/${template.fileName}` : null;
-
-  const header = buildHeader(
-    ctx,
-    pkg,
-    paths,
-    template && templateRelativePath ? { ...template, path: templateRelativePath } : null
-  );
+  const template = resolveTemplate(pkg, ctx.project.persona);
+  const header = buildHeader(ctx, pkg, paths, template);
 
   const existingContent = await readFile('CLAUDE.md');
   let body = extractPreservedBody(existingContent);
 
   if (body === null) {
-    body = template ? ((await readFile(getTemplatePath(template.fileName))) ?? '') : await buildFallbackBody(ctx, pkg, await loadProjectPersona(ctx));
+    body = template ? ((await readFile(template.path)) ?? '') : await buildFallbackBody(ctx, pkg, await loadProjectPersona(ctx));
   }
 
   const content = `${header}\n\n${body}`.trimEnd() + '\n';

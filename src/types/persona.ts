@@ -22,6 +22,8 @@ export interface Persona {
   branchRules: PersonaBranchRule[];
   commitRules: PersonaCommitRules;
   language: string;
+  // substrings of the package.json name that select this persona in `kvasir init` (e.g. ["acme"])
+  match?: string[];
 }
 
 export interface PersonaStore {

@@ -37,7 +37,7 @@ async function chooseBase(branch: string): Promise<string> {
 
   return select<string>(
     'Branch base do PR:',
-    available.map((ref, index) => ({ name: index === 0 ? `${ref} (sugerida pelo Git Flow ACME)` : ref, value: ref }))
+    available.map((ref, index) => ({ name: index === 0 ? `${ref} (sugerida pelo Git Flow)` : ref, value: ref }))
   );
 }
 

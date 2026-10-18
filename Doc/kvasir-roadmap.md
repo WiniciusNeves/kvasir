@@ -73,8 +73,8 @@ Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboa
 
 ## Fase 5: `kvasir deploy`
 
-- **ACME Mobile:** EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, com mensagem no estilo commit)
-- **ACME Web:** build + deploy (Vercel ou outro)
+- **Mobile (Expo):** EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, com mensagem no estilo commit)
+- **Web:** build + deploy (Vercel ou outro)
 - Detecta o tipo de projeto automaticamente
 
 ---
@@ -92,4 +92,4 @@ Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboa
 - Extensão VS Code
 - Plugins em `~/.kvasir/plugins/` e auto-melhoria
 - Sync na nuvem (pago) · personas B2B
-- Integrações: task manager próprio da ACME, GitHub Actions, servidor de IA centralizado
+- Integrações: task manager próprio da empresa, GitHub Actions, servidor de IA centralizado

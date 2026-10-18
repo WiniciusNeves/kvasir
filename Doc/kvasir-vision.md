@@ -69,7 +69,7 @@ Cada agente tem contexto isolado e o modelo mais adequado. Um gerenciador de tar
 ### 8. Plataforma
 - **Plugins:** `~/.kvasir/plugins/`, que qualquer pessoa pode criar e compartilhar
 - **Auto-melhoria:** o Kvasir analisa o próprio uso e propõe melhorias no próprio código (com aprovação)
-- **Personas por empresa:** a ACME é o primeiro exemplo
+- **Personas por empresa:** cada empresa cria a sua; o Kvasir traz só uma neutra
 - **Extensão VS Code** e Kvasir rodando no CI (GitHub Actions)
 - **Servidor de IA pessoal,** acessível de qualquer lugar (celular, faculdade, trabalho)
 

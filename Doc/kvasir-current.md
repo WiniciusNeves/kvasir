@@ -12,7 +12,7 @@
 | `init` | ✅ funcionando | Escolhe a persona (a detectada primeiro), mantém a task ativa ao rodar de novo, mensagens em português |
 | `persona` | ✅ testado (2026-10-17) | list/show/create/remove; JSON validado com zod; a persona do projeto define prefixos/idioma de branch e idioma de commit |
 | `commit` | ✅ funcionando | Roda o `guard` antes (`--no-guard` pula); prompt com stat + diff limitado; menu pós-commit em loop |
-| `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow ACME, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
+| `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
 | `daily` | ✅ testado (2026-10-17) | 2 repos descartáveis: pegou só os commits do autor (inclusive em branch de feature), ignorou o do colega e o antigo; llama3.2 escreve o "Ontem" com exemplo de formato; copia e salva em `knowledge/commits/daily.md` |
 | `release` | ✅ testado (2026-10-17) | Repo Expo descartável: v1.4.2 → 1.5.0 (feat), CHANGELOG agrupado, indentação preservada, `versionCode`/`buildNumber` +1, commit + tag + push para remoto local; recusa stage sujo, tag repetida e "nada novo"; notas reescrevem só o que o usuário percebe |
 | `test` | ✅ testado (2026-10-17) | vitest e jest reais: testes passando de primeira em `cart.ts` e `slug.ts`; bug plantado (média dividindo por `length - 1`) detectado em 4 de 4 rodadas, com o teste salvo passando depois da correção |

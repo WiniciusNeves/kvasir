@@ -150,13 +150,13 @@ Gerenciador de tarefas e dashboard para ver o que cada IA faz.
 - `~/.kvasir` sincronizado entre PCs (link simbólico para Drive/OneDrive)
 - Servidor pessoal de IA (PC do dev, 24h) + Tailscale: acesso por celular/faculdade/trabalho; chat; modelos grandes com contexto de 256k
 - Compartilhar contexto entre Claudes pelo `CLAUDE.md` e `kvasir.context.md` (não há ligação direta entre contas)
-- Personas: criar, listar, remover; ACME é a primeira; outras empresas depois
+- Personas: criar, listar, remover; cada empresa tem a sua, na máquina de quem usa (o Kvasir só traz uma neutra)
 - Open source + B2B (personas por empresa) + sync de knowledge na nuvem (pago)
 - Visão: ajudar qualquer dev no mundo; democratizar acesso à IA
 
 ## 14. Integrações de tarefas
 
-- Microsoft Planner (agora), task manager próprio da ACME (API + banco) no futuro
+- Microsoft Planner (agora), task manager próprio da empresa (API + banco) no futuro
 - Task ativa vinculada ao branch e ao `kvasir.context.md`
 - `kvasir start` abre o dia: tasks, branch, contexto
 - `kvasir docs update` atualiza a documentação do projeto
