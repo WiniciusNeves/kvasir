@@ -15,7 +15,7 @@
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
-| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | 🔧 E1 ✅ · E2 ✅ (2026-10-18); falta E3 (erros de runtime) |
+| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1, E2 (PR #1, mergeado) e E3 (branch `feature/watch-runtime-errors`) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -337,6 +337,17 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+## Onda E3: `kvasir watch` também corrige erros de execução (2026-10-18)
+
+Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (parser), `src/modules/fix/runtime.ts` (correção + validação), `watch/index.ts` (`handleText`, `processRuntimeErrors`, provisórias), `findNewErrors`/`describeNewErrors` e regra de `catch` vazio em `fix/validate.ts`.
+- **Leitura** (determinística): exceções e testes que falham, com os frames que apontam para arquivos do projeto: V8/Node (`at fn (arquivo:linha:col)`, `file:///`), Next (`webpack-internal:///`, `arquivo (l:c) @ fn`), Vitest (`AssertionError`), Jest (`expect(received)…` + Expected/Received), Metro/React (`in Cart (at Cart.tsx:12)`, nome resolvido se só um arquivo tem esse nome). node_modules, internos do Node e URLs de bundle ficam de fora; sem frame do projeto → ignorado. Erros iguais no mesmo lugar contam uma vez (assinatura)
+- **Correção:** o modelo recebe o erro, o stack e o código de cada arquivo do stack (e, se o erro veio de um teste, os arquivos que o teste importa) e responde `ARQUIVO`/`LINHA`/linha corrigida, ou `NAO_DA`. Só pode mudar arquivo listado que não é teste
+- **Validação:** (1) recusa mudar o teste para ele passar e esconder o erro (`any`, `@ts-ignore`, `catch` vazio, comentar/apagar); (2) nenhum erro de tipo novo no projeto (se for TypeScript); (3) se o erro veio de um teste, roda o teste de novo: passou = **confirmada** (aprovado nas métricas), falhou = desfaz e 2ª tentativa com o motivo; senão roda os testes do arquivo e a correção fica **provisória**
+- **Provisória:** se o mesmo erro voltar enquanto o `watch` olha, o arquivo volta ao que era (só se ninguém mexeu depois), a chamada leva rejeição e a próxima tentativa recebe "o erro voltou depois desta correção". No fim, o `watch` lista as provisórias que ficaram (sem veredito nas métricas: não houve prova)
+- Erros de tipo continuam primeiro: projeto que não compila não tem erro de execução útil
+
+**Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
 
 ## Onda E2: `kvasir watch` corrige e valida sozinho (2026-10-18)
 

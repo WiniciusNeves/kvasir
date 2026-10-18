@@ -14,6 +14,7 @@ const HIDING_PATTERNS: { pattern: RegExp; reason: string }[] = [
   { pattern: /eslint-disable/, reason: 'desligou o lint (eslint-disable)' },
   { pattern: /\bas\s+any\b|:\s*any\b|<any>/, reason: 'usou any para calar o compilador' },
   { pattern: /\bas\s+unknown\s+as\b/, reason: 'usou "as unknown as" para forçar o tipo' },
+  { pattern: /catch\s*(\([^)]*\))?\s*\{\s*\}/, reason: 'engoliu o erro com um catch vazio' },
 ];
 
 function isComment(line: string): boolean {
@@ -44,11 +45,8 @@ function key(diagnostic: TscDiagnostic): string {
   return `${normalize(diagnostic.filePath)}|${diagnostic.code}|${diagnostic.message}`;
 }
 
-export function compareDiagnostics(before: TscDiagnostic[], after: TscDiagnostic[], target: TscDiagnostic): DiagnosticComparison {
-  const targetFixed = !after.some(
-    (diagnostic) => normalize(diagnostic.filePath) === normalize(target.filePath) && diagnostic.code === target.code && diagnostic.lineIndex === target.lineIndex
-  );
-
+// Errors in `after` that were not in `before` (counted: two equal errors are two).
+export function findNewErrors(before: TscDiagnostic[], after: TscDiagnostic[]): TscDiagnostic[] {
   const remaining = new Map<string, number>();
   for (const diagnostic of before) remaining.set(key(diagnostic), (remaining.get(key(diagnostic)) ?? 0) + 1);
   const newErrors: TscDiagnostic[] = [];
@@ -57,13 +55,22 @@ export function compareDiagnostics(before: TscDiagnostic[], after: TscDiagnostic
     if (count > 0) remaining.set(key(diagnostic), count - 1);
     else newErrors.push(diagnostic);
   }
+  return newErrors;
+}
+
+export function describeNewErrors(newErrors: TscDiagnostic[]): string {
+  const first = newErrors[0];
+  return `criou ${newErrors.length} erro(s) novo(s), ex.: ${first.code} em ${first.filePath}:${first.lineIndex + 1}: ${first.message}`;
+}
+
+export function compareDiagnostics(before: TscDiagnostic[], after: TscDiagnostic[], target: TscDiagnostic): DiagnosticComparison {
+  const targetFixed = !after.some(
+    (diagnostic) => normalize(diagnostic.filePath) === normalize(target.filePath) && diagnostic.code === target.code && diagnostic.lineIndex === target.lineIndex
+  );
+  const newErrors = findNewErrors(before, after);
 
   if (!targetFixed) return { ok: false, reason: 'o erro continua', targetFixed, newErrors };
-  if (newErrors.length > 0) {
-    const first = newErrors[0];
-    const reason = `criou ${newErrors.length} erro(s) novo(s), ex.: ${first.code} em ${first.filePath}:${first.lineIndex + 1}: ${first.message}`;
-    return { ok: false, reason, targetFixed, newErrors };
-  }
+  if (newErrors.length > 0) return { ok: false, reason: describeNewErrors(newErrors), targetFixed, newErrors };
   return { ok: true, reason: `erros no projeto: ${before.length} → ${after.length}`, targetFixed, newErrors };
 }
 

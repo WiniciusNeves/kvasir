@@ -217,7 +217,7 @@ Never use arrow functions for top-level exported functions.
 
 ## Automatic fixes (kvasir watch)
 
-`@modules/fix/auto` (`autoFixDiagnostic`) is the only path that writes a fix without asking. It must keep the three validation layers of `fix/validate.ts` (hiding check, whole-project diagnostics before × after, related tests), restore the file when one fails, and record the verdict (`recordOutcome`). Line rules, the line-fix prompt and the parser live in `fix/line.ts`; backups and undo in `fix/backup.ts` (shared with `kvasir fix`).
+`@modules/fix/auto` (`autoFixDiagnostic`, type errors) and `@modules/fix/runtime` (`autoFixRuntimeError`, exceptions and failing tests, parsed by `@utils/runtimeErrors`) are the only paths that write a fix without asking. Runtime fixes never touch test files; without a test to rerun they are provisional and `kvasir watch` undoes them if the same error comes back. It must keep the three validation layers of `fix/validate.ts` (hiding check, whole-project diagnostics before × after, related tests), restore the file when one fails, and record the verdict (`recordOutcome`). Line rules, the line-fix prompt and the parser live in `fix/line.ts`; backups and undo in `fix/backup.ts` (shared with `kvasir fix`).
 
 ## Proactive suggestions
 

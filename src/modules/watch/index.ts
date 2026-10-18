@@ -7,6 +7,13 @@ import type { TscDiagnostic } from '@utils/typecheck';
 import { spawnCommand } from '@utils/process';
 import { readUserConfig } from '@utils/userConfig';
 import { autoFixDiagnostic } from '@modules/fix/auto';
+import { autoFixRuntimeError } from '@modules/fix/runtime';
+import type { RuntimeAttempt } from '@modules/fix/runtime';
+import type { FixCall } from '@modules/fix/backup';
+import { recordOutcomeForCall } from '@ai/metrics';
+import { readFile, writeFile } from '@utils/fs';
+import { parseRuntimeErrors, isTestFile } from '@utils/runtimeErrors';
+import type { RuntimeError } from '@utils/runtimeErrors';
 import type { FixBackup } from '@modules/fix/backup';
 
 // kvasir watch: finds TypeScript errors (copied to the clipboard, or printed by a command it runs)
@@ -24,6 +31,16 @@ const MAX_BUFFER_CHARS = 200_000;
 // fix → recheck → fix what is left; a cap so a stubborn project cannot loop forever
 const MAX_ROUNDS = 5;
 
+// A runtime fix with no test to rerun: kept, and undone if the same error shows up again.
+interface PendingRuntimeFix {
+  label: string;
+  filePath: string;
+  original: string;
+  fixedContent: string;
+  call?: FixCall;
+  attempt?: RuntimeAttempt;
+}
+
 interface WatchSession {
   backups: FixBackup[];
   attemptsByError: Map<string, number>;
@@ -31,6 +48,9 @@ interface WatchSession {
   confirmBeforeApply: boolean;
   fixed: number;
   reverted: number;
+  // runtime: provisional fixes by error signature, and the last rejected attempt to tell the model
+  pending: Map<string, PendingRuntimeFix>;
+  lastRuntimeAttempt: Map<string, RuntimeAttempt>;
 }
 
 function wait(ms: number): Promise<void> {
@@ -143,8 +163,92 @@ async function fixTargets(targets: TscDiagnostic[], start: TscDiagnostic[], sess
   return baseline;
 }
 
+// The same error after a provisional fix: the fix did not work, put the file back.
+async function undoIfBack(error: RuntimeError, session: WatchSession): Promise<void> {
+  const pending = session.pending.get(error.signature);
+  if (!pending) return;
+  session.pending.delete(error.signature);
+
+  if ((await readFile(pending.filePath)) !== pending.fixedContent) {
+    console.log(`⚠️  ${pending.label}: o erro voltou, mas o arquivo já mudou depois da minha correção; não desfiz.`);
+    return;
+  }
+  await writeFile(pending.filePath, pending.original);
+  if (pending.call) await recordOutcomeForCall(pending.call, 'rejected');
+  if (pending.attempt) session.lastRuntimeAttempt.set(error.signature, pending.attempt);
+  session.fixed -= 1;
+  session.reverted += 1;
+  console.log(`↩️  ${pending.label}: o erro voltou a acontecer, desfiz a correção provisória.`);
+}
+
+async function processRuntimeErrors(errors: RuntimeError[], session: WatchSession): Promise<void> {
+  if (session.busy) return;
+  session.busy = true;
+  try {
+    for (const error of errors) await undoIfBack(error, session);
+
+    const targets = errors.filter((error) => (session.attemptsByError.get(error.signature) ?? 0) < MAX_ATTEMPTS_PER_ERROR);
+    if (targets.length === 0) return;
+    console.log(`\n🔴 ${targets.length} erro(s) de execução. Corrigindo...`);
+    queueJobs('fix', targets.map((error) => `${error.type} em ${error.frames[0].filePath}:${error.frames[0].lineIndex + 1}`));
+
+    for (const error of targets) {
+      const frame = error.frames.find((item) => !isTestFile(item.filePath)) ?? error.frames[0];
+      const label = `${error.type} (${error.message.slice(0, 60)}) em ${frame.filePath}:${frame.lineIndex + 1}`;
+      session.attemptsByError.set(error.signature, (session.attemptsByError.get(error.signature) ?? 0) + 1);
+
+      if (!(await waitUntilIdle(frame.filePath))) {
+        console.log(`⏸️  ${label}: o arquivo não parou de mudar, deixo para a próxima.`);
+        continue;
+      }
+
+      const report = await autoFixRuntimeError(error, session.backups, {
+        confirmBeforeApply: session.confirmBeforeApply,
+        previousAttempt: session.lastRuntimeAttempt.get(error.signature),
+      });
+      const change = report.before !== undefined ? `\n   ${report.filePath}:${report.lineNumber}  ${report.before.trim()}  →  ${report.after?.trim()}` : '';
+      if (report.status === 'fixed') {
+        session.fixed += 1;
+        console.log(`✅ ${label}: corrigido e confirmado (${report.reason})${change}`);
+      } else if (report.status === 'provisional') {
+        session.fixed += 1;
+        session.pending.set(error.signature, {
+          label,
+          filePath: report.filePath ?? frame.filePath,
+          original: report.original ?? '',
+          fixedContent: report.fixedContent ?? '',
+          call: report.call,
+          attempt: report.lastAttempt,
+        });
+        console.log(`🟡 ${label}: corrigido provisoriamente (${report.reason})${change}`);
+      } else if (report.status === 'reverted') {
+        session.reverted += 1;
+        if (report.lastAttempt) session.lastRuntimeAttempt.set(error.signature, report.lastAttempt);
+        console.log(`↩️  ${label}: não consegui corrigir com segurança (${report.reason}). O arquivo ficou como estava.`);
+      } else {
+        console.log(`⏭️  ${label}: ${report.reason}`);
+      }
+    }
+    if (session.fixed > 0) console.log('   Desfazer tudo o que o watch mudou: kvasir fix --undo');
+  } finally {
+    clearQueuedJobs('fix');
+    session.busy = false;
+  }
+}
+
+// Type errors first (a project that does not compile has no useful runtime errors), then runtime ones.
+async function handleText(text: string, session: WatchSession): Promise<void> {
+  const diagnostics = parseTscDiagnostics(text);
+  if (diagnostics.length > 0) {
+    await processErrors(diagnostics, session);
+    return;
+  }
+  const runtime = parseRuntimeErrors(text);
+  if (runtime.length > 0) await processRuntimeErrors(runtime, session);
+}
+
 async function watchClipboard(session: WatchSession): Promise<void> {
-  console.log('👀 Vigiando o clipboard: copie um erro do TypeScript e eu corrijo. Ctrl+C para parar.');
+  console.log('👀 Vigiando o clipboard: copie um erro (do TypeScript ou de execução, com o stack) e eu corrijo. Ctrl+C para parar.');
   let last = (await readClipboard().catch(() => '')).trim();
 
   for (;;) {
@@ -153,14 +257,13 @@ async function watchClipboard(session: WatchSession): Promise<void> {
     if (!text || text === last) continue;
     last = text;
 
-    const diagnostics = parseTscDiagnostics(text);
-    if (diagnostics.length > 0) await processErrors(diagnostics, session);
+    await handleText(text, session);
   }
 }
 
 async function watchCommand(command: string[], session: WatchSession): Promise<void> {
   const [bin, ...args] = command;
-  console.log(`👀 Rodando "${command.join(' ')}" e corrigindo os erros do TypeScript que aparecerem. Ctrl+C para parar.\n`);
+  console.log(`👀 Rodando "${command.join(' ')}" e corrigindo os erros que aparecerem (TypeScript e de execução). Ctrl+C para parar.\n`);
 
   const child = spawnCommand(bin, args);
   process.on('exit', () => child.kill());
@@ -169,9 +272,9 @@ async function watchCommand(command: string[], session: WatchSession): Promise<v
   let timer: NodeJS.Timeout | null = null;
 
   const onSettled = (): void => {
-    const diagnostics = parseTscDiagnostics(buffer);
+    const text = buffer;
     buffer = '';
-    if (diagnostics.length > 0) void processErrors(diagnostics, session);
+    void handleText(text, session);
   };
 
   const onOutput = (chunk: Buffer, stream: NodeJS.WriteStream): void => {
@@ -197,12 +300,15 @@ async function watchCommand(command: string[], session: WatchSession): Promise<v
   // a one-shot command (tsc --noEmit): its last output may still be waiting
   if (timer) clearTimeout(timer);
   if (buffer) {
-    const diagnostics = parseTscDiagnostics(buffer);
+    const text = buffer;
     buffer = '';
-    if (diagnostics.length > 0) await processErrors(diagnostics, session);
+    await handleText(text, session);
   }
   while (session.busy) await wait(200);
   console.log(`\nO comando terminou (código ${code ?? '?'}). ${session.fixed} corrigido(s), ${session.reverted} desfeito(s).`);
+  if (session.pending.size > 0) {
+    console.log(`🟡 ${session.pending.size} correção(ões) provisória(s) ficaram (o erro não voltou enquanto eu olhava). Confira; para desfazer: kvasir fix --undo`);
+  }
 }
 
 export async function runWatch(command: string[] = []): Promise<void> {
@@ -214,6 +320,8 @@ export async function runWatch(command: string[] = []): Promise<void> {
     confirmBeforeApply: autonomy === 1,
     fixed: 0,
     reverted: 0,
+    pending: new Map(),
+    lastRuntimeAttempt: new Map(),
   };
 
   console.log(
