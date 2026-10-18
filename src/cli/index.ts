@@ -16,6 +16,7 @@ import { registerPush } from './push';
 import { registerLog } from './log';
 import { registerModels } from './models';
 import { registerGuard } from './guard';
+import { registerDoctor } from './doctor';
 
 process.on('SIGINT', () => {
   console.log('\n👋 Kvasir encerrado.');
@@ -46,5 +47,6 @@ registerPush(program);
 registerLog(program);
 registerModels(program);
 registerGuard(program);
+registerDoctor(program);
 
 program.parse(process.argv);
