@@ -1,16 +1,40 @@
 import path from 'path';
 import { detectProject, detectStack } from './detector';
-import { loadPersona, getKvasirHome } from './personaLoader';
-import { writeContext } from './contextWriter';
+import { loadPersona, listPersonas, getKvasirHome } from './personaLoader';
+import { writeContext, readContext } from './contextWriter';
 import { readJson } from '@utils/fs';
 import { confirm, select } from '@utils/prompt';
 import { writeClaude } from '@adapters/claude';
 import { writeCopilot } from '@adapters/copilot';
 import { writeCursor } from '@adapters/cursor';
-import type { KvasirContext } from '@ktypes/context';
+import type { KvasirContext, ActiveTaskInfo } from '@ktypes/context';
 
 interface PackageJson {
   name?: string;
+}
+
+const NO_PERSONA = '__none__';
+const ACTIVE_MODULES = ['branch', 'commit', 'guard', 'fix', 'review', 'test', 'pr', 'daily', 'release', 'doc', 'task', 'knowledge', 'doctor'];
+
+// The detected persona (ACME when the package name contains "acme") comes first; any other can be picked.
+async function choosePersona(detected: 'acme' | 'unknown'): Promise<string | null> {
+  const personas = await listPersonas();
+  const ordered = [...personas].sort((a, b) => (a.name === detected ? -1 : b.name === detected ? 1 : a.name.localeCompare(b.name)));
+
+  const choice = await select<string>(detected === 'acme' ? 'Persona (detectada: acme):' : 'Qual persona este projeto segue?', [
+    ...ordered.map((persona) => ({ name: `${persona.name} (${persona.source})`, value: persona.name })),
+    { name: 'Nenhuma por enquanto', value: NO_PERSONA },
+  ]);
+  return choice === NO_PERSONA ? null : choice;
+}
+
+// Re-running init must not lose the active task.
+async function readExistingTask(): Promise<ActiveTaskInfo | null> {
+  try {
+    return (await readContext()).activeTask;
+  } catch {
+    return null;
+  }
 }
 
 export async function runInit(): Promise<void> {
@@ -20,20 +44,14 @@ export async function runInit(): Promise<void> {
   const projectType = await detectProject();
   const stack = await detectStack();
 
-  console.log(`\nDetected project: ${projectName}`);
-  console.log(`Detected type: ${projectType}`);
-  console.log(`Detected stack: ${stack.join(', ') || 'unknown'}`);
+  console.log(`\nProjeto: ${projectName}`);
+  console.log(`Tipo: ${projectType === 'acme' ? 'ACME' : 'não identificado'}`);
+  console.log(`Stack: ${stack.join(', ') || 'não identificada'}`);
 
-  const personaName = 'acme';
-  if (projectType === 'unknown') {
-    const choice = await select('No persona detected. What would you like to do?', [
-      { name: 'Use the built-in ACME persona', value: 'acme' },
-      { name: 'Skip persona for now', value: 'none' },
-    ]);
-    if (choice === 'none') {
-      console.log('Skipping persona setup.');
-      return;
-    }
+  const personaName = await choosePersona(projectType);
+  if (!personaName) {
+    console.log('Sem persona por enquanto. Rode "kvasir init" de novo quando quiser escolher uma (veja "kvasir persona list").');
+    return;
   }
 
   const persona = await loadPersona(personaName);
@@ -49,7 +67,7 @@ export async function runInit(): Promise<void> {
       profile: path.join(getKvasirHome(), 'profile.md'),
     },
     branchRules: {
-      pattern: 'Git Flow ACME',
+      pattern: persona.name === 'acme' ? 'Git Flow ACME' : 'Git Flow',
       prefix: persona.branchRules.map((rule) => rule.prefix).join(' '),
       language: persona.language,
     },
@@ -58,15 +76,15 @@ export async function runInit(): Promise<void> {
       language: persona.commitRules.language,
       format: persona.commitRules.format,
     },
-    activeModules: ['branch', 'commit', 'fix', 'format', 'doc', 'task'],
-    activeTask: null,
+    activeModules: ACTIVE_MODULES,
+    activeTask: await readExistingTask(),
     summary: `${projectName} (${projectType}) — stack: ${stack.join(', ')}`,
   };
 
-  console.log('\nThis will write kvasir.context.md and generate AI-specific instruction files.');
-  const approved = await confirm('Proceed with init?');
+  console.log('\nIsso vai escrever o kvasir.context.md e gerar as instruções para as IAs (CLAUDE.md, Copilot, Cursor).');
+  const approved = await confirm('Continuar?');
   if (!approved) {
-    console.log('Init cancelled.');
+    console.log('Init cancelado.');
     return;
   }
 
@@ -75,5 +93,5 @@ export async function runInit(): Promise<void> {
   await writeCopilot();
   await writeCursor();
 
-  console.log('\nKvasir initialized successfully.');
+  console.log(`\n✅ Kvasir configurado com a persona "${persona.name}".`);
 }

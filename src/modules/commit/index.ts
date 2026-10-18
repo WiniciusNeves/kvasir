@@ -29,8 +29,16 @@ type PostCommitAction = 'push' | 'undo' | 'log' | 'merge' | 'none';
 const MAX_DIFF_CHARS = 12_000;
 const CONVENTIONAL_COMMIT = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./-]+\))?!?: \S.*$/;
 
-function buildCommitPrompt(diff: string, stat: string): string {
-  return `Você escreve mensagens de commit no padrão Conventional Commits, em inglês.
+// The commit language comes from the project's persona (kvasir.context.md → Commit rules).
+function describeLanguage(language: string): { name: string; imperative: string } {
+  return /portugu/i.test(language)
+    ? { name: 'português do Brasil', imperative: 'no imperativo ("adiciona", "corrige", "remove"; não "adicionado")' }
+    : { name: 'inglês', imperative: 'no imperativo ("add", "fix", "remove"; não "added")' };
+}
+
+function buildCommitPrompt(diff: string, stat: string, commitLanguage: string): string {
+  const language = describeLanguage(commitLanguage);
+  return `Você escreve mensagens de commit no padrão Conventional Commits, em ${language.name}.
 
 Arquivos alterados (git diff --cached --stat):
 ${stat.trim()}
@@ -43,7 +51,7 @@ Gere UMA mensagem de commit para essas mudanças.
 Formato: <type>(<scope>): <description>
 - type: feat (funcionalidade nova), fix (correção de bug), docs, style, refactor, perf, test, build, ci, chore, revert
 - scope: opcional, o módulo ou pasta principal afetado (ex.: o nome da pasta em src/)
-- description: em inglês, no imperativo ("add", "fix", "remove"; não "added"), letra minúscula, sem ponto final, até 72 caracteres
+- description: em ${language.name}, ${language.imperative}, letra minúscula, sem ponto final, até 72 caracteres
 - Descreva O QUE mudou de verdade no diff, não invente
 
 Responda com UMA única linha: só a mensagem. Sem aspas, sem markdown, sem explicação.`;
@@ -124,7 +132,7 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
     }
   }
 
-  await loadContext();
+  const context = await loadContext();
 
   // Security gate before anything reaches a model or the history.
   if (options.guard !== false) {
@@ -140,7 +148,7 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
     console.log('⚠️  kvasir guard pulado (--no-guard).');
   }
 
-  const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat()), { temperature: 0.2 });
+  const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat(), context.commitRules.language), { temperature: 0.2 });
   const message = parseCommitMessage(response);
 
   console.log('\n📝 Mensagem sugerida:');

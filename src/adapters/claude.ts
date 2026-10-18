@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { readContext } from '@modules/init/contextWriter';
 import { writeFile, readFile, readJson } from '@utils/fs';
-import { acmePersona } from '../personas/acme';
+import { loadPersona } from '@modules/init/personaLoader';
 import type { KvasirContext } from '@ktypes/context';
 import type { Persona } from '@ktypes/persona';
 
@@ -149,7 +149,7 @@ function buildHeader(
   return lines.join('\n');
 }
 
-async function buildFallbackBody(ctx: KvasirContext, pkg: PackageJson): Promise<string> {
+async function buildFallbackBody(ctx: KvasirContext, pkg: PackageJson, persona: Persona | null): Promise<string> {
   const lines: string[] = [];
 
   const scripts = pkg.scripts ?? {};
@@ -176,8 +176,8 @@ async function buildFallbackBody(ctx: KvasirContext, pkg: PackageJson): Promise<
   lines.push(`- Language: ${ctx.commitRules.language}`);
   lines.push(`- Format: ${ctx.commitRules.format}`, '');
 
-  if (ctx.project.persona === 'acme') {
-    lines.push(...formatPersonaSection(acmePersona));
+  if (persona) {
+    lines.push(...formatPersonaSection(persona));
   }
 
   lines.push('## Active modules');
@@ -195,6 +195,16 @@ function extractPreservedBody(existingContent: string | null): string | null {
   }
 
   return existingContent.slice(endIndex + HEADER_END.length).replace(/^\s+/, '');
+}
+
+// The project's persona, loaded like everywhere else (never a hardcoded one).
+async function loadProjectPersona(ctx: KvasirContext): Promise<Persona | null> {
+  if (!ctx.project.persona) return null;
+  try {
+    return await loadPersona(ctx.project.persona);
+  } catch {
+    return null;
+  }
 }
 
 export async function writeClaude(): Promise<void> {
@@ -217,7 +227,7 @@ export async function writeClaude(): Promise<void> {
   let body = extractPreservedBody(existingContent);
 
   if (body === null) {
-    body = template ? ((await readFile(getTemplatePath(template.fileName))) ?? '') : await buildFallbackBody(ctx, pkg);
+    body = template ? ((await readFile(getTemplatePath(template.fileName))) ?? '') : await buildFallbackBody(ctx, pkg, await loadProjectPersona(ctx));
   }
 
   const content = `${header}\n\n${body}`.trimEnd() + '\n';
