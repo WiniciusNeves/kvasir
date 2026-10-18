@@ -71,7 +71,9 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir review` | Revisa as linhas adicionadas do diff staged, uma por uma, e aponta `arquivo:linha` | ✅ |
 | `kvasir push` / `undo` / `log` | Push (normal ou `--force-with-lease`), desfaz o último commit (soft) e mostra o histórico em tabela | 🧪 |
 | `kvasir format` | Roda `npm run format` ou o Prettier | 🧪 |
-| `kvasir knowledge search\|add\|link\|show` | Base de conhecimento estilo Obsidian em `~/.kvasir/knowledge/`, com notas geradas sozinhas pelos outros comandos | ✅ |
+| `kvasir knowledge search\|add\|link\|show` | Base de conhecimento estilo Obsidian em `~/.kvasir/knowledge/`, com notas geradas sozinhas pelos outros comandos. `show` abre o grafo de conexões no navegador | ✅ |
+| `kvasir stats` | Painel no navegador: chamadas, aprovação, tempo, tokens, radar de uso, barras por dia, modelos, o que o Kvasir aprendeu e o Agent Board. Offline, gerado em `~/.kvasir/reports/` | ✅ |
+| `kvasir board` | Agent Board ao vivo: o que cada agente tem a fazer, está fazendo, fez e falhou (atualiza a cada 3 s) | ✅ |
 | `kvasir learn` | Consolida o feedback e atualiza `~/.kvasir/profile.md` (usado nos prompts) | ✅ |
 | `kvasir task` / `start` | Busca tasks (Planner/API), grava a task ativa e mostra o resumo do dia | ✅ |
 
