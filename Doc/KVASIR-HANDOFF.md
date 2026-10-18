@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`); próximo: `doctor` |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`); próximo: `pr` |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -233,6 +233,20 @@ Arquivos: `src/modules/guard/{index,rules,validators,allowlist}.ts`, `src/types/
 - **Falha encontrada e corrigida no teste:** o `.kvasirignore` gravava o segredo em texto (`match:AKIA…`); agora grava `hash:`
 
 **Pendências:** o `guard` ainda não roda como hook do git (`pre-commit`); só pelo `kvasir commit` ou `kvasir guard`.
+
+---
+
+## Onda B: `doctor` (commit `4fa36a2`)
+
+Arquivos: `src/modules/doctor/index.ts` + `checks/{shared,node,git,mobile,ollama,kvasir}.ts`, `src/types/doctor.ts`, `src/cli/doctor.ts`.
+
+**Testado:**
+- Repo do kvasir: 13 ok, 3 avisos (sem `kvasir.context.md`, sem `profile.md`, sem `gh`); mobile pulado
+- Projeto Expo descartável (`engines: >=20 <22`, `android/` sem `gradlew`): ❌ Node v24 fora do range, ⚠️ `JAVA_HOME` 17.0.17 × `java` do PATH 17.0.12, ❌ `gradlew` faltando, ⚠️ EAS 21.8.0 com versão nova, ✅ EAS logado
+- Ollama simulado: só `qwen2.5-coder:7b` + `codellama` → avisos para `deepseek-r1`/`llama3.2` e ❌ "tarefa architect sem modelo"; fora do ar → ❌ com a dica
+- **Bug encontrado e corrigido:** o `gh` aparecia ✅ sem estar instalado (a mensagem do Windows em português chega com acento quebrado); a detecção passou a usar o código de saída
+
+**Pendência:** o download de modelos (`ollama pull`) não foi exercitado de verdade (são GBs; testei só a recusa).
 
 ---
 

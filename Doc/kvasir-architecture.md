@@ -194,6 +194,16 @@ askFor('fix', prompt)
 4. Relatório com trecho mascarado (`AKIA****MPLE`). Só 🟡 → "continuar?". Algum 🔴 → cancelar · tirar os arquivos do stage (`git restore --staged`) · ignorar (segunda confirmação, feedback em `guard.md`).
 5. Ao ignorar/continuar, oferece gravar no `.kvasirignore`: arquivo pelo caminho e valores por `hash:<sha256>` (nunca o segredo em texto). Entradas manuais: glob de caminho, `rule:<id>`, `match:<texto>`.
 
+### `kvasir doctor`
+Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
+- `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn
+- `git.ts`: git, `user.name`, `user.email`
+- `mobile.ts` (só se o projeto tem `expo` ou `react-native`): JDK 17, `JAVA_HOME` existe e é o mesmo JDK do `java` do PATH, `ANDROID_HOME`, `adb`, `android/gradlew`, versão do Expo, EAS CLI (versão nova?) e `eas whoami`
+- `ollama.ts`: rodando? cada modelo do `MODEL_MAP` instalado (casa tags como `:7b`)? alguma tarefa sem nenhum modelo → ❌
+- `kvasir.ts`: `~/.kvasir`, `kvasir.context.md`, `profile.md`, comando `code`, `gh` + `gh auth status`
+- `shared.ts`: `probe()` roda a ferramenta via `runCommand` com timeout de 15s; "não encontrado" = código 9009 (cmd) / 127 (POSIX), nunca pela mensagem (o Windows em português chega com acento quebrado)
+- No fim: resumo e, se faltar modelo, oferece `ollama pull` (com confirmação).
+
 ### `kvasir branch`
 1. Pergunta a descrição da tarefa → `askFor('branch', temperature 0.2)` (o prompt pede tradução para inglês e kebab-case) → `parseBranchName` acha `prefixo/…` na resposta, remove rótulos e acentos e garante um prefixo válido (padrão `feature/`).
 2. Sim / Não / Editar → `git checkout -b`.

@@ -27,7 +27,7 @@
 3. [ ] `kvasir review`: finalizar
 4. [ ] `kvasir daily`: resumo dos commits para a daily
 5. [ ] `kvasir release`: versão SemVer + CHANGELOG a partir dos Conventional Commits
-6. [ ] `kvasir doctor`: diagnóstico do ambiente (Node, JDK, Android, Expo, Ollama)
+6. [x] `kvasir doctor`: diagnóstico do ambiente (Node, JDK, Android, Expo, Ollama) (2026-10-17)
 7. [ ] `kvasir test`: gera testes para os arquivos alterados (reaproveita o `fix`)
 
 ---
