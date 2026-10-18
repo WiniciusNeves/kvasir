@@ -6,7 +6,7 @@ import { recordAiCall } from '@ai/metrics';
 import { promptAI } from '@ai/client';
 import { readFile } from '@utils/fs';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release';
 
 export const MODEL_MAP: Record<AiTask, string[]> = {
   commit: ['qwen2.5-coder', 'codellama'],
@@ -18,6 +18,7 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   guard: ['qwen2.5-coder', 'llama3.2'],
   pr: ['qwen2.5-coder', 'llama3.2'],
   daily: ['llama3.2', 'qwen2.5-coder'],
+  release: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // 30s was not enough for a cold model load or deepseek-r1 thinking: the chosen model timed out
@@ -150,7 +151,7 @@ async function runWithFallback(
 
 // profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
 // matters. Not into fix/architect, where only correctness counts.
-const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily'];
+const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily', 'release'];
 const MAX_PREFERENCES_CHARS = 1200;
 
 function getProfilePath(): string {

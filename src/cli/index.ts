@@ -19,6 +19,7 @@ import { registerGuard } from './guard';
 import { registerDoctor } from './doctor';
 import { registerPr } from './pr';
 import { registerDaily } from './daily';
+import { registerRelease } from './release';
 
 process.on('SIGINT', () => {
   console.log('\n👋 Kvasir encerrado.');
@@ -52,5 +53,6 @@ registerGuard(program);
 registerDoctor(program);
 registerPr(program);
 registerDaily(program);
+registerRelease(program);
 
 program.parse(process.argv);

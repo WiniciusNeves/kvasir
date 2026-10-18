@@ -165,3 +165,16 @@ export async function noteDaily(message: string): Promise<void> {
     true
   );
 }
+
+export async function noteRelease(version: string, changelogSection: string): Promise<void> {
+  await trySave(
+    {
+      category: 'commits',
+      title: currentProject(),
+      body: changelogSection.replace(/^## /m, '## Release ').replace(/^### /gm, '#### '),
+      origin: 'kvasir release',
+      tags: ['release', `v${version}`],
+    },
+    'append'
+  );
+}

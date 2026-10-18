@@ -309,3 +309,58 @@ export function getCommitsByAuthor(repo: string, author: string, since: string):
       return { hash, date, subject: subject.join('\t') };
     });
 }
+
+export function getLastTag(): string | null {
+  const { ok, stdout } = gitOutput(['describe', '--tags', '--abbrev=0']);
+  return ok && stdout ? stdout : null;
+}
+
+export interface FullCommit {
+  hash: string;
+  subject: string;
+  body: string;
+}
+
+// Commits since `ref` (all commits when null), oldest first, with body (for BREAKING CHANGE footers).
+export function getCommitsWithBody(ref: string | null): FullCommit[] {
+  const range = ref ? [`${ref}..HEAD`] : ['HEAD'];
+  const { stdout } = gitOutput(['log', '--reverse', '--no-merges', '--pretty=format:%h%x1f%s%x1f%b%x1e', ...range]);
+
+  return stdout
+    .split('\x1e')
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [hash, subject, body = ''] = record.split('\x1f');
+      return { hash, subject, body: body.trim() };
+    });
+}
+
+export function stageFiles(files: string[]): void {
+  if (files.length === 0) return;
+  const result = spawnSync('git', ['add', '--', ...files], { encoding: 'utf-8', cwd: process.cwd() });
+  assertGitSuccess(result, 'add');
+}
+
+export function createAnnotatedTag(name: string, message: string): void {
+  const result = spawnSync('git', ['tag', '-a', name, '-m', message], { encoding: 'utf-8', cwd: process.cwd() });
+  assertGitSuccess(result, 'tag');
+}
+
+export function pushBranchWithTags(branch: string): void {
+  const result = spawnSync('git', ['push', '--follow-tags', 'origin', branch], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
+  assertGitSuccess(result, 'push --follow-tags');
+}
+
+// Paths with any change (staged, unstaged or untracked), from `git status --porcelain`.
+export function getChangedPaths(): string[] {
+  const { stdout } = gitOutput(['status', '--porcelain']);
+  return stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.slice(3).replace(/^"|"$/g, '').split(' -> ').pop() ?? '');
+}
