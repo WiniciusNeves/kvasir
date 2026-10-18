@@ -9,6 +9,11 @@ export function registerKeys(program: Command): void {
     .action(withErrorHandling(runKeys));
 
   keys
+    .command('status')
+    .description('Show which cloud AI keys are configured (never prints them)')
+    .action(withErrorHandling(runKeys));
+
+  keys
     .command('set [provider]')
     .description('Paste a Gemini or Groq key: it is tested and saved as a user environment variable')
     .action(withErrorHandling(runKeysSet));

@@ -16,7 +16,7 @@ import {
   getUpstream,
   pushWithUpstream,
 } from '@utils/git';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { notePullRequest } from '@modules/knowledge/auto';
 import { baseCandidates, typeForBranch, hasUiChanges, buildPrPrompt, parsePrDraft, buildPrBody } from './description';
 import type { PrFacts } from './description';

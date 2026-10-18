@@ -6,7 +6,7 @@ import { recordOutcome } from '@ai/metrics';
 import { noteUsefulReview } from '@modules/knowledge/auto';
 import { answerLines } from '@ai/parse';
 import { confirm } from '@utils/prompt';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import type { KvasirContext } from '@ktypes/context';
 

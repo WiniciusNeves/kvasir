@@ -109,13 +109,9 @@ export async function writeContext(ctx: KvasirContext): Promise<void> {
 export async function readContext(): Promise<KvasirContext> {
   const markdown = await readFile(CONTEXT_FILE);
   if (!markdown) {
-    throw new Error(`${CONTEXT_FILE} not found. Run "kvasir init" first.`);
+    throw new Error(`${CONTEXT_FILE} não encontrado. Rode "kvasir init" primeiro.`);
   }
   return parseContextMarkdown(markdown);
-}
-
-export async function loadContext(): Promise<KvasirContext> {
-  return readContext();
 }
 
 function buildActiveTaskSection(task: ActiveTaskInfo): string {

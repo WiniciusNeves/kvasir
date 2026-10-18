@@ -5,7 +5,7 @@ import { getNotePath, readNote, saveNote } from '@modules/knowledge/notes';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { writeFile } from '@utils/fs';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 
 interface NpmRepository {
   type?: string;

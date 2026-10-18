@@ -161,7 +161,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | Oferece baixar o que falta | ❌ | `ollama pull` via `runCommand` | B |
 | | `kvasir models` | 🟡 (o "ativo" não bate com a escolha do Claude) | — | B |
 | | Claude chefe via clipboard | ✅ | — | — |
-| **7 Intenção** | `src/ai/intent.ts`, seguras direto / destrutivas confirmam, texto agora / voz depois | ❌ | módulos estáveis | M |
+| **7 Intenção** | `src/ai/intent.ts`, seguras direto / destrutivas confirmam, texto agora / voz depois | 🟡 `kvasir <frase>` → comando do catálogo, sempre com confirmação (2026-10-18); falta executar seguras direto e voz | módulos estáveis | M |
 | **8 `fix` inteligente** | Corrige sem perguntar + oferece expandir | ✅ | — | — |
 | | Classificação simples × complexo | 🟡 (removida na Fase 2, ver conflitos) | — | B |
 | | Complexo: deepseek-r1 lê arquivos relacionados e config | 🟡 investiga, mas só com o texto do erro | — | M |
@@ -335,6 +335,14 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+### Menu, frase livre e pré-requisitos encadeados (2026-10-18)
+
+A pedido do autor ("não quero ter que saber o comando"). `src/modules/menu/{catalog,intent,index}.ts`, `src/modules/init/ensure.ts` (`loadContext` que oferece o `init`), `AiTask` `intent` (Groq → qwen2.5-coder/llama3.2), `keys status`.
+- `kvasir` → menu · `kvasir keys|persona|knowledge` → submenu · `kvasir comit` → sugere `commit` · `kvasir quero salvar minha chave do groq` → `keys set groq` (confirma antes)
+- `task` → oferece `branch`; `knowledge` vazio → oferece `add`; `models --cloud on` sem chave → oferece `keys set`; qualquer runner sem `kvasir.context.md` → oferece `init`
+
+**Testado:** menu/submenu/argumento com respostas simuladas; Groq real: 9 frases → comando certo (inclusive "nenhum" para "faz um bolo"), ~250–550 ms; só Ollama: acertou keys, push ("manda pro repo", depois de exemplo no prompt), branch, doctor, daily, undo, keys remove, pr; errou "joga isso no remoto" (oferece o menu). Oferta do `init` testada num projeto sem contexto. Não testado: o menu num terminal real (só respostas simuladas).
 
 ### `kvasir keys` (2026-10-18)
 

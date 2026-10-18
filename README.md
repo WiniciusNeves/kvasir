@@ -43,6 +43,13 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 
 ## Comandos
 
+**Não lembra o comando?** Não precisa:
+
+- `kvasir` sozinho abre um menu com tudo, em português. `kvasir keys`, `kvasir persona` e `kvasir knowledge` sozinhos abrem o menu deles.
+- Escreva o que quer: `kvasir quero salvar minha chave do groq` → "Entendi: kvasir keys set groq. Rodar agora?". A IA só escolhe entre os comandos que existem, e nada roda sem você confirmar.
+- Digitou errado (`kvasir comit`)? Ele pergunta se você quis dizer `kvasir commit`.
+- Se um comando precisa de outro antes, ele oferece rodar na hora: sem `kvasir.context.md` oferece o `init`; depois de escolher a task oferece criar a branch; `models --cloud on` sem chave oferece o `keys set`.
+
 | Comando | O que faz | Status |
 |---|---|---|
 | `kvasir init` | Detecta o projeto (deps do `package.json`), deixa escolher a persona e gera `kvasir.context.md`, `CLAUDE.md`, `.github/copilot-instructions.md` e `.cursor/rules` | ✅ |

@@ -10,7 +10,7 @@ import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent';
 
 // Local fallback chain (Ollama). Always the last resort: offline, private, no rate limit.
 export const MODEL_MAP: Record<AiTask, string[]> = {
@@ -25,6 +25,7 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   daily: ['llama3.2', 'qwen2.5-coder'],
   release: ['qwen2.5-coder', 'llama3.2'],
   test: ['qwen2.5-coder', 'deepseek-r1'],
+  intent: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // Cloud providers tried BEFORE Ollama when the user allowed the cloud (roadmap phase 2):
@@ -36,6 +37,8 @@ export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
   fix: ['groq'],
   review: ['groq'],
   test: ['groq'],
+  // only the sentence the user typed + the command list: fast answer matters
+  intent: ['groq'],
   doc: ['gemini'],
   daily: ['gemini'],
   release: ['gemini'],

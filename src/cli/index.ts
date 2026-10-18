@@ -23,6 +23,8 @@ import { registerRelease } from './release';
 import { registerTest } from './test';
 import { registerPersona } from './persona';
 import { registerKeys } from './keys';
+import { resolveCommandLine } from '@modules/menu';
+import { printCliError } from '@utils/errors';
 
 process.on('SIGINT', () => {
   console.log('\n👋 Kvasir encerrado.');
@@ -61,4 +63,19 @@ registerTest(program);
 registerPersona(program);
 registerKeys(program);
 
-program.parse(process.argv);
+program.addHelpText(
+  'after',
+  '\nDicas: rode só "kvasir" para abrir o menu, ou escreva o que quer: kvasir quero salvar minha chave do groq'
+);
+
+// No args → menu; a typo or a sentence → the matching command (after a confirmation).
+async function main(): Promise<void> {
+  const knownCommands = program.commands.map((command) => command.name());
+  const argv = await resolveCommandLine(process.argv.slice(2), knownCommands);
+  if (argv) await program.parseAsync(argv, { from: 'user' });
+}
+
+main().catch((error: unknown) => {
+  if ((error as Error).name === 'ExitPromptError') return;
+  printCliError(error);
+});

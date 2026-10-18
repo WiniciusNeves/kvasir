@@ -13,7 +13,7 @@ import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { answerLines, pickLine, truncateForPrompt } from '@ai/parse';
 import { confirm, editor, select, input } from '@utils/prompt';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { runPush } from '@modules/push';
 import { confirmAndUndoLastCommit } from '@modules/undo';

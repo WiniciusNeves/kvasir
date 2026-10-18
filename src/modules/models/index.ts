@@ -4,6 +4,8 @@ import type { AiTask } from '@ai/router';
 import type { CloudProvider } from '@ai/providers';
 import { readMetrics, summarizeMetrics } from '@ai/metrics';
 import { readUserConfig } from '@utils/userConfig';
+import { confirm } from '@utils/prompt';
+import { runKeysSet } from '@modules/keys';
 
 export interface ModelsOptions {
   cloud?: string;
@@ -31,6 +33,11 @@ async function applyCloudOption(value: string): Promise<void> {
   if (!['on', 'off'].includes(normalized)) throw new Error('Use "--cloud on" ou "--cloud off".');
   await setCloudConsent(normalized === 'on');
   console.log(normalized === 'on' ? '☁️  Nuvem permitida.' : '🔒 Nuvem desligada: tudo roda no Ollama local.');
+
+  if (normalized === 'on' && !CLOUD_PROVIDERS.some((provider) => cloudKeyFor(provider))) {
+    console.log('Mas ainda não há chave do Gemini nem do Groq.');
+    if (await confirm('Salvar uma chave agora (kvasir keys set)?')) await runKeysSet();
+  }
 }
 
 // Which cloud providers would really be used right now (key present + consent).

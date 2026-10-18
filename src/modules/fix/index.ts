@@ -7,7 +7,7 @@ import { readClipboard } from '@ai/client';
 import { stripThinking } from '@ai/ollama';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { input, confirm, select } from '@utils/prompt';
-import { loadContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { readFile, writeFile, readJson, copyFile, removeFile } from '@utils/fs';
 import { runTypecheck, parseTscDiagnostics } from '@utils/typecheck';

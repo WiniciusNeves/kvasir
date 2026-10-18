@@ -188,6 +188,15 @@ askFor('fix', prompt)
 
 ## Fluxo de cada comando
 
+### Entrada: menu, erro de digitação e linguagem natural (`modules/menu/`)
+`cli/index.ts` chama `resolveCommandLine(args, comandos)` antes do commander:
+- nada → menu principal (`catalog.ts`, agrupado, em português); `keys`/`persona`/`knowledge` sozinhos → submenu; entradas com argumento perguntam o valor (`ask`)
+- 1 palavra parecida com um comando (Levenshtein ≤ 2) → "Você quis dizer…? Rodar agora?"
+- qualquer outro texto → `askLocal('intent')` (Groq na nuvem, senão qwen2.5-coder/llama3.2) com o catálogo; `parseIntent` só aceita comando e subcomando reais → confirm → roda; sem resposta válida → oferece o menu
+- o resultado vai para `program.parseAsync(argv, { from: 'user' })`
+
+Pré-requisitos encadeados: `loadContext()` (`modules/init/ensure.ts`) oferece o `init` quando falta o `kvasir.context.md`; `task` oferece o `branch`; `knowledge` vazio oferece o `add`; `models --cloud on` sem chave oferece o `keys set`.
+
 ### `kvasir init`
 1. Lê o `package.json`; `findPersonaForPackage` sugere a persona cujo `match` aparece no `name` (ela vem primeiro na lista).
 2. Detecta a stack pelas deps: `next` → Next.js · `expo` → React Native + Expo · `express`/`fastify` → Node.js API · sempre TypeScript.

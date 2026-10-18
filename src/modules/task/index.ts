@@ -1,11 +1,13 @@
 import { fetchMyTasks, PLANNER_SETUP_HINT } from '@integrations/planner';
 import { confirm, select } from '@utils/prompt';
-import { readContext, setActiveTask } from '@modules/init/contextWriter';
+import { setActiveTask } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
+import { runBranch } from '@modules/branch';
 import { getCurrentBranch } from '@utils/git';
 import { noteTaskActivated } from '@modules/knowledge/auto';
 
 export async function runTask(): Promise<void> {
-  const context = await readContext();
+  const context = await loadContext();
   if (context.activeTask) {
     console.log(`\nTask ativa: ${context.activeTask.id} — ${context.activeTask.title}`);
   }
@@ -39,5 +41,6 @@ export async function runTask(): Promise<void> {
   await noteTaskActivated({ id: selected.id, title: selected.title, status: selected.status });
 
   console.log(`✅ Task ativa: ${selected.id}.`);
-  console.log('Rode "kvasir branch": a descrição da branch já vem preenchida com esta task.');
+  if (await confirm('Criar a branch desta task agora (kvasir branch)?')) await runBranch();
+  else console.log('Quando quiser: kvasir branch (a descrição já vem preenchida com esta task).');
 }

@@ -33,11 +33,16 @@ function relativeNote(file: string): string {
   return path.relative(getKnowledgeDir(), file).split(path.sep).join('/');
 }
 
+async function offerFirstNote(): Promise<void> {
+  console.log('A base de conhecimento ainda está vazia (fix, commit, review e doc criam notas sozinhos).');
+  if (await confirm('Criar a primeira nota agora (kvasir knowledge add)?')) await addKnowledge();
+}
+
 export async function searchKnowledge(query: string): Promise<void> {
   const files = await walkMarkdownFiles(getKnowledgeDir());
 
   if (files.length === 0) {
-    console.log('A base de conhecimento está vazia. Use "kvasir knowledge add" para criar a primeira nota.');
+    await offerFirstNote();
     return;
   }
 
@@ -149,7 +154,7 @@ export async function linkKnowledge(): Promise<void> {
 export async function showKnowledge(): Promise<void> {
   const files = await walkMarkdownFiles(getKnowledgeDir());
   if (files.length === 0) {
-    console.log('A base de conhecimento está vazia. Use "kvasir knowledge add".');
+    await offerFirstNote();
     return;
   }
 

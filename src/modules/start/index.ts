@@ -1,5 +1,5 @@
 import { getCurrentBranch } from '@utils/git';
-import { readContext } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { fetchMyTasks, PLANNER_SETUP_HINT } from '@integrations/planner';
 import { printCliError } from '@utils/errors';
 
@@ -7,7 +7,7 @@ export async function runStart(): Promise<void> {
   console.log('Começando o dia com o Kvasir...\n');
 
   try {
-    const context = await readContext();
+    const context = await loadContext();
     console.log(`Projeto: ${context.project.name} (${context.project.type})`);
     console.log(`Persona: ${context.project.persona}`);
     console.log(
@@ -15,8 +15,8 @@ export async function runStart(): Promise<void> {
         ? `Task ativa: ${context.activeTask.id} — ${context.activeTask.title}`
         : 'Task ativa: nenhuma (use "kvasir task")'
     );
-  } catch {
-    console.log('kvasir.context.md não encontrado. Rode "kvasir init" primeiro.');
+  } catch (error) {
+    printCliError(error);
   }
 
   console.log(`Branch atual: ${getCurrentBranch() || '(fora de um repositório git)'}`);

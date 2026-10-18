@@ -11,7 +11,8 @@ import {
   deleteBranch,
   checkoutPreviousBranch,
 } from '@utils/git';
-import { loadContext, setActiveTask } from '@modules/init/contextWriter';
+import { setActiveTask } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
 import { loadPersona } from '@modules/init/personaLoader';
 import type { KvasirContext } from '@ktypes/context';
 import type { PersonaBranchRule } from '@ktypes/persona';

@@ -106,7 +106,7 @@ export async function runCommit(): Promise<void> {
   const diff = getDiff();                                   // @utils/git
   if (!diff.trim()) { /* offer stageAll() */ }
 
-  await loadContext();                                      // throws if no kvasir.context.md
+  await loadContext();                                      // @modules/init/ensure: offers kvasir init if missing
 
   const response = await askFor('commit', buildCommitPrompt(diff)); // @ai/router
   const message = parseMessage(response);                   // handle backticks / extra text
@@ -162,7 +162,7 @@ export function getDiff(): string {
 
 ## Project Context
 
-- `kvasir.context.md` (in the target project) is the source of truth. Read it with `loadContext()` / `readContext()` from `@modules/init/contextWriter`; both throw if it's missing ("Run kvasir init first").
+- `kvasir.context.md` (in the target project) is the source of truth. Runners read it with `loadContext()` from `@modules/init/ensure`: if it's missing it offers to run `kvasir init` right there. `readContext()` (`@modules/init/contextWriter`) just throws; use it only where init must not be offered (adapters, `daily` over other repos).
 - `KvasirContext` type: `project { name, type, stack[], persona }`, `developer.profile`, `branchRules`, `commitRules`, `activeModules[]`, `activeTask | null`, `summary`.
 - Detection: the persona whose `match` substrings appear in the `package.json` `name` (`findPersonaForPackage`); stack from deps (`next`, `expo`, `express`/`fastify`).
 - **Open source, no personal data in the repo:** company personas (`~/.kvasir/personas/*.json`), their `CLAUDE.md` templates (`~/.kvasir/templates/<persona>-mobile.md` / `-web.md`), `profile.md`, metrics and knowledge are personal and stay in `~/.kvasir`. Never commit them, never use a real company name in code, docs or examples.
@@ -215,6 +215,10 @@ Never use arrow functions for top-level exported functions.
 
 ---
 
+## Menu, typos and natural language
+
+`src/modules/menu/`: `kvasir` alone opens the menu; a group alone (`keys`, `persona`, `knowledge`) opens its submenu; a typo suggests the closest command; any other text goes to the `intent` AI task, which can only answer with a command from the catalog (validated, then confirmed). **Every new command must be added to `menu/catalog.ts`** (Portuguese label; `usage`/`ask` if it takes an argument). When a command needs another one first, offer to run it inline (`confirm` → call the runner) instead of printing "run kvasir X".
+
 ## Adding a new module (checklist)
 
 1. `src/modules/<name>/index.ts` with `export async function run<Name>(): Promise<void>`
@@ -225,7 +229,8 @@ Never use arrow functions for top-level exported functions.
 6. `confirm()` before any side effect; `recordFeedback()` + `recordOutcome()` if user approves/rejects AI output
 7. If the module produces reusable knowledge (a solution, a decision, a summary), save it with `@modules/knowledge/auto`
 8. `npm run typecheck`
-9. Update `README.md` (commands table), `Doc/kvasir-current.md`, and `Doc/kvasir-architecture.md`
+9. Add it to `src/modules/menu/catalog.ts`
+10. Update `README.md` (commands table), `Doc/kvasir-current.md`, and `Doc/kvasir-architecture.md`
 
 ---
 
