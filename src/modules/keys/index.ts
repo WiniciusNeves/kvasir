@@ -53,8 +53,9 @@ export async function runKeysSet(providerArg?: string): Promise<void> {
     return;
   }
 
-  if (!key.startsWith(info.prefix)) {
-    console.log(`⚠️  Chaves do ${LABELS[provider]} costumam começar com "${info.prefix}". Confira se colou a chave certa.`);
+  if (!info.prefixes.some((prefix) => key.startsWith(prefix))) {
+    const expected = info.prefixes.map((prefix) => `"${prefix}"`).join(' ou ');
+    console.log(`⚠️  Chaves do ${LABELS[provider]} costumam começar com ${expected}. Confira se colou a chave certa.`);
     if (!(await confirm('Continuar mesmo assim?'))) return;
   }
 

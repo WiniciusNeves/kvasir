@@ -4,7 +4,8 @@ import { readSavedUserEnv } from '@utils/userEnv';
 import type { ProviderCallOptions, ProviderResult } from '@ai/providers';
 
 // Groq (OpenAI-compatible API, free tier, fast). Key from the environment only.
-export const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Groq rotates its catalog (llama-3.3-70b-versatile was retired in 2026): override with ai.groqModel.
+export const DEFAULT_GROQ_MODEL = 'qwen/qwen3.8-27b';
 const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
 
 interface GroqResponse {

@@ -99,7 +99,7 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 | architect | — (fica no deepseek-r1) | deepseek-r1 / llama3.2 |
 | guard | — (nunca sai da máquina) | qwen2.5-coder / llama3.2 |
 
-- Chaves: `GEMINI_API_KEY` / `GROQ_API_KEY` (ou `KVASIR_*`), lidas do ambiente do processo e, se faltarem, do valor salvo por `kvasir keys` (`utils/userEnv.ts`: registro `HKCUEnvironment` no Windows, bloco marcado no perfil do shell no macOS/Linux), para funcionar sem reabrir o terminal. Modelos: `ai.geminiModel` (padrão `gemini-2.5-flash`) e `ai.groqModel` (padrão `llama-3.3-70b-versatile`) em `~/.kvasir/config.json`. `KVASIR_GEMINI_BASE_URL`/`KVASIR_GROQ_BASE_URL` servem para proxy ou mock.
+- Chaves: `GEMINI_API_KEY` / `GROQ_API_KEY` (ou `KVASIR_*`), lidas do ambiente do processo e, se faltarem, do valor salvo por `kvasir keys` (`utils/userEnv.ts`: registro `HKCU\Environment` no Windows, bloco marcado no perfil do shell no macOS/Linux), para funcionar sem reabrir o terminal. Modelos: `ai.geminiModel` (padrão `gemini-flash-latest`) e `ai.groqModel` (padrão `qwen/qwen3.8-27b`; o catálogo do Groq muda, um 404 avisa para trocar) em `~/.kvasir/config.json`. `KVASIR_GEMINI_BASE_URL`/`KVASIR_GROQ_BASE_URL` servem para proxy ou mock.
 - Consentimento: `ai.cloud` no `config.json`; perguntado uma vez quando há chave; `kvasir models --cloud on|off`.
 - Falha (429, chave recusada, 5xx, timeout, sem rede) → próximo candidato; a mensagem nunca inclui a chave.
 
@@ -316,7 +316,7 @@ npm registry → (sem README? tenta `raw.githubusercontent.com` em `main`/`maste
 4. `askFor('review', temperature 0.1, repeatPenalty 1.1, maxTokens = 40 por linha)` → mostra → "As sugestões foram úteis?" → `patterns.md` + métrica; se útil, nota em `knowledge/patterns/review-<projeto>.md`.
 
 ### `kvasir keys`
-`keys` mostra se cada chave está configurada (nunca mostra a chave). `keys set [gemini|groq]`: link para criar a chave → entrada oculta → aviso se o prefixo não bate (`AIza`/`gsk_`, de `CLOUD_KEY_INFO`) → `checkCloudKey` (lista modelos, sem gerar) → confirm → `writeUserEnv` (`setx` no Windows) → se a nuvem não estiver permitida, pergunta o consentimento. `keys remove`: confirm → `removeUserEnv`.
+`keys` mostra se cada chave está configurada (nunca mostra a chave). `keys set [gemini|groq]`: link para criar a chave → entrada oculta → aviso se o prefixo não bate (`AQ.`/`AIza` no Gemini, `gsk_` no Groq, de `CLOUD_KEY_INFO`) → `checkCloudKey` (lista modelos, sem gerar) → confirm → `writeUserEnv` (`setx` no Windows) → se a nuvem não estiver permitida, pergunta o consentimento. `keys remove`: confirm → `removeUserEnv`.
 
 ### `kvasir models`
 Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e o primeiro instalado por tarefa.

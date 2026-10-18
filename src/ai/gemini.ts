@@ -4,8 +4,12 @@ import { readSavedUserEnv } from '@utils/userEnv';
 import type { ProviderCallOptions, ProviderResult } from '@ai/providers';
 
 // Gemini Flash (Google AI Studio, free tier). Key from the environment only.
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+// "-latest" alias: Google keeps it pointing to the current Flash (fixed names like gemini-2.5-flash got retired).
+export const DEFAULT_GEMINI_MODEL = 'gemini-flash-latest';
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com';
+// Current Flash models think before answering and the thoughts count against maxOutputTokens: with
+// the small limits the modules use, the answer came back empty (finishReason MAX_TOKENS).
+const THINKING_HEADROOM_TOKENS = 1024;
 
 interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -31,8 +35,11 @@ export async function askGemini(prompt: string, options: ProviderCallOptions): P
       {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
+          // Text tasks only (doc, daily, release, pr): ask for no thinking. Gemini 3.x does not always
+          // honor it, hence the headroom below.
+          thinkingConfig: { thinkingBudget: 0 },
           ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-          ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+          ...(options.maxTokens ? { maxOutputTokens: options.maxTokens + THINKING_HEADROOM_TOKENS } : {}),
         },
       },
       { headers: { 'x-goog-api-key': key }, timeout: options.timeoutMs }

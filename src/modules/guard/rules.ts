@@ -25,6 +25,8 @@ function isRealValue(assignment: string): boolean {
 const LINE_RULES: LineRule[] = [
   { id: 'aws-key', severity: 'block', description: 'chave de acesso AWS', pattern: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/ },
   { id: 'google-api-key', severity: 'block', description: 'chave de API do Google', pattern: /\bAIza[0-9A-Za-z_-]{35}\b/ },
+  { id: 'google-auth-key', severity: 'block', description: 'chave de API do Google (formato AQ.)', pattern: /\bAQ\.[0-9A-Za-z_-]{40,}/ },
+  { id: 'groq-api-key', severity: 'block', description: 'chave de API do Groq', pattern: /\bgsk_[0-9A-Za-z]{40,}\b/ },
   { id: 'github-token', severity: 'block', description: 'token do GitHub', pattern: /\b(ghp|gho|ghs|ghu|ghr)_[A-Za-z0-9]{36}\b|\bgithub_pat_[A-Za-z0-9_]{22,}\b/ },
   { id: 'stripe-live-key', severity: 'block', description: 'chave live do Stripe', pattern: /\b(sk|rk)_live_[0-9a-zA-Z]{16,}\b/ },
   { id: 'private-key', severity: 'block', description: 'chave privada', pattern: /-----BEGIN (RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY( BLOCK)?-----/ },

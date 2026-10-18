@@ -340,7 +340,13 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 
 A pedido do autor: um comando para salvar a chave sem digitar `setx`. `kvasir keys` (status), `keys set [gemini|groq]` (link → cola oculta → testa na API → confirma → grava como variável de ambiente do usuário → oferece ligar a nuvem), `keys remove`. Arquivos: `src/utils/userEnv.ts`, `src/modules/keys/index.ts`, `src/cli/keys.ts`, `CLOUD_KEY_INFO` em `providers.ts`, `checkCloudKey` no router, `password()` em `@utils/prompt`. `getGeminiApiKey`/`getGroqApiKey` também leem o valor salvo (funciona sem reabrir o terminal). `doctor` e `models` sugerem `kvasir keys set`.
 
-**Testado:** API Groq falsa (chave aceita → salva e pergunta a nuvem; recusada 401 → pergunta se salva mesmo assim; prefixo `AIza` no Groq → avisa); registro real do Windows (grava, processo novo lê, remove, nada sobrou); valor com aspas/`;` recusado. Não testado: o prompt oculto num terminal real (só com respostas simuladas) e macOS/Linux.
+**Testado:** API Groq falsa (chave aceita → salva e pergunta a nuvem; recusada 401 → pergunta se salva mesmo assim; prefixo `AIza` no Groq → avisa); registro real do Windows (grava, processo novo lê, remove, nada sobrou); valor com aspas/`;` recusado. Não testado: macOS/Linux.
+
+**Teste real com as chaves do autor (2026-10-18):** `keys set` funcionou nos dois. Achados e correções:
+- Google gera chaves `AQ.` desde 2026 (antes `AIza`): o aviso de prefixo estava errado → aceita os dois; o `guard` ganhou as regras `google-auth-key` (`AQ.`) e `groq-api-key` (`gsk_`), testadas com chaves falsas
+- Os modelos padrão davam 404 (aposentados): Gemini → `gemini-flash-latest` (alias que o Google mantém atualizado; hoje aponta para o gemini-3.8-flash); Groq → `qwen/qwen3.8-27b` (`llama-3.3-70b-versatile` saiu do catálogo). Um 404 agora diz para trocar `ai.geminiModel`/`ai.groqModel`
+- O Gemini 3.x pensa antes de responder e o raciocínio consumia o `maxOutputTokens` (resposta vazia, MAX_TOKENS): pede `thinkingBudget: 0` e soma 1024 tokens de folga
+- Chamadas reais pelo router: commit e pr respondidos pelo Groq (~0,3–4s); daily, doc e release pelo Gemini (~4–5s); 503/429 do Gemini (sobrecarga e limite por minuto do plano grátis) caíram no Groq/Ollama como esperado
 
 ---
 

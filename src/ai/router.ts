@@ -60,7 +60,7 @@ export interface AskForOptions {
 export interface Candidate {
   provider: ProviderName;
   model: string;
-  // what the orchestrator and the logs see: "groq/llama-3.3-70b-versatile", "qwen2.5-coder:latest"
+  // what the orchestrator and the logs see: "groq/qwen/qwen3.8-27b", "qwen2.5-coder:latest"
   label: string;
 }
 

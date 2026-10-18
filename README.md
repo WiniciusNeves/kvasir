@@ -94,7 +94,7 @@ kvasir keys set groq
 
 O comando mostra onde criar a chave grátis, pede para colar (sem mostrar na tela), testa na API e salva. Funciona na hora, sem reabrir o terminal. `kvasir keys` mostra o que está configurado e `kvasir keys remove` apaga.
 
-- A chave fica só na variável de ambiente do seu usuário (Windows: variáveis de ambiente do usuário; macOS/Linux: um bloco marcado no `~/.zshrc`/`~/.bashrc`): nunca no código nem no `~/.kvasir/config.json` (o `kvasir guard` bloqueia commit de chave do Google).
+- A chave fica só na variável de ambiente do seu usuário (Windows: variáveis de ambiente do usuário; macOS/Linux: um bloco marcado no `~/.zshrc`/`~/.bashrc`): nunca no código nem no `~/.kvasir/config.json` (o `kvasir guard` bloqueia commit de chave do Google, nos formatos `AIza` e `AQ.`, e do Groq, `gsk_`).
 - Na primeira vez, o Kvasir pergunta se pode enviar prompts (que podem conter código) para a nuvem. Mude depois com `kvasir models --cloud on|off`.
 - O `guard` nunca usa a nuvem e o modelo de arquitetura continua local.
 - Para não ter custo: não ative o faturamento no projeto do Google e não cadastre cartão no Groq (confira os planos nos painéis deles).
