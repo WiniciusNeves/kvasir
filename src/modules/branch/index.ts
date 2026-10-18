@@ -1,4 +1,7 @@
 import { askFor } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
+import { noteTaskBranch } from '@modules/knowledge/auto';
+import { answerLines, pickLine } from '@ai/parse';
 import { confirm, input, select } from '@utils/prompt';
 import {
   createBranch,
@@ -8,46 +11,106 @@ import {
   deleteBranch,
   checkoutPreviousBranch,
 } from '@utils/git';
-import { loadContext } from '@modules/init/contextWriter';
+import { setActiveTask } from '@modules/init/contextWriter';
+import { loadContext } from '@modules/init/ensure';
+import { loadPersona } from '@modules/init/personaLoader';
+import type { KvasirContext } from '@ktypes/context';
+import type { PersonaBranchRule } from '@ktypes/persona';
 
 type BranchChoice = 'yes' | 'no' | 'edit';
 type PostBranchAction = 'none' | 'delete' | 'list' | 'previous';
 
-function buildBranchPrompt(descricao: string): string {
-  return `Gere APENAS o nome de uma branch git em inglês seguindo
-Git Flow ACME. Responda somente com o nome da branch,
-sem explicações, sem aspas, sem markdown.
+const MAX_BRANCH_SLUG = 50;
 
-Prefixos válidos: feature/ fix/ hotfix/ release/ chore/
-
-Tarefa: ${descricao}
-
-IMPORTANTE: Gere um nome baseado APENAS na tarefa descrita.
-Não use exemplos genéricos.`;
+// Prefixes, their meaning and the language come from the project's persona (never hardcoded here).
+interface BranchConventions {
+  pattern: string;
+  rules: PersonaBranchRule[];
+  language: string;
 }
 
-function parseBranchName(response: string): string {
-  const firstLine =
-    response
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? '';
+const FALLBACK_RULES: PersonaBranchRule[] = [
+  { prefix: 'feature/', description: 'New features' },
+  { prefix: 'fix/', description: 'Bug fixes' },
+  { prefix: 'chore/', description: 'Tooling and dependencies' },
+];
 
-  return firstLine
-    .replace(/`/g, '')
-    .replace(/"/g, '')
-    .replace(/'/g, '')
-    .replace(/\s+/g, '-')
-    .toLowerCase();
+async function loadConventions(context: KvasirContext): Promise<BranchConventions> {
+  try {
+    const persona = await loadPersona(context.project.persona);
+    return { pattern: context.branchRules.pattern, rules: persona.branchRules, language: persona.language };
+  } catch {
+    const prefixes = context.branchRules.prefix.split(/\s+/).filter(Boolean);
+    const rules = prefixes.length > 0 ? prefixes.map((prefix) => ({ prefix, description: '' })) : FALLBACK_RULES;
+    return { pattern: context.branchRules.pattern || 'Git Flow', rules, language: context.branchRules.language || 'English' };
+  }
+}
+
+function prefixNames(conventions: BranchConventions): string[] {
+  return conventions.rules.map((rule) => rule.prefix.replace(/\/$/, '').toLowerCase());
+}
+
+function isPortuguese(language: string): boolean {
+  return /portugu/i.test(language);
+}
+
+function buildBranchPrompt(descricao: string, conventions: BranchConventions): string {
+  const slugRule = isPortuguese(conventions.language)
+    ? 'um resumo da tarefa em PORTUGUÊS, usando as palavras da própria descrição (NÃO traduza para o inglês), sem acentos, em kebab-case. Exemplo: tarefa "incluir filtro por data no relatório" → "incluir-filtro-data-relatorio"'
+    : 'um resumo da tarefa TRADUZIDO para o inglês, em kebab-case';
+
+  return `Você cria nomes de branch git no padrão ${conventions.pattern}.
+
+Tarefa descrita pelo desenvolvedor (pode estar em português):
+${descricao}
+
+Escolha o prefixo pelo tipo da tarefa:
+${conventions.rules.map((rule) => `- ${rule.prefix.padEnd(10)} ${rule.description}`).join('\n')}
+
+Depois do prefixo: ${slugRule} (minúsculas, palavras separadas por hífen), de 2 a 5 palavras, só letras, números e hífens.
+
+Responda com UMA única linha: só o nome da branch (prefixo/resumo). Sem aspas, sem markdown, sem explicação.`;
+}
+
+// Normalizes whatever the model returned ("Branch: Feature/Add Login!") into a valid git branch name.
+function parseBranchName(response: string, conventions: BranchConventions): string {
+  const prefixes = prefixNames(conventions);
+  const alternatives = prefixes.map((prefix) => prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const branchName = new RegExp(`^(${alternatives})/[a-z0-9][a-z0-9._-]*$`);
+  const branchLike = new RegExp(`\\b(${alternatives})/[^\\n\`'"]+`, 'i');
+
+  const exact = pickLine(response, branchName);
+  const lines = answerLines(response);
+  const embedded = lines.map((line) => line.match(branchLike)?.[0]).find((match) => match !== undefined);
+  const raw = (exact ?? embedded ?? lines[0] ?? '').replace(/^[^:/]{2,40}:\s*/, '').toLowerCase();
+  const [maybePrefix, ...rest] = raw.split('/');
+  const hasPrefix = rest.length > 0 && prefixes.includes(maybePrefix.trim());
+  const prefix = hasPrefix ? maybePrefix.trim() : prefixes[0];
+
+  // An unknown prefix ("feature/" when the persona uses "feat/") is dropped, not glued into the slug.
+  const slug = (rest.length > 0 ? rest.join('-') : raw)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, MAX_BRANCH_SLUG)
+    .replace(/-+$/, '');
+
+  return slug ? `${prefix}/${slug}` : '';
 }
 
 export async function runBranch(): Promise<void> {
-  await loadContext();
+  const context = await loadContext();
+  const activeTask = context.activeTask;
 
-  const taskDescription = await input('Descreva a tarefa para esta branch:');
+  const taskDescription = await input(
+    activeTask ? `Descreva a tarefa (Enter usa a task ativa ${activeTask.id}):` : 'Descreva a tarefa para esta branch:',
+    activeTask?.title
+  );
 
-  const response = await askFor('branch', buildBranchPrompt(taskDescription));
-  const branchName = parseBranchName(response);
+  const conventions = await loadConventions(context);
+  const response = await askFor('branch', buildBranchPrompt(taskDescription, conventions), { temperature: 0.2 });
+  const branchName = parseBranchName(response, conventions);
 
   console.log(`\nBranch atual: ${getCurrentBranch()}`);
   console.log(`Branch sugerida: ${branchName}`);
@@ -57,6 +120,8 @@ export async function runBranch(): Promise<void> {
     { name: 'Não — cancelar', value: 'no' },
     { name: 'Editar — modificar o nome', value: 'edit' },
   ]);
+
+  await recordOutcome('branch', action === 'yes' ? 'approved' : 'rejected');
 
   if (action === 'no') {
     console.log('❌ Criação de branch cancelada.');
@@ -76,6 +141,12 @@ export async function runBranch(): Promise<void> {
 
   createBranch(finalBranchName);
   console.log(`✅ Branch criada: ${finalBranchName}`);
+
+  if (activeTask && taskDescription.trim() === activeTask.title.trim()) {
+    await setActiveTask({ ...activeTask, linkedBranch: finalBranchName });
+    console.log(`🔗 Task ${activeTask.id} vinculada à branch ${finalBranchName}.`);
+    await noteTaskBranch(activeTask.id, finalBranchName);
+  }
 
   await runPostBranchMenu();
 }

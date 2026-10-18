@@ -2,48 +2,80 @@ import os from 'os';
 import path from 'path';
 import { readFeedback } from '@utils/feedback';
 import { promptAI } from '@ai/client';
+import { cleanAnswer } from '@ai/parse';
 import { writeFile, readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
+import { readMetrics, summarizeMetrics } from '@ai/metrics';
+import { noteAgentPerformance } from '@modules/knowledge/auto';
+
+const MAX_FEEDBACK_ENTRIES = 150;
+const AGENT_STATS_DAYS = 30;
+const DEFAULT_PROFILE = '# profile.md\n\n## Preferências aprendidas\n\n## Stack pessoal\n';
 
 function getProfilePath(): string {
   return path.join(os.homedir(), '.kvasir', 'profile.md');
 }
 
+// Only the most recent entries: the full log grows forever and the old ones are already in the profile.
+function recentEntries(feedback: string): string[] {
+  return feedback.split('\n').filter((line) => line.startsWith('- [')).slice(-MAX_FEEDBACK_ENTRIES);
+}
+
+function buildLearnPrompt(currentProfile: string, entries: string[]): string {
+  return `Você mantém o perfil de preferências de um desenvolvedor, usado para personalizar sugestões de IA (commits, correções, revisões).
+
+Perfil atual (profile.md):
+${currentProfile}
+
+Feedback recente (APPROVED = ele aceitou a sugestão da IA, REJECTED = recusou ou editou):
+${entries.join('\n')}
+
+Atualize o perfil com as preferências que o feedback mostra de forma consistente (ex.: estilo de mensagem de commit que ele aprova, tipos de correção que recusa).
+
+Regras:
+- Mantenha a estrutura e as seções existentes; só acrescente ou refine itens
+- Não invente preferências que o feedback não sustenta
+- Escreva em português, itens curtos
+
+Responda com o conteúdo COMPLETO do novo profile.md, começando por "# profile.md", sem comentários antes ou depois.`;
+}
+
+// Claude often wraps the file in a code fence or adds a sentence before it: keep only the markdown.
+function extractProfile(answer: string): string {
+  const clean = cleanAnswer(answer);
+  const fence = clean.match(/```(?:markdown|md)?\n([\s\S]*?)```/);
+  const body = fence ? fence[1] : clean;
+  const headingIndex = body.search(/^# /m);
+  return `${(headingIndex >= 0 ? body.slice(headingIndex) : body).trim()}\n`;
+}
+
 export async function runLearn(): Promise<void> {
-  const [commits, fixes, patterns] = await Promise.all([
-    readFeedback('commits'),
-    readFeedback('fixes'),
-    readFeedback('patterns'),
-  ]);
+  const feedback = await Promise.all([readFeedback('commits'), readFeedback('fixes'), readFeedback('patterns')]);
+  const entries = feedback.flatMap(recentEntries);
 
-  const combinedFeedback = [commits, fixes, patterns].filter(Boolean).join('\n');
-
-  if (!combinedFeedback.trim()) {
-    console.log('No feedback recorded yet. Nothing to learn from.');
+  if (entries.length === 0) {
+    console.log('Nenhum feedback registrado ainda. Use commit, fix e review e rode "kvasir learn" depois.');
     return;
   }
 
-  const currentProfile =
-    (await readFile(getProfilePath())) ?? '# profile.md\n\n## Preferências aprendidas\n\n## Stack pessoal\n';
+  const currentProfile = (await readFile(getProfilePath())) ?? DEFAULT_PROFILE;
+  console.log(`\nAnalisando ${entries.length} registro(s) de feedback com o Claude...`);
 
-  const updatedProfile = await promptAI(`
-    Current developer profile:
-    ${currentProfile}
-    Recent feedback log:
-    ${combinedFeedback}
-    Update the profile with any new learned preferences based on the feedback above.
-    Keep the existing structure and only add or refine relevant sections. Respond with the full updated profile.md content.
-  `);
+  const updatedProfile = extractProfile(await promptAI(buildLearnPrompt(currentProfile, entries), { task: 'learn', role: 'direct' }));
 
-  console.log('\nProposed profile update:');
+  console.log('\nPerfil proposto:\n');
   console.log(updatedProfile);
 
-  const approved = await confirm('Save this updated profile.md?');
+  const approved = await confirm(`Salvar em ${getProfilePath()}?`);
   if (!approved) {
-    console.log('Learn cancelled.');
+    console.log('Perfil não alterado.');
     return;
   }
 
   await writeFile(getProfilePath(), updatedProfile);
-  console.log('profile.md updated.');
+  console.log('✅ profile.md atualizado.');
+
+  // What each agent of the team did, from real usage: knowledge/agents/<agent>.md.
+  const summary = summarizeMetrics(await readMetrics(AGENT_STATS_DAYS));
+  if (summary.models.length > 0) await noteAgentPerformance(summary, AGENT_STATS_DAYS);
 }

@@ -88,3 +88,9 @@ export async function listFilesRecursive(rootDir: string, options: ListFilesOpti
 
   return walk(fullRoot);
 }
+
+export async function appendLine(filePath: string, line: string): Promise<void> {
+  const fullPath = path.resolve(process.cwd(), filePath);
+  await ensureDir(path.dirname(fullPath));
+  await fs.appendFile(fullPath, `${line}\n`, 'utf-8');
+}

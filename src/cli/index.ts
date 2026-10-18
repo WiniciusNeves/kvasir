@@ -15,6 +15,20 @@ import { registerUndo } from './undo';
 import { registerPush } from './push';
 import { registerLog } from './log';
 import { registerModels } from './models';
+import { registerGuard } from './guard';
+import { registerDoctor } from './doctor';
+import { registerPr } from './pr';
+import { registerDaily } from './daily';
+import { registerRelease } from './release';
+import { registerTest } from './test';
+import { registerPersona } from './persona';
+import { registerKeys } from './keys';
+import { registerAgents } from './agents';
+import { registerStats } from './stats';
+import { registerProactive } from './proactive';
+import { registerWatch } from './watch';
+import { resolveCommandLine } from '@modules/menu';
+import { printCliError } from '@utils/errors';
 
 process.on('SIGINT', () => {
   console.log('\n👋 Kvasir encerrado.');
@@ -44,5 +58,32 @@ registerUndo(program);
 registerPush(program);
 registerLog(program);
 registerModels(program);
+registerGuard(program);
+registerDoctor(program);
+registerPr(program);
+registerDaily(program);
+registerRelease(program);
+registerTest(program);
+registerPersona(program);
+registerKeys(program);
+registerAgents(program);
+registerStats(program);
+registerProactive(program);
+registerWatch(program);
 
-program.parse(process.argv);
+program.addHelpText(
+  'after',
+  '\nDicas: rode só "kvasir" para abrir o menu, ou escreva o que quer: kvasir quero salvar minha chave do groq'
+);
+
+// No args → menu; a typo or a sentence → the matching command (after a confirmation).
+async function main(): Promise<void> {
+  const knownCommands = program.commands.map((command) => command.name());
+  const argv = await resolveCommandLine(process.argv.slice(2), knownCommands);
+  if (argv) await program.parseAsync(argv, { from: 'user' });
+}
+
+main().catch((error: unknown) => {
+  if ((error as Error).name === 'ExitPromptError') return;
+  printCliError(error);
+});

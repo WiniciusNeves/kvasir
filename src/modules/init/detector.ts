@@ -6,10 +6,8 @@ interface PackageJson {
   devDependencies?: Record<string, string>;
 }
 
-export async function detectProject(): Promise<'acme' | 'unknown'> {
-  const pkg = await readJson<PackageJson>('package.json');
-  if (pkg?.name?.includes('acme')) return 'acme';
-  return 'unknown';
+export async function readPackageName(): Promise<string | null> {
+  return (await readJson<PackageJson>('package.json'))?.name ?? null;
 }
 
 export async function detectStack(): Promise<string[]> {

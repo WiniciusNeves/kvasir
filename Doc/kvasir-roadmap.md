@@ -1,125 +1,95 @@
-# Kvasir — Roadmap
+# Kvasir: roadmap
 
-> O que falta implementar, em ordem de prioridade.
-
----
-
-## Fase 1 — Terminar módulos core (agora)
-
-### Correções pendentes
-- [ ] `doc --code` — seleção por pasta em 2 níveis (não lista 391 arquivos)
-- [ ] `commit` — menu pós-commit em loop (não fecha após ação)
-- [ ] `commit` — histórico formatado com bordas ASCII
-- [ ] `commit` — comandos separados `kvasir undo`, `kvasir push`, `kvasir log`
-
-### Módulos para testar
-- [ ] `kvasir branch` — gerar nome de branch via Ollama
-- [ ] `kvasir fix` — analisar erro e sugerir correção
-- [ ] `kvasir review` — revisar código antes do commit
-- [ ] `kvasir task` — buscar tasks do Planner
-- [ ] `kvasir start` — iniciar o dia
-- [ ] `kvasir learn` — consolidar feedback no profile.md
-- [ ] `kvasir knowledge` — base de conhecimento
+> O que falta, **em ordem**. Termine uma fase antes de começar a próxima.
+> Estado atual: `kvasir-current.md` · Visão: `kvasir-vision.md`
 
 ---
 
-## Fase 2 — AI Router
+## Fase 1: terminar o core ← **agora**
 
-Criar `src/ai/router.ts` que decide qual modelo usar por tarefa:
+- [x] `init`, `commit`, `branch`, `doc`, `doc --code`, `models`
+- [x] Seleção por pasta no `doc --code`
+- [x] Menu pós-commit em loop
+- [x] `kvasir undo`, `kvasir push`, `kvasir log` separados (com tabela ASCII)
+- [x] `kvasir fix` (2026-10-17)
+- [x] Testar `review`, `knowledge`, `learn`, `task`, `start` (2026-10-17)
+- [ ] Testar `push` contra remoto real, `format`, menu do `branch`
+- [ ] Corrigir os problemas conhecidos #7 a #11 de `kvasir-current.md` (#3 a #6 resolvidos)
 
-```
-src/ai/
-├── router.ts     ← novo — decide qual modelo usar
-├── gemini.ts     ← novo — Gemini Flash (gratuito, melhor para português)
-├── groq.ts       ← novo — Groq (gratuito, rápido para código)
-├── ollama.ts     ← já existe
-└── client.ts     ← já existe (clipboard bridge)
-```
+---
 
-| Tarefa | Modelo preferido | Fallback |
+## Fase 1.5: novos módulos (depois do `fix`)
+
+> Especificação completa: `Doc/ideas/novos-modulos.md`
+
+1. [x] `kvasir guard`: bloqueia segredos e dados sensíveis antes do commit (integrado ao `commit`) (2026-10-17)
+2. [x] `kvasir pr`: título e descrição do Pull Request em português (2026-10-17)
+3. [ ] `kvasir review`: finalizar
+4. [x] `kvasir daily`: resumo dos commits para a daily (2026-10-17)
+5. [x] `kvasir release`: versão SemVer + CHANGELOG a partir dos Conventional Commits (2026-10-17)
+6. [x] `kvasir doctor`: diagnóstico do ambiente (Node, JDK, Android, Expo, Ollama) (2026-10-17)
+7. [x] `kvasir test`: gera testes para os arquivos alterados (2026-10-17)
+
+---
+
+## Fase 2: AI Router v2
+
+Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboard) valida.
+
+- [ ] Escolha determinística do modelo por padrão (primeiro instalado do `MODEL_MAP`), sem clipboard (problema #1)
+- [ ] Validação pelo Claude opcional
+- [x] `src/ai/gemini.ts`: Gemini Flash (gratuito, melhor para português) (2026-10-17)
+- [x] `src/ai/groq.ts`: Groq (gratuito, rápido para código) (2026-10-17)
+- [ ] Fallback: nuvem gratuita → Ollama se estiver offline ou se o limite estourar
+
+| Tarefa | Preferido | Fallback |
 |---|---|---|
-| doc, pesquisa, português | Gemini Flash | Ollama llama3.2 |
-| commit, fix, review | Groq | Ollama codellama |
+| doc, texto, português | Gemini Flash | Ollama llama3.2 |
+| commit, branch, fix, review | Groq | Ollama (codellama / qwen2.5-coder) |
 | offline / privado | Ollama | — |
 
-**Requisitos:**
-- Conta Gemini: [aistudio.google.com](https://aistudio.google.com) — gratuito
-- Conta Groq: [console.groq.com](https://console.groq.com) — gratuito
+**Requisitos:** chave no [aistudio.google.com](https://aistudio.google.com) e no [console.groq.com](https://console.groq.com) (ambos gratuitos).
 
 ---
 
-## Fase 3 — Time de Agentes de IA
+## Fase 3: contexto e aprendizado
 
-Cada agente tem um domínio isolado e usa o modelo mais adequado:
-
-| Agente | Função | Modelo |
-|---|---|---|
-| Arquiteto | Ideias, decisões técnicas, planejamento | Claude |
-| Revisor | Code review, padrões, qualidade | Claude/Groq |
-| Documentador | Doc de código e libs | Gemini Flash |
-| Testador | Gera e revisa testes | CodeLlama |
-| Executor | Commit, branch, format (tarefas mecânicas) | CodeLlama |
-
-**Regras:**
-- Cada agente tem contexto isolado
-- Agentes não interferem nas tarefas uns dos outros
-- Gerenciador de tarefas por agente para evitar sobreposição
-- `knowledge/` é compartilhado entre todos
+- [x] `task` grava a task ativa no `kvasir.context.md`; `branch` usa a task (2026-10-17)
+- [ ] Injetar `profile.md` e notas relevantes do `knowledge/` nos prompts
+- [ ] `kvasir stats`: dashboard HTML com gráfico radar (Chart.js): uso × aprovação por módulo, semana × mês
+- [ ] `kvasir docs update`: atualiza os docs do projeto automaticamente
 
 ---
 
-## Fase 4 — kvasir deploy
+## Fase 4: OmniContext (RAG local)
 
-```bash
-kvasir deploy
-```
+> Especificação: `Doc/ideas/omnicontext.md`
 
-**ACME Mobile:**
-- Gerar AAB (Android → Play Store)
-- Gerar IPA (iOS → App Store)
-- EAS Update (OTA — sem passar pela loja, exige mensagem tipo commit)
-
-**ACME Web:**
-- Build + Deploy (Vercel/outros)
+- [ ] `kvasir index` / `kvasir ask` com embeddings locais (Ollama + Qdrant), módulo isolado em `src/rag/`
+- [ ] `fix` e `review` consultam o RAG
+- [ ] Sincronizar Windows ↔ Mac (primeiro via arquivos fonte; P2P depois)
 
 ---
 
-## Fase 5 — Produto
+## Fase 5: `kvasir deploy`
 
-### Comandos por voz
-```bash
-# futuro
-kvasir "cria uma branch para corrigir o login"
-kvasir "faz o commit do que está staged"
-```
-
-### Extensão VS Code
-- Kvasir integrado diretamente no VS Code
-- Sem precisar do terminal
-
-### kvasir docs update
-```bash
-kvasir docs update
-# → lê estado atual do projeto
-# → atualiza kvasir-complete-doc.md automaticamente
-```
-
-### B2B
-- Cada empresa tem suas personas
-- Vende para times de desenvolvimento
-- Persona ACME como exemplo/template
-
-### Open Source + Cloud
-- CLI gratuito e open source
-- Sync de knowledge e personas na cloud (pago)
-- Cada dev tem seu perfil na cloud
+- **Mobile (Expo):** EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, com mensagem no estilo commit)
+- **Web:** build + deploy (Vercel ou outro)
+- Detecta o tipo de projeto automaticamente
 
 ---
 
-## Integrações futuras
+## Fase 6: linguagem natural e agentes
 
-| Integração | O que faz |
-|---|---|
-| Task manager ACME próprio | API + banco de dados — substitui Planner |
-| Servidor de IA centralizado | Ponto único para gerenciar modelos locais |
-| GitHub Actions | Kvasir rodando em CI/CD |
+- [ ] `src/ai/intent.ts`: português informal → módulo certo (ações destrutivas pedem confirmação)
+- [ ] Time de agentes (Arquiteto, Revisor, Documentador, Testador, Executor) com gerenciador de tarefas
+
+---
+
+## Fase 7: produto
+
+- App desktop (Electron ou Tauri) com bandeja e voz (Whisper + Piper/Edge TTS)
+- Extensão VS Code
+- Plugins em `~/.kvasir/plugins/` e auto-melhoria
+- Sync na nuvem (pago) · personas B2B
+- Integrações: task manager próprio da empresa, GitHub Actions, servidor de IA centralizado

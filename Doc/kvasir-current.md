@@ -1,95 +1,80 @@
-# Kvasir — Estado Atual (2025-07)
+# Kvasir: estado atual
 
-> O que está implementado e funcionando hoje.
-
----
-
-## Módulos funcionando
-
-### kvasir init ✅
-- Detecta tipo de projeto pelas deps do package.json
-- `name` contém `acme` → persona ACME aplicada automaticamente
-- `expo` nas deps → stack Mobile (RN/Expo) → usa template acme-mobile.md
-- `next` nas deps → stack Web (Next.js) → usa template acme-web.md
-- Gera `kvasir.context.md` com contexto completo
-- Gera `CLAUDE.md` com template rico da stack detectada
-- Gera `.cursor/rules` e `.github/copilot-instructions.md`
-- Detecta branch ativa do git e inclui no contexto
-
-### kvasir commit ✅
-- Verifica staged changes com `spawnSync git diff --cached`
-- Se não tiver staged, oferece `git add .`
-- Ollama (codellama) gera mensagem Conventional Commits em inglês
-- Parse extrai texto dentro de backticks da resposta do Ollama
-- Interface em português
-- Menu pós-commit: push, push force, undo, log, merge
-- Registra aprovação/rejeição em `~/.kvasir/feedback/commits.md`
-
-### kvasir doc \<lib\> ✅
-- Busca no npm registry (`https://registry.npmjs.org/<lib>`)
-- Fallback: busca no GitHub via `repository.url`
-- Ollama (llama3.2) resume em português com seções estruturadas:
-  - O que é / Instalação / Principais funcionalidades / Quando usar / Links úteis
-- Salva em `DOC/libs/<lib>.md`
-- Salva em `~/.kvasir/knowledge/libs/<lib>.md` com links para projetos
-
-### kvasir doc --code ✅
-- `--code hooks/useAuth.ts` → arquivo específico
-- `--code hooks/` → pasta com confirmação por arquivo
-- `--code` → seleção interativa (ainda em ajuste — lista 391 arquivos)
-- `--code --all` → projeto inteiro com progresso
-- `--code --all --force` → reprocessa mesmo os que já têm doc
-- Salva em `DOC/code/<caminho-espelhado>.md`
-
-### kvasir review ✅ (implementado, não testado)
-- Lê git diff --cached
-- Ollama revisa seguindo padrões do projeto
-- Registra feedback em `~/.kvasir/feedback/patterns.md`
-
-### kvasir learn ✅ (implementado, não testado)
-- Consolida feedback de `~/.kvasir/feedback/`
-- Atualiza `~/.kvasir/profile.md`
-
-### kvasir knowledge ✅ (implementado, não testado)
-- search, add, link, show
-
-### kvasir start ✅ (implementado, não testado)
-### kvasir task ✅ (implementado, não testado)
-### kvasir fix ✅ (implementado, não testado)
-### kvasir format ✅ (implementado, não testado)
-### kvasir branch ✅ (implementado, não testado)
+> Atualizado em: 2026-10-17 · versão `0.1.0`
+> Feito a partir da leitura do código em `src/`. Atualize quando um módulo mudar de status.
 
 ---
 
-## Bugs conhecidos
+## Status dos comandos
 
-| Bug | Status |
-|---|---|
-| `doc --code` lista 391 arquivos de uma vez | 🔧 Em correção — deve navegar por pasta |
-| Menu pós-commit fecha após ação | 🔧 Em correção — deve ficar em loop |
-| Histórico `kvasir log` sem formatação | 🔧 Em correção |
+| Comando | Status | Observação |
+|---|---|---|
+| `init` | ✅ funcionando | Escolhe a persona (a detectada primeiro), mantém a task ativa ao rodar de novo, mensagens em português |
+| `persona` | ✅ testado (2026-10-17) | list/show/create/remove; JSON validado com zod; a persona do projeto define prefixos/idioma de branch e idioma de commit |
+| `commit` | ✅ funcionando | Roda o `guard` antes (`--no-guard` pula); prompt com stat + diff limitado; menu pós-commit em loop |
+| `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
+| `daily` | ✅ testado (2026-10-17) | 2 repos descartáveis: pegou só os commits do autor (inclusive em branch de feature), ignorou o do colega e o antigo; llama3.2 escreve o "Ontem" com exemplo de formato; copia e salva em `knowledge/commits/daily.md` |
+| `release` | ✅ testado (2026-10-17) | Repo Expo descartável: v1.4.2 → 1.5.0 (feat), CHANGELOG agrupado, indentação preservada, `versionCode`/`buildNumber` +1, commit + tag + push para remoto local; recusa stage sujo, tag repetida e "nada novo"; notas reescrevem só o que o usuário percebe |
+| `test` | ✅ testado (2026-10-17) | vitest e jest reais: testes passando de primeira em `cart.ts` e `slug.ts`; bug plantado (média dividindo por `length - 1`) detectado em 4 de 4 rodadas, com o teste salvo passando depois da correção |
+| `doctor` | ✅ testado (2026-10-17) | Testado no repo do kvasir e num projeto Expo descartável: pegou Node fora do `engines`, `JAVA_HOME` ≠ `java` do PATH, `gradlew` faltando, EAS desatualizado, `gh` ausente; Ollama com modelo faltando/fora do ar simulado |
+| `guard` | ✅ testado (2026-10-17) | Regras determinísticas (chaves AWS, Google `AIza`/`AQ.`, Groq `gsk_`, GitHub, Stripe, JWT, senhas, cartão Luhn 🔴; CPF/CNPJ, logs sensíveis 🟡), arquivos proibidos, IA para strings de alta entropia; cancelar / tirar do stage / ignorar com dupla confirmação; `.kvasirignore` com hashes |
+| `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |
+| `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
+| `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
+| menu / intenção | ✅ testado (2026-10-18) | `kvasir` sozinho abre o menu; submenus de keys/persona/knowledge; erro de digitação sugere o comando; frase livre vira comando (Groq: 9 de 9 frases certas; só Ollama: errou gírias como "joga isso no remoto" e aí oferece o menu); comandos oferecem rodar o pré-requisito na hora |
+| `watch` | ✅ testado (2026-10-18) | Corrige erros do TypeScript sozinho (clipboard ou `kvasir watch -- <comando>`) e valida em camadas: não aceita esconder o erro, compara todos os erros antes × depois, roda o teste do arquivo; desfaz e tenta de novo explicando ao modelo; aprende com o resultado e com o `fix --undo` |
+| `proactive` | ✅ testado (2026-10-18) | 4 sugestões (branch da task, review antes do commit, documentar lib nova, branch parada), uma por comando; viram automáticas ou param conforme as suas respostas; `kvasir proactive` mostra e ajusta |
+| `stats` / `board` | ✅ testado (2026-10-18) | HTML offline em `~/.kvasir/reports/`: cards, radar, barras por dia, modelos, o que aprendeu e o Agent Board (a fazer / em andamento ao vivo, feito / falhou); `board` atualiza a cada 3 s |
+| `agents` | ✅ testado (2026-10-18) | Time formal: 5 agentes, dono único por tarefa, prompt de papel, modelos trocáveis por agente (`agents set`), nuvem desligável por agente; métricas e notas no knowledge por agente |
+| `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |
+| `models` | ✅ funcionando | Mostra a ordem real de cada tarefa (com o motivo: padrão, desempenho ou pausa) e o desempenho real por tarefa × modelo (métricas) e o custo das idas ao Claude |
+| `fix` | ✅ funcionando | Clipboard com erro do tsc é usado direto; classifica simples × complexo; simples corrige sem perguntar (regra comprovada → IA); complexo investiga a causa raiz com imports, tsconfig, versões e arquivos de mesmo nome; nota em `knowledge/errors/`; expansão e `--undo` |
+| `review` | ✅ testado (2026-10-17) | Veredito da IA linha por linha (sem regras fixas); achados com `arquivo:linha`; reviews úteis viram nota em `knowledge/patterns/` |
+| `push` / `undo` / `log` | 🧪 falta testar | Também acessíveis pelo menu do `commit` |
+| `format` | 🧪 falta testar | Sem `execSync` (usa `runCommand`) |
+| `knowledge` | ✅ v2 (2026-10-17) · grafo HTML no `show` (2026-10-18) | Vault do Obsidian com frontmatter e `index.md` gerado; pastas `errors/` e `agents/`; notas automáticas de fix, commit, task, branch, review, learn e doc |
+| `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks, salva só o markdown (antes salvava a frase do Claude e as cercas ```) |
+| `task` / `start` | ✅ testado (2026-10-17) | Testados sem a API e com um Planner falso: erros claros (token, conexão, formato via zod); `task` grava a task ativa; `start` não aborta se o Planner falhar |
 
 ---
 
 ## Infraestrutura
 
-- Node.js + TypeScript compilado via `tsc` + `tsc-alias`
-- `npm link` → comando `kvasir` disponível globalmente
-- Ollama rodando em `http://localhost:11434`
-- Modelos instalados: `codellama` (4GB), `llama3.2` (2GB)
-- `spawnSync` para todos os comandos git (compatibilidade Windows)
-- Interface sempre em português, commits sempre em inglês
+- Node.js >= 18 + TypeScript strict, compilado com `tsc` + `tsc-alias`
+- `npm link` deixa o comando `kvasir` global
+- Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
+- Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
+- IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local; chaves salvas com `kvasir keys`
+- Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
+- `profile.md` injetado nos prompts de commit, branch, review e doc
+- Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
+- Dependências: commander, @inquirer/prompts, axios, clipboardy, fs-extra, cosmiconfig, zod (usado no planner)
 
 ---
 
-## Arquivos globais criados
+## Problemas conhecidos
 
-```
-~/.kvasir/
-├── profile.md
-├── personas/acme.json
-├── feedback/commits.md
-└── knowledge/libs/
-    ├── axios.md
-    └── zustand.md
-```
+Encontrados na leitura do código. Estão em ordem de impacto.
+
+| # | Problema | Onde | Sugestão |
+|---|---|---|---|
+| 1 | Cada `askFor` exige **2 idas ao clipboard** (Claude escolhe o modelo + Claude valida). Um `commit` simples vira copiar/colar duas vezes | `src/ai/router.ts` | Escolher o modelo pelo `MODEL_MAP` (primeiro instalado) por padrão, deixar validação opcional (`--validate`) ou só para `fix`/`architect` |
+| 2 | `kvasir models` mostra o "modelo ativo" como o primeiro instalado, mas quem decide na prática é o Claude no passo de orquestração | `models/index.ts` × `router.ts` | Se resolver o #1, os dois passam a bater |
+| 3 | ✅ resolvido (2026-10-17): a pergunta virou "As sugestões foram úteis?" | `review/index.ts` | — |
+| 4 | ✅ resolvido (2026-10-17): `task` grava a task ativa (`setActiveTask`) e o `branch` usa e vincula a branch | `task`, `branch`, `contextWriter` | — |
+| 5 | ✅ resolvido (2026-10-17): `format` usa `runCommand` | `format/index.ts` | — |
+| 6 | ✅ resolvido (2026-10-17): `doc --code` usa `askLocal('doc')` (llama3.2) | `doc/code.ts` | — |
+| 7 | Mensagens em inglês só no `doc --code` (o resto foi traduzido em 2026-10-17) | `doc/code.ts` | Traduzir |
+| 8 | `activeModules` ainda é uma lista fixa no `init` (atualizada em 2026-10-17 com todos os módulos) | `init/index.ts` | Gerar a partir dos comandos registrados |
+| 9 | Pasta de saída é `DOC/` (maiúsculo), mas este repo usa `Doc/`. No Windows é a mesma pasta; no Mac/Linux são diferentes | `doc/` | Padronizar um nome |
+| 10 | `kvasir.context.md` é parseado com regex; se o formato mudar à mão, quebra em silêncio | `contextWriter.ts` | Validar com `zod` (já é dependência) |
+| 11 | `branch`: o menu pós-branch e `-d` não foram retestados depois que os helpers do git passaram a conferir o `status` (a criação com task ativa foi testada) | `branch/index.ts` | Testar |
+
+---
+
+## Ainda não implementado
+
+- `kvasir task update`
+- `kvasir task` sem `KVASIR_PLANNER_API_URL` não tem fonte de tasks local (só a API)
+- Knowledge base consultada nos prompts (hoje os módulos escrevem notas, mas nenhum lê; vem com o OmniContext)
+- Testes automatizados do próprio Kvasir (o `kvasir test` gera testes para os projetos, mas o repo do Kvasir ainda não tem os seus)

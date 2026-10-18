@@ -1,145 +1,270 @@
-import { askFor } from '@ai/router';
-import { input, confirm } from '@utils/prompt';
-import { loadContext } from '@modules/init/contextWriter';
+import path from 'path';
+import { askFor, askLocal } from '@ai/router';
+import { queueJobs, clearQueuedJobs } from '@ai/jobs';
+import type { AiTask } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
+import { readClipboard } from '@ai/client';
+import { cleanAnswer, truncateForPrompt } from '@ai/parse';
+import { input, confirm, select } from '@utils/prompt';
+import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
-import { readFile, writeFile, pathExists, copyFile, removeFile } from '@utils/fs';
-import { runTypecheck } from '@utils/typecheck';
+import { readFile, writeFile, readJson } from '@utils/fs';
+import { runTypecheck, parseTscDiagnostics } from '@utils/typecheck';
+import type { TscDiagnostic } from '@utils/typecheck';
 import { openDiffInEditor } from '@utils/editor';
-
-const FILE_PATH_REGEX = /^([^\s:]+\.(ts|tsx))/;
-const LINE_NUMBER_REGEX = /:(\d+):\d+/;
-const ALL_FILES_REGEX = /[^\s:]+\.(ts|tsx|js|jsx|json)/g;
-
-const SIMPLE_TS_CODES = new Set(['TS6137', 'TS2345', 'TS2551']);
-const CONFIG_FILE_NAMES = ['tsconfig.json', 'babel.config.js', 'babel.config.ts', 'next.config.js', 'next.config.ts'];
+import { noteFixedError, noteBatchFix, noteInvestigation, recentErrorOccurrences, knownFixesFor } from '@modules/knowledge/auto';
+import { readNote } from '@modules/knowledge/notes';
+import { ensureBackup, undoLastFix } from './backup';
+import type { FixBackup } from './backup';
+import { splitFile, applyDeterministicFix, buildNumberedSnippet, buildLineFixPrompt, parseCorrectedLine, DETERMINISTIC_FIXES, COMPLEX_CODES } from './line';
+import { resolveLocalImports, readTsconfigText, findFilesNamedLike, isResolvableImport } from '@utils/imports';
 
 const MAX_INVESTIGATION_ROUNDS = 3;
-const MAX_RESOLUTION_ATTEMPTS = 3;
+// deepseek-r1 thinks for a long time with a big context; the default 120s cut it off.
+const ARCHITECT_TIMEOUT_MS = 300_000;
+const MAX_LISTED_DIAGNOSTICS = 10;
+const KNOWN_FIXES_IN_PROMPT = 3;
+const LINE_FIX_MAX_TOKENS = 256;
 
-type ErrorSeverity = 'simple' | 'complex';
-type FixAttemptResult = 'applied' | 'skipped' | 'file-not-found';
+type ErrorSource = 'clipboard' | 'typecheck' | 'type';
+// interactive: AI via askFor (Claude orchestrates) · batch: local model only · rules-only: deterministic rules only
+type FixMode = 'interactive' | 'batch' | 'rules-only';
 
-interface FileContext {
-  filePath: string;
-  content: string;
-  lineNumber: number | null;
+export interface FixOptions {
+  undo?: boolean;
 }
 
-type FileLookup =
-  | { status: 'none' }
-  | { status: 'not-found'; filePath: string }
-  | { status: 'found'; context: FileContext };
 
-function extractErrorSection(output: string): string {
-  const lines = output.split('\n');
-  const startIndex = lines.findIndex((line) => FILE_PATH_REGEX.test(line));
-  return startIndex === -1 ? output.trim() : lines.slice(startIndex).join('\n').trim();
+interface AppliedFix {
+  diagnostic: TscDiagnostic;
+  backupPath: string;
+  before: string;
+  after: string;
+  source: string;
 }
 
-function classifyError(erro: string): ErrorSeverity {
-  const tsCodes = erro.match(/TS\d+/g) ?? [];
-  const filePaths = erro.match(ALL_FILES_REGEX) ?? [];
-  const uniqueFiles = new Set(filePaths);
 
-  const hasConfigError = filePaths.some((file) => CONFIG_FILE_NAMES.some((configFile) => file.endsWith(configFile)));
-  if (hasConfigError) return 'complex';
-  if (uniqueFiles.size > 1) return 'complex';
-  if (tsCodes.length > 5) return 'complex';
 
-  const isKnownSimpleCode = tsCodes.length > 0 && tsCodes.every((code) => SIMPLE_TS_CODES.has(code));
-  const isLintError = tsCodes.length === 0 && /eslint|prettier/i.test(erro);
-  if (isKnownSimpleCode || isLintError) return 'simple';
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
 
-  return 'complex';
+// Multi-line errors can't go through `input()` (single-line: the rest leaked into the next prompts),
+// so the default is to read what the user copied.
+function showClipboardPreview(text: string): void {
+  const lines = text.split('\n');
+  console.log(`\n📋 Erro lido do clipboard:\n${lines.slice(0, 3).join('\n')}${lines.length > 3 ? '\n…' : ''}`);
 }
 
-async function resolveFileContext(erro: string): Promise<FileLookup> {
-  const fileMatch = erro.match(FILE_PATH_REGEX);
-  if (!fileMatch) return { status: 'none' };
+// "Erro de código corrige direto sem perguntar": if the clipboard already holds a tsc error, use it.
+async function readErrorInput(): Promise<string> {
+  const clipboard = (await readClipboard()).trim();
+  if (parseTscDiagnostics(clipboard).length > 0) {
+    showClipboardPreview(clipboard);
+    return clipboard;
+  }
 
-  const filePath = fileMatch[1];
-  const exists = await pathExists(filePath);
-  if (!exists) return { status: 'not-found', filePath };
+  const source = await select<ErrorSource>('De onde vem o erro?', [
+    { name: 'Clipboard: copie o erro e escolha esta opção', value: 'clipboard' },
+    { name: 'Rodar o typecheck e corrigir o primeiro erro', value: 'typecheck' },
+    { name: 'Digitar/colar uma única linha', value: 'type' },
+  ]);
 
-  const content = await readFile(filePath);
-  if (content === null) return { status: 'not-found', filePath };
+  if (source === 'type') return input('Cole o erro:');
 
-  const lineMatch = erro.match(LINE_NUMBER_REGEX);
-  const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) - 1 : null;
+  if (source === 'typecheck') {
+    console.log('\n🔍 Rodando typecheck...');
+    const typecheck = runTypecheck();
+    if (typecheck.success) {
+      console.log('✅ O typecheck não encontrou erros.');
+      return '';
+    }
+    return typecheck.output;
+  }
 
-  return { status: 'found', context: { filePath, content, lineNumber } };
+  const text = (await readClipboard()).trim();
+  if (!text) throw new Error('O clipboard está vazio. Copie o erro e rode "kvasir fix" de novo.');
+
+  showClipboardPreview(text);
+  return text;
 }
 
-function getValidLineNumber(fileContext: FileContext): number | null {
-  if (fileContext.lineNumber === null) return null;
+// ---------------------------------------------------------------------------
+// Line fixes: deterministic rules first, AI second
+// ---------------------------------------------------------------------------
 
-  const totalLines = fileContext.content.split('\n').length;
-  if (fileContext.lineNumber < 0 || fileContext.lineNumber >= totalLines) return null;
 
-  return fileContext.lineNumber;
+async function askLineFix(diagnostic: TscDiagnostic, lines: string[], mode: FixMode): Promise<string | null> {
+  const prompt = buildLineFixPrompt(diagnostic, lines, { knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT) });
+  const options = { temperature: 0, maxTokens: LINE_FIX_MAX_TOKENS };
+  const response = mode === 'interactive' ? await askFor('fix', prompt, options) : await askLocal('fix', prompt, options);
+
+  const fixed = parseCorrectedLine(response, lines[diagnostic.lineIndex]);
+  if (!fixed) {
+    console.log('\n⚠️  A IA não devolveu uma linha válida. Resposta recebida:');
+    console.log(response.trim());
+  }
+  return fixed;
 }
 
-function buildFileFixPrompt(erro: string, fileContext: FileContext): string {
-  return `Você é um especialista em TypeScript.
-Analise o erro e o arquivo abaixo e corrija APENAS a linha com problema.
+function showLineDiff(diagnostic: TscDiagnostic, oldLine: string, newLine: string, source: string): void {
+  console.log(`\n📋 ${diagnostic.filePath}:${diagnostic.lineIndex + 1} (${diagnostic.code}, ${source})`);
+  console.log('─'.repeat(60));
+  console.log(`ANTES:  ${oldLine.trim()}`);
+  console.log(`DEPOIS: ${newLine.trim()}`);
+  console.log('─'.repeat(60));
+}
 
-REGRAS:
-- Não invente caminhos de arquivo
-- Use apenas imports que existem no arquivo atual
-- Se o erro indicar que um import usa um prefixo incorreto (ex: "@types/X" quando o correto é apenas "X"), remova o prefixo inválido do caminho de import
-- Se o erro for TS6137 (Cannot import type declaration files):
-  - Mantenha o mesmo caminho de import
-  - Apenas remova a palavra 'type' do import
-  - Exemplo: 'import type { X } from Y' → 'import { X } from Y'
-- Responda APENAS com a linha corrigida, sem explicações
+async function fixDiagnostic(diagnostic: TscDiagnostic, session: FixBackup[], mode: FixMode): Promise<AppliedFix | null> {
+  const content = await readFile(diagnostic.filePath);
+  if (content === null) {
+    console.log(`\n❌ Arquivo não encontrado: ${diagnostic.filePath}. Rode o kvasir na pasta raiz do projeto.`);
+    return null;
+  }
+
+  const { lines, eol } = splitFile(content);
+  if (diagnostic.lineIndex < 0 || diagnostic.lineIndex >= lines.length) {
+    console.log(`\n❌ Linha ${diagnostic.lineIndex + 1} não existe em ${diagnostic.filePath}.`);
+    return null;
+  }
+
+  const oldLine = lines[diagnostic.lineIndex];
+  const deterministic = applyDeterministicFix(oldLine, diagnostic);
+  const newLine = deterministic ?? (mode === 'rules-only' ? null : await askLineFix(diagnostic, lines, mode));
+  if (newLine === null || newLine === oldLine) return null;
+
+  const backupPath = await ensureBackup(session, diagnostic.filePath);
+  lines[diagnostic.lineIndex] = newLine;
+  await writeFile(diagnostic.filePath, lines.join(eol));
+
+  const source = deterministic ? 'regra determinística' : 'IA';
+  showLineDiff(diagnostic, oldLine, newLine, source);
+  return { diagnostic, backupPath, before: oldLine, after: newLine, source };
+}
+
+// ---------------------------------------------------------------------------
+// Errors without a file/line: suggestion or investigation (never written to disk)
+// ---------------------------------------------------------------------------
+
+function buildGenericFixPrompt(erro: string): string {
+  return `Você é um especialista em TypeScript, React Native e Next.js.
+Analise o erro abaixo e sugira a correção.
 
 Erro:
 ${erro}
 
-Arquivo ${fileContext.filePath}:
-${fileContext.content}
-
-Linha com erro e como deve ficar depois da correção:`;
-}
-
-function buildGenericFixPrompt(erro: string): string {
-  return `Você é um especialista em TypeScript e React Native.
-Analise o erro abaixo e sugira a correção.
-
-Responda em português com:
+Responda em português, exatamente com estas seções:
 ## Causa
-(explique o problema em 1-2 frases)
+(1-2 frases)
 
 ## Solução
-(explique como corrigir)
+(passos objetivos)
 
 ## Código corrigido
-(mostre apenas o trecho corrigido, sem o arquivo inteiro)
+(só o trecho alterado, sem o arquivo inteiro; não invente arquivos nem caminhos)`;
+}
 
-Erro:
-${erro}`;
+// ---------------------------------------------------------------------------
+// Simple × complex. Complex errors usually have their root cause outside the reported line
+// (module resolution, config, another file), so they go straight to the architect model.
+// ---------------------------------------------------------------------------
+
+type ErrorSeverity = 'simple' | 'complex';
+
+const CONFIG_FILE = /(^|[\\/])(tsconfig[\w.-]*\.json|babel\.config\.\w+|next\.config\.\w+|metro\.config\.\w+|app\.json|package\.json)$/;
+const MAX_PASTED_FOR_SIMPLE = 5;
+
+function classifyError(diagnostics: TscDiagnostic[], target: TscDiagnostic): ErrorSeverity {
+  const files = new Set(diagnostics.map((diagnostic) => path.resolve(diagnostic.filePath)));
+  if (files.size > 1) return 'complex';
+  if (diagnostics.length > MAX_PASTED_FOR_SIMPLE) return 'complex';
+  if (CONFIG_FILE.test(target.filePath)) return 'complex';
+  if (COMPLEX_CODES.test(target.code)) return 'complex';
+  if (/tsconfig|babel|moduleResolution|esModuleInterop/i.test(target.message)) return 'complex';
+  return 'simple';
+}
+
+const MAX_RELATED_FILES = 5;
+const MAX_RELATED_LINES = 120;
+const VERSION_DEPS = /^(typescript|react|react-native|expo|next|@types\/.+|@tanstack\/.+|zod)$/;
+
+interface PackageJsonVersions {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+async function describeVersions(): Promise<string> {
+  const pkg = await readJson<PackageJsonVersions>('package.json');
+  const deps = { ...pkg?.dependencies, ...pkg?.devDependencies };
+  const relevant = Object.entries(deps).filter(([name]) => VERSION_DEPS.test(name));
+  return relevant.length > 0 ? relevant.map(([name, version]) => `${name}@${version}`).join(', ') : '(sem package.json)';
+}
+
+async function readFileHead(filePath: string): Promise<string | null> {
+  const content = await readFile(filePath);
+  if (content === null) return null;
+  const lines = content.split(/\r?\n/);
+  const head = lines.slice(0, MAX_RELATED_LINES).map((line, index) => `${String(index + 1).padStart(4)} | ${line}`);
+  return `${head.join('\n')}${lines.length > MAX_RELATED_LINES ? '\n   … (cortado)' : ''}`;
+}
+
+// What the architect needs to find a root cause: the file with the error, the files it imports,
+// tsconfig.json and the versions of the libraries involved.
+async function buildInvestigationContext(erro: string, target: TscDiagnostic | null): Promise<string> {
+  const sections = [`Erro colado:\n${erro.trim()}`];
+
+  if (target) {
+    const content = await readFile(target.filePath);
+    if (content !== null) {
+      sections.push(`Arquivo do erro (${target.filePath}), trecho:\n${buildNumberedSnippet(content.split(/\r?\n/), target.lineIndex)}`);
+
+      for (const related of resolveLocalImports(target.filePath, content).slice(0, MAX_RELATED_FILES)) {
+        const head = await readFileHead(related);
+        if (head) sections.push(`Arquivo relacionado (importado por ${target.filePath}): ${related}\n${head}`);
+      }
+    }
+
+    // Modules quoted in the error that don't resolve: show what exists with the same name.
+    const quotedModules = [...target.message.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+    for (const specifier of quotedModules) {
+      const isPath = specifier.startsWith('.') || specifier.includes('/');
+      if (!isPath || isResolvableImport(specifier, target.filePath)) continue;
+
+      const similar = findFilesNamedLike(specifier);
+      sections.push(
+        similar.length > 0
+          ? `O import '${specifier}' não resolve. Arquivos do projeto com o mesmo nome: ${similar.join(', ')}`
+          : `O import '${specifier}' não resolve e nenhum arquivo do projeto tem esse nome.`
+      );
+    }
+  }
+
+  const tsconfig = readTsconfigText();
+  sections.push(tsconfig ? `tsconfig.json:\n${tsconfig.trim()}` : 'tsconfig.json: (não existe)');
+  sections.push(`Versões: ${await describeVersions()}`);
+
+  return sections.join('\n\n');
 }
 
 function buildInvestigationPrompt(context: string): string {
-  return `Você é um especialista sênior em TypeScript e React Native investigando um erro complexo.
+  return `Você é um especialista sênior em TypeScript, React Native e Next.js investigando um erro cuja causa provavelmente NÃO está só na linha apontada.
 
-Este erro pode envolver múltiplos arquivos, erro em cascata, configuração do projeto (tsconfig, babel, etc.) ou uma causa que você ainda não reconhece.
+Pode envolver outro arquivo, erro em cascata, configuração (tsconfig, babel) ou versão de biblioteca.
 
-Se precisar de mais informação do usuário antes de propor a correção, responda APENAS com uma linha no formato:
+${context}
+
+Se faltar uma informação essencial, responda APENAS com uma linha:
 PERGUNTA: <sua pergunta objetiva>
 
-Caso já tenha informação suficiente, responda em português com:
+Senão, responda em português com:
 ## Causa raiz
-(explique a causa raiz, não apenas o sintoma)
+(a causa, não o sintoma; cite o arquivo e a linha do contexto acima)
 
 ## Arquivos afetados
-(liste os arquivos envolvidos na correção)
+(só arquivos que aparecem no contexto)
 
 ## Correção proposta
-(descreva a correção completa, arquivo por arquivo, sem inventar caminhos que não existem)
-
-Erro e contexto da investigação até agora:
-${context}`;
+(arquivo por arquivo, com o trecho exato a mudar; não invente caminhos)`;
 }
 
 function extractQuestion(response: string): string | null {
@@ -147,11 +272,12 @@ function extractQuestion(response: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-async function investigateComplexError(erro: string): Promise<string> {
-  let context = erro;
+async function investigateComplexError(erro: string, target: TscDiagnostic | null): Promise<string> {
+  console.log('\n🟠 Erro complexo: investigando a causa raiz (arquivo, imports, tsconfig e versões)...');
+  let context = await buildInvestigationContext(erro, target);
 
   for (let round = 0; round < MAX_INVESTIGATION_ROUNDS; round += 1) {
-    const response = await askFor('architect', buildInvestigationPrompt(context));
+    const response = cleanAnswer(await askFor('architect', buildInvestigationPrompt(context), { timeoutMs: ARCHITECT_TIMEOUT_MS }));
     const question = extractQuestion(response);
     if (!question) return response;
 
@@ -160,176 +286,203 @@ async function investigateComplexError(erro: string): Promise<string> {
     context = `${context}\n\nPergunta: ${question}\nResposta do usuário: ${answer}`;
   }
 
-  return askFor('architect', buildInvestigationPrompt(context));
+  return cleanAnswer(await askFor('architect', buildInvestigationPrompt(context), { timeoutMs: ARCHITECT_TIMEOUT_MS }));
 }
 
-function cleanMarkdownLine(line: string): string {
-  return line
-    .replace(/^```\w*\n?/, '')
-    .replace(/```$/, '')
-    .trim();
+// ---------------------------------------------------------------------------
+// Recurring errors: the same code again and again usually has one cause (config, a project pattern)
+// ---------------------------------------------------------------------------
+
+const RECURRING_DAYS = 7;
+const RECURRING_THRESHOLD = 3;
+const MAX_HISTORY_CHARS = 6_000;
+
+function buildRecurringPrompt(code: string, history: string, tsconfig: string | null, versions: string): string {
+  return `Você é um especialista sênior em TypeScript. O erro ${code} apareceu várias vezes nos últimos ${RECURRING_DAYS} dias neste desenvolvedor.
+
+Histórico das ocorrências (o que foi corrigido em cada uma):
+${truncateForPrompt(history, MAX_HISTORY_CHARS)}
+
+tsconfig.json:
+${tsconfig ?? '(não existe)'}
+
+Versões: ${versions}
+
+Encontre a CAUSA COMUM e o que mudar para o erro parar de acontecer (configuração, padrão de import do projeto, regra de lint, versão de biblioteca). Não repita as correções pontuais.
+
+Responda em português com:
+## Causa comum
+## Como evitar
+(mudança concreta: arquivo e trecho)
+## Se não houver causa comum
+(diga isso em uma frase, se for o caso)`;
 }
 
-function parseCorrectedLine(response: string): string {
-  const lines = response.split('\n').map(cleanMarkdownLine);
-  const nonEmptyLine = lines.find((line) => line.length > 0);
-  if (nonEmptyLine) return nonEmptyLine;
+async function offerRecurringInvestigation(code: string): Promise<void> {
+  const occurrences = await recentErrorOccurrences(code, RECURRING_DAYS);
+  if (occurrences.count < RECURRING_THRESHOLD) return;
 
-  const backtickMatch = response.match(/`([^`]+)`/);
-  return backtickMatch ? backtickMatch[1] : response.trim();
+  const examples = occurrences.files.slice(-3).join(', ');
+  console.log(`\n🔁 Este é o ${occurrences.count}º ${code} nos últimos ${RECURRING_DAYS} dias${examples ? ` (ex.: ${examples})` : ''}.`);
+
+  const investigate = await confirm('Quer que eu investigue por que ele se repete (config, padrão do projeto)?');
+  if (!investigate) return;
+
+  const history = (await readNote('errors', code))?.body ?? '';
+  const prompt = buildRecurringPrompt(code, history, readTsconfigText(), await describeVersions());
+  const report = cleanAnswer(await askFor('architect', prompt, { timeoutMs: ARCHITECT_TIMEOUT_MS }));
+  await showSuggestion(`🔎 Por que o ${code} se repete:`, report, `${code} recorrente (${occurrences.count}x em ${RECURRING_DAYS} dias)`, 'architect', code);
 }
 
-const DETERMINISTIC_FIXES: Record<string, (oldLine: string) => string> = {
-  TS6137: (oldLine) => oldLine.replace('import type {', 'import {'),
-};
+async function showSuggestion(title: string, suggestion: string, erro: string, task: AiTask, code: string | null): Promise<void> {
+  console.log(`\n${title}`);
+  console.log(suggestion);
+  console.log('\nAplique a mudança acima manualmente no seu editor.');
 
-function getDeterministicCorrection(erro: string, oldLine: string): string | null {
-  const tsCodes = erro.match(/TS\d+/g) ?? [];
+  const useful = await confirm('A sugestão foi útil?');
+  await recordFeedback('fixes', useful ? 'approved' : 'rejected', erro.trim().split('\n')[0]);
+  await recordOutcome(task, useful ? 'approved' : 'rejected');
 
-  for (const code of tsCodes) {
-    const fix = DETERMINISTIC_FIXES[code];
-    if (fix) return fix(oldLine);
-  }
-
-  return null;
+  // Only suggestions the developer found useful become knowledge (a wrong root cause would mislead later).
+  if (useful) await noteInvestigation(code, erro, suggestion);
 }
 
-function showLineDiff(oldLine: string, newLine: string): void {
-  console.log('\n📋 Diferença:');
-  console.log('─'.repeat(60));
-  console.log(`ANTES: ${oldLine.trim()}`);
-  console.log(`DEPOIS: ${newLine.trim()}`);
-  console.log('─'.repeat(60));
+// ---------------------------------------------------------------------------
+// Same-code expansion
+// ---------------------------------------------------------------------------
+
+function diagnosticKey(diagnostic: TscDiagnostic): string {
+  return `${path.resolve(diagnostic.filePath)}:${diagnostic.lineIndex}:${diagnostic.code}`;
 }
 
-async function promptAndApplyLineFix(
-  erro: string,
-  fileContext: FileContext,
-  lineNumber: number,
-  correctedLine: string
-): Promise<FixAttemptResult> {
-  const lines = fileContext.content.split('\n');
-  const oldLine = lines[lineNumber];
-
-  showLineDiff(oldLine, correctedLine);
-
-  const tempFile = `${fileContext.filePath}.kvasir-original`;
-  await copyFile(fileContext.filePath, tempFile);
-
-  lines[lineNumber] = correctedLine;
-  await writeFile(fileContext.filePath, lines.join('\n'));
-
-  openDiffInEditor(tempFile, fileContext.filePath);
-
-  const approved = await confirm('Aplicar esta correção?');
-  await recordFeedback('fixes', approved ? 'approved' : 'rejected', erro.trim());
-
-  if (!approved) {
-    await copyFile(tempFile, fileContext.filePath);
-    await removeFile(tempFile);
-    console.log('Correção descartada. Arquivo original restaurado.');
-    return 'skipped';
-  }
-
-  await removeFile(tempFile);
-  console.log(`\n✅ Correção aplicada em ${fileContext.filePath} linha ${lineNumber + 1}`);
-
-  return 'applied';
-}
-
-async function runSingleFixAttempt(rawError: string): Promise<FixAttemptResult> {
-  const erro = extractErrorSection(rawError);
-  const severity = classifyError(erro);
-  const lookup = await resolveFileContext(erro);
-
-  if (lookup.status === 'not-found') {
-    console.log(`\n❌ Arquivo não encontrado: ${lookup.filePath}`);
-    console.log('Verifique se está na pasta raiz do projeto.');
-    return 'file-not-found';
-  }
-
-  const fileContext = lookup.status === 'found' ? lookup.context : null;
-
-  if (fileContext) {
-    console.log(`\n📄 Arquivo detectado: ${fileContext.filePath} (conteúdo incluído no contexto)`);
-  }
-
-  const validLine = fileContext ? getValidLineNumber(fileContext) : null;
-
-  if (fileContext && validLine !== null) {
-    const oldLine = fileContext.content.split('\n')[validLine];
-    const deterministicLine = getDeterministicCorrection(erro, oldLine);
-
-    if (deterministicLine !== null) {
-      console.log('\n🟢 Erro com correção determinística conhecida — aplicando sem chamar a IA.');
-      console.log('\nCorreção sugerida:');
-      console.log(deterministicLine);
-      return promptAndApplyLineFix(erro, fileContext, validLine, deterministicLine);
-    }
-  }
-
-  console.log(
-    severity === 'simple'
-      ? '\n🟢 Erro classificado como simples — corrigindo diretamente.'
-      : '\n🟠 Erro classificado como complexo — investigando com deepseek-r1...'
+async function offerSameCodeFixes(code: string, attempted: Set<string>, session: FixBackup[]): Promise<void> {
+  console.log('\n🔍 Rodando typecheck para procurar erros iguais...');
+  const typecheck = runTypecheck();
+  const sameCode = typecheck.diagnostics.filter(
+    (diagnostic) => diagnostic.code === code && !attempted.has(diagnosticKey(diagnostic))
   );
 
-  const suggestion =
-    severity === 'complex'
-      ? await investigateComplexError(erro)
-      : await askFor('fix', fileContext ? buildFileFixPrompt(erro, fileContext) : buildGenericFixPrompt(erro));
-
-  console.log('\nCorreção sugerida:');
-  console.log(suggestion);
-
-  if (fileContext && validLine !== null) {
-    return promptAndApplyLineFix(erro, fileContext, validLine, parseCorrectedLine(suggestion));
+  if (sameCode.length === 0) {
+    console.log(
+      typecheck.success
+        ? '✅ O typecheck não encontrou mais erros.'
+        : `Nenhum outro erro ${code}. Ainda há ${typecheck.errorCount} erro(s) de outros tipos.`
+    );
+    return;
   }
 
-  const approved = await confirm('Aplicar esta correção?');
-  await recordFeedback('fixes', approved ? 'approved' : 'rejected', erro.trim());
+  const files = new Set(sameCode.map((diagnostic) => diagnostic.filePath));
+  console.log(`\nEncontrei mais ${sameCode.length} erro(s) ${code} em ${files.size} arquivo(s):`);
+  sameCode
+    .slice(0, MAX_LISTED_DIAGNOSTICS)
+    .forEach((diagnostic) => console.log(`  - ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`));
+  if (sameCode.length > MAX_LISTED_DIAGNOSTICS) console.log(`  … e mais ${sameCode.length - MAX_LISTED_DIAGNOSTICS}`);
 
-  if (!approved) {
-    console.log('Correção descartada.');
-  } else {
-    console.log('\nAplique a mudança acima manualmente ou cole no seu editor.');
+  const expand = await confirm('Corrigir os outros também?');
+  await recordFeedback(
+    'fixes',
+    expand ? 'approved' : 'rejected',
+    `expansão ${code}: ${sameCode.length} erro(s) em ${files.size} arquivo(s)`
+  );
+  if (!expand) return;
+
+  if (!(code in DETERMINISTIC_FIXES)) {
+    console.log('\nSem regra determinística para este erro: usando o modelo local direto (sem clipboard).');
   }
 
-  return 'skipped';
+  const fixedFiles: string[] = [];
+  // Agent Board: without a deterministic rule each error is a job of the Revisor, "a fazer" until its turn.
+  if (!(code in DETERMINISTIC_FIXES)) {
+    queueJobs('fix', sameCode.map((diagnostic) => `${code} em ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`));
+  }
+  try {
+    for (let i = 0; i < sameCode.length; i += 1) {
+      const diagnostic = sameCode[i];
+      attempted.add(diagnosticKey(diagnostic));
+      console.log(`\nCorrigindo ${i + 1}/${sameCode.length}: ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
+
+      const applied = await fixDiagnostic(diagnostic, session, 'batch');
+      if (applied) fixedFiles.push(`${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
+    }
+  } finally {
+    clearQueuedJobs('fix');
+  }
+
+  console.log(`\n✅ ${fixedFiles.length}/${sameCode.length} erro(s) ${code} corrigido(s).`);
+  if (fixedFiles.length > 0) await noteBatchFix(code, fixedFiles.length, sameCode.length, fixedFiles);
+
+  const after = runTypecheck();
+  console.log(after.success ? '✅ O typecheck não encontrou mais erros.' : `Ainda há ${after.errorCount} erro(s) no typecheck.`);
 }
 
-async function resolveError(initialError: string): Promise<void> {
-  let currentError = initialError;
+// ---------------------------------------------------------------------------
+// Runner
+// ---------------------------------------------------------------------------
 
-  for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt += 1) {
-    const result = await runSingleFixAttempt(currentError);
-    if (result !== 'applied') return;
-
-    console.log('\n🔍 Rodando typecheck para confirmar a correção...');
-    const typecheck = runTypecheck();
-
-    if (typecheck.success) {
-      console.log('\n✅ Resolvido. O typecheck não encontrou mais erros.');
-      return;
-    }
-
-    console.log(`\n⚠️ Ainda há ${typecheck.errorCount} erro(s) após a correção.`);
-    const investigateMore = await confirm('Investigar os erros restantes?');
-
-    if (!investigateMore) {
-      console.log('\nEncerrando. Rode "kvasir fix" novamente quando quiser investigar o restante.');
-      return;
-    }
-
-    currentError = typecheck.output;
+export async function runFix(options: FixOptions = {}): Promise<void> {
+  if (options.undo) {
+    await undoLastFix();
+    return;
   }
 
-  console.log('\n⚠️ Limite de tentativas atingido. Revise manualmente os erros restantes.');
-}
-
-export async function runFix(): Promise<void> {
   await loadContext();
-  const error = await input('Cole o erro que deseja corrigir:');
+  const erro = await readErrorInput();
+  if (!erro.trim()) return;
 
-  await resolveError(error);
+  const diagnostics = parseTscDiagnostics(erro);
+  if (diagnostics.length === 0) {
+    const suggestion = await askFor('fix', buildGenericFixPrompt(erro));
+    await showSuggestion('💡 Sugestão de correção:', suggestion, erro, 'fix', null);
+    return;
+  }
+
+  // Only the file of the pasted error is fixed automatically; everything else is offered afterwards.
+  const target = diagnostics[0];
+  const targetFile = path.resolve(target.filePath);
+  const sameFile = diagnostics.filter((diagnostic) => path.resolve(diagnostic.filePath) === targetFile);
+  const severity = classifyError(diagnostics, target);
+
+  console.log(
+    `\n📄 ${target.filePath}: ${sameFile.length} erro(s) colado(s) neste arquivo · ${severity === 'simple' ? '🟢 simples' : '🟠 complexo'}`
+  );
+
+  const session: FixBackup[] = [];
+  const attempted = new Set<string>();
+  const applied: AppliedFix[] = [];
+
+  // Simple: line fix (rule → AI). Complex: only proven deterministic rules touch the file;
+  // the rest goes to the root-cause investigation.
+  for (const diagnostic of sameFile) {
+    attempted.add(diagnosticKey(diagnostic));
+    const result = await fixDiagnostic(diagnostic, session, severity === 'simple' ? 'interactive' : 'rules-only');
+    if (result) applied.push(result);
+  }
+
+  if (applied.length === 0) {
+    // No yes/no question: a failed line fix escalates to the investigation on its own.
+    const report = await investigateComplexError(erro, target);
+    await showSuggestion('🔎 Investigação:', report, erro, 'architect', target.code);
+    return;
+  }
+
+  openDiffInEditor(applied[0].backupPath, applied[0].diagnostic.filePath);
+  for (const fix of applied) {
+    await noteFixedError({
+      code: fix.diagnostic.code,
+      message: fix.diagnostic.message,
+      filePath: fix.diagnostic.filePath,
+      line: fix.diagnostic.lineIndex + 1,
+      before: fix.before,
+      after: fix.after,
+      source: fix.source,
+    });
+  }
+  await recordFeedback('fixes', 'approved', `${target.code} ${target.filePath}:${target.lineIndex + 1} (aplicado)`);
+  await recordOutcome('fix', 'approved');
+  console.log(`\n✅ ${applied.length} correção(ões) aplicada(s) em ${target.filePath}.`);
+
+  await offerSameCodeFixes(target.code, attempted, session);
+  await offerRecurringInvestigation(target.code);
+
+  console.log('\nPara desfazer tudo o que este kvasir fix alterou: kvasir fix --undo');
 }

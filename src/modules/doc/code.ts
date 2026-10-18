@@ -1,5 +1,8 @@
 import path from 'path';
-import { askOllama } from '@ai/ollama';
+import { askLocal } from '@ai/router';
+import { queueJobs, clearQueuedJobs } from '@ai/jobs';
+import { cleanAnswer, truncateForPrompt } from '@ai/parse';
+import { listExports } from '@utils/imports';
 import { confirm, checkbox, select, input } from '@utils/prompt';
 import { writeFile, readFile, pathExists, isDirectory, listFilesRecursive } from '@utils/fs';
 
@@ -27,35 +30,43 @@ function toDocOutputPath(relativeFilePath: string): string {
   return `DOC/code/${withoutExt}.md`;
 }
 
+const MAX_CODE_CHARS = 12_000;
 function buildCodeDocPrompt(relativeFilePath: string, code: string): string {
-  return `Você é um assistente técnico. Documente o arquivo de código abaixo em português.
+  const exportsList = listExports(code);
+
+  return `Você documenta código-fonte em português do Brasil, para outros desenvolvedores do time.
 
 Arquivo: ${relativeFilePath}
+Exports encontrados: ${exportsList.length > 0 ? exportsList.join(', ') : '(nenhum)'}
 
-Inclua exatamente estas seções:
+Código:
+\`\`\`
+${truncateForPrompt(code, MAX_CODE_CHARS)}
+\`\`\`
+
+Escreva a documentação em markdown com exatamente estas seções:
 
 ## Propósito
 O que este arquivo faz, em 2-3 frases.
 
 ## Exports
-Lista das principais funções, componentes ou hooks exportados, com uma frase de descrição cada.
+Um item por export da lista "Exports encontrados" (e só eles), com uma frase do que faz. Se não houver exports, escreva "Nenhum".
 
 ## Como usar
-Um exemplo simples de uso, se aplicável.
+Um exemplo curto de uso de um export real deste arquivo. Se não fizer sentido, escreva "Não se aplica".
 
-Código:
-${code.slice(0, 6000)}`;
+Regras: descreva só o que está no código; não invente funções, parâmetros nem dependências. Comece direto em "## Propósito".`;
 }
 
 async function documentFile(relativeFilePath: string): Promise<void> {
   const code = await readFile(relativeFilePath);
   if (code === null) {
-    console.log(`Could not read file: ${relativeFilePath}`);
+    console.log(`Não foi possível ler o arquivo: ${relativeFilePath}`);
     return;
   }
 
-  const summary = await askOllama(buildCodeDocPrompt(relativeFilePath, code));
-  await writeFile(toDocOutputPath(relativeFilePath), summary);
+  const summary = cleanAnswer(await askLocal('doc', buildCodeDocPrompt(relativeFilePath, code), { temperature: 0.2 }));
+  await writeFile(toDocOutputPath(relativeFilePath), `# ${relativeFilePath}\n\n${summary}\n`);
 }
 
 function summarizeRootFolders(files: string[]): RootFolderSummary[] {
@@ -77,18 +88,26 @@ function summarizeRootFolders(files: string[]): RootFolderSummary[] {
 async function processFilesWithProgress(files: string[], force: boolean): Promise<void> {
   const total = files.length;
 
-  for (let index = 0; index < total; index += 1) {
-    const file = files[index];
-    const position = index + 1;
-    const outputPath = toDocOutputPath(file);
+  // Agent Board: the files still to document show as "a fazer" for the Documentador.
+  const pending: string[] = [];
+  for (const file of files) if (force || !(await pathExists(toDocOutputPath(file)))) pending.push(file);
+  queueJobs('doc', pending);
 
-    if (!force && (await pathExists(outputPath))) {
-      console.log(`Documentando ${position}/${total} — ${file} (já existe, pulando)`);
-      continue;
+  try {
+    for (let index = 0; index < total; index += 1) {
+      const file = files[index];
+      const position = index + 1;
+
+      if (!pending.includes(file)) {
+        console.log(`Documentando ${position}/${total} — ${file} (já existe, pulando)`);
+        continue;
+      }
+
+      console.log(`Documentando ${position}/${total} — ${file}`);
+      await documentFile(file);
     }
-
-    console.log(`Documentando ${position}/${total} — ${file}`);
-    await documentFile(file);
+  } finally {
+    clearQueuedJobs('doc');
   }
 
   console.log(`\nConcluído: ${total} arquivo(s) processado(s).`);
