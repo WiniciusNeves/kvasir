@@ -2,6 +2,7 @@ import { confirm, input, select } from '@utils/prompt';
 import { MAIN_MENU, SUBMENUS, allEntries } from './catalog';
 import type { CatalogEntry, CatalogGroup } from './catalog';
 import { interpretIntent } from './intent';
+import { recordOutcome } from '@ai/metrics';
 
 const EXIT = '__exit__';
 const MAX_TYPO_DISTANCE = 2;
@@ -65,9 +66,12 @@ async function openSubmenu(name: string): Promise<string[] | null> {
   return runEntry(await pickFrom([group], `${group.title}: o que você quer fazer?`));
 }
 
-async function confirmSuggestion(argv: string[], reason: string): Promise<string[] | null> {
+async function confirmSuggestion(argv: string[], reason: string, fromAi = false): Promise<string[] | null> {
   console.log(`${reason} kvasir ${argv.join(' ')}`);
-  if (!(await confirm('Rodar agora?'))) return null;
+  const approved = await confirm('Rodar agora?');
+  // the interpreter's answer was judged by the user: feeds performance-based routing
+  if (fromAi) await recordOutcome('intent', approved ? 'approved' : 'rejected');
+  if (!approved) return null;
   if (argv.length === 1 && SUBMENUS[argv[0]]) return openSubmenu(argv[0]);
   return completeArgs(argv);
 }
@@ -90,7 +94,7 @@ export async function resolveCommandLine(args: string[], knownCommands: string[]
   const sentence = args.join(' ');
   console.log('🤔 Entendendo o pedido...');
   const intent = await interpretIntent(sentence, knownCommands);
-  if (intent) return confirmSuggestion(intent, 'Entendi:');
+  if (intent) return confirmSuggestion(intent, 'Entendi:', true);
 
   console.log(`Não encontrei um comando para "${sentence}".`);
   if (await confirm('Abrir o menu com todos os comandos?')) return resolveCommandLine([], knownCommands);

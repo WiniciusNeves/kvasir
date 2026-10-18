@@ -13,7 +13,7 @@
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
-| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); falta: escolha por desempenho, time de agentes formal |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); falta: time de agentes formal |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -156,7 +156,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | **5 Agent Board** | Kanban por agente, dono único, métricas (chamadas, tokens, tempo, aprovação, erros), "em que cada IA é melhor", HTML dark + Chart.js | ❌ tudo; **hoje nenhuma métrica é registrada** (o Ollama devolve `eval_count`/`total_duration`, e o código ignora) | métricas no router | A |
 | **6 AI Router** | Gemini Flash + Groq + fallback Ollama | ❌ | chaves gratuitas | M |
 | | Mapa por tarefa | 🟡 só Ollama | — | — |
-| | Escolha por desempenho | ❌ | métricas | M |
+| | Escolha por desempenho | ✅ `ai/performance.ts` (2026-10-18) | — | — |
 | | Detecta modelos instalados | ✅ (Fase 2) | — | — |
 | | Oferece baixar o que falta | ❌ | `ollama pull` via `runCommand` | B |
 | | `kvasir models` | 🟡 (o "ativo" não bate com a escolha do Claude) | — | B |
@@ -335,6 +335,12 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+### Escolha de modelo pelo desempenho (2026-10-18)
+
+`src/ai/performance.ts` (`rankCandidates`), `rankedCandidates` no router (usado por `askFor`, `askLocal` e `kvasir models`). Pausa de 15 min após 3 falhas seguidas; reordena só quem tem ≥ 3 avaliações ou ≥ 5 chamadas, por aprovação × sucesso (Laplace), empate → mais rápido. O Claude no `askFor` recebe a lista ordenada com os motivos. O `Entendi:` do interpretador registra aprovação/rejeição (`intent`).
+
+**Testado:** 6 cenários sintéticos (sem dados → padrão; Groq rejeitado × qwen aprovado → qwen primeiro; 3 falhas há 5 min → Groq por último; há 1 h → volta; só um com dados → não pula ninguém; outra tarefa não conta); integração: métricas favorecendo llama3.2 em `intent` → "📈 llama3.2 responde primeiro" e respondeu; `kvasir models` com as métricas reais (tudo "ordem padrão", ainda sem uso).
 
 ### Menu, frase livre e pré-requisitos encadeados (2026-10-18)
 

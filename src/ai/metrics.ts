@@ -36,7 +36,7 @@ export interface AiOutcomeRecord {
   decision: OutcomeDecision;
 }
 
-type MetricsRecord = AiCallRecord | AiOutcomeRecord;
+export type MetricsRecord = AiCallRecord | AiOutcomeRecord;
 export type NewAiCall = Omit<AiCallRecord, 'type' | 'id' | 'timestamp' | 'project'>;
 
 // The last successful executor call per task in this process: the one the user's verdict refers to.

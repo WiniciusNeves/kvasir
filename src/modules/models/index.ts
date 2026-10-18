@@ -3,6 +3,8 @@ import { MODEL_MAP, CLOUD_MAP, cloudKeyFor, cloudModelFor, setCloudConsent } fro
 import type { AiTask } from '@ai/router';
 import type { CloudProvider } from '@ai/providers';
 import { readMetrics, summarizeMetrics } from '@ai/metrics';
+import type { AiProvider } from '@ai/metrics';
+import { rankCandidates, PERFORMANCE_WINDOW_DAYS } from '@ai/performance';
 import { readUserConfig } from '@utils/userConfig';
 import { confirm } from '@utils/prompt';
 import { runKeysSet } from '@modules/keys';
@@ -16,9 +18,16 @@ interface ModelStatusRow {
   status: string;
 }
 
+interface RankableRow {
+  provider: AiProvider;
+  model: string;
+  label: string;
+}
+
 interface TaskModelRow {
   tarefa: AiTask;
   'responde primeiro': string;
+  'por quê': string;
   'ordem (fallback)': string;
 }
 
@@ -85,16 +94,25 @@ export async function runModels(options: ModelsOptions = {}): Promise<void> {
   const { consent, active } = await activeCloudProviders();
   await printCloud(consent);
 
+  // Same order the router uses: default chain reordered by the measured performance.
+  const records = await readMetrics(PERFORMANCE_WINDOW_DAYS);
   const taskRows: TaskModelRow[] = [];
   for (const task of Object.keys(MODEL_MAP) as AiTask[]) {
-    const cloud = [];
-    for (const provider of CLOUD_MAP[task].filter((item) => active.has(item))) cloud.push(`${provider}/${await cloudModelFor(provider)}`);
-    const local = MODEL_MAP[task].filter((model) => isInstalled(model, installed));
-    const chain = [...cloud, ...local];
+    const chain: RankableRow[] = [];
+    for (const provider of CLOUD_MAP[task].filter((item) => active.has(item))) {
+      const model = await cloudModelFor(provider);
+      chain.push({ provider, model, label: `${provider}/${model}` });
+    }
+    for (const model of MODEL_MAP[task]) {
+      const tag = installed.find((name) => name === model || name.startsWith(`${model}:`));
+      if (tag) chain.push({ provider: 'ollama', model: tag, label: tag });
+    }
+    const ranked = rankCandidates(task, chain, records);
     taskRows.push({
       tarefa: task,
-      'responde primeiro': chain[0] ?? '(nenhum disponível)',
-      'ordem (fallback)': chain.join(' → ') || '—',
+      'responde primeiro': ranked[0]?.candidate.label ?? '(nenhum disponível)',
+      'por quê': ranked[0]?.reason ?? '—',
+      'ordem (fallback)': ranked.map((item) => item.candidate.label).join(' → ') || '—',
     });
   }
 
@@ -104,7 +122,6 @@ export async function runModels(options: ModelsOptions = {}): Promise<void> {
   await printPerformance();
 }
 
-const PERFORMANCE_DAYS = 30;
 
 function formatApproval(approved: number, rejected: number): string {
   const total = approved + rejected;
@@ -113,9 +130,9 @@ function formatApproval(approved: number, rejected: number): string {
 
 // Real usage from ~/.kvasir/metrics: the data the router will use to pick models.
 async function printPerformance(): Promise<void> {
-  const summary = summarizeMetrics(await readMetrics(PERFORMANCE_DAYS));
+  const summary = summarizeMetrics(await readMetrics(PERFORMANCE_WINDOW_DAYS));
 
-  console.log(`\n📈 Desempenho nos últimos ${PERFORMANCE_DAYS} dias:`);
+  console.log(`\n📈 Desempenho nos últimos ${PERFORMANCE_WINDOW_DAYS} dias:`);
   if (summary.models.length === 0) {
     console.log('  (nenhuma chamada registrada ainda)');
   } else {

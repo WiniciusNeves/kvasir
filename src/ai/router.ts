@@ -4,7 +4,9 @@ import { askOllamaDetailed, listInstalledModels } from '@ai/ollama';
 import { askGemini, getGeminiApiKey, checkGeminiKey, DEFAULT_GEMINI_MODEL } from '@ai/gemini';
 import { askGroq, getGroqApiKey, checkGroqKey, DEFAULT_GROQ_MODEL } from '@ai/groq';
 import type { CloudProvider, ProviderName, ProviderResult } from '@ai/providers';
-import { recordAiCall } from '@ai/metrics';
+import { recordAiCall, readMetrics } from '@ai/metrics';
+import { rankCandidates, PERFORMANCE_WINDOW_DAYS } from '@ai/performance';
+import type { RankedCandidate } from '@ai/performance';
 import { promptAI } from '@ai/client';
 import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
@@ -151,12 +153,23 @@ async function localCandidates(task: AiTask): Promise<{ candidates: Candidate[];
   };
 }
 
-// Cloud first (when allowed), Ollama after. Ollama being down is only fatal when there is no cloud.
-async function resolveCandidates(task: AiTask): Promise<Candidate[]> {
+// Default order: cloud first (when allowed), Ollama after. Ollama being down is only fatal when
+// there is no cloud. Then the measured performance reorders it (see performance.ts).
+export async function rankedCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
   const cloud = await cloudCandidates(task);
   const local = await localCandidates(task);
   if (cloud.length === 0 && local.problem) throw new Error(local.problem);
-  return [...cloud, ...local.candidates];
+  const defaults = [...cloud, ...local.candidates];
+  return rankCandidates(task, defaults, await readMetrics(PERFORMANCE_WINDOW_DAYS));
+}
+
+async function resolveCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
+  const ranked = await rankedCandidates(task);
+  const first = ranked[0];
+  if (first && first.stats.score !== null && ranked.length > 1) {
+    console.log(`📈 ${first.candidate.label} responde primeiro em "${task}" pelo desempenho medido (${first.reason}).`);
+  }
+  return ranked;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +233,8 @@ async function getProjectArchitecture(): Promise<string> {
   return content ?? '(kvasir.context.md não encontrado — rode "kvasir init")';
 }
 
-function buildOrchestratorPrompt(task: AiTask, prompt: string, architecture: string, labels: string[]): string {
+function buildOrchestratorPrompt(task: AiTask, prompt: string, architecture: string, ranked: RankedCandidate<Candidate>[]): string {
+  const labels = ranked.map((item) => `- ${item.candidate.label}: ${item.reason}`).join('\n');
   return `Você é o orquestrador. Analise e decida qual modelo usar. Depois valide o resultado antes de retornar.
 
 Tarefa: ${task}
@@ -228,9 +242,10 @@ Tarefa: ${task}
 Arquitetura do projeto (kvasir.context.md):
 ${architecture}
 
-Modelos disponíveis para esta tarefa (os com "/" estão na nuvem; os outros, no Ollama local): ${labels.join(', ')}
+Modelos disponíveis para esta tarefa, já ordenados pelo desempenho medido neste PC (os com "/" estão na nuvem; os outros, no Ollama local):
+${labels}
 
-Analise a tarefa e o prompt abaixo e decida qual desses modelos é o mais adequado para executá-la.
+Analise a tarefa e o prompt abaixo e decida qual desses modelos é o mais adequado para executá-la. Prefira o primeiro, a menos que a tarefa peça claramente outro.
 
 Responda APENAS com uma linha no formato:
 MODELO: <nome-do-modelo>
@@ -294,12 +309,12 @@ ${prompt}`;
 
 // Claude (clipboard) picks the candidate and validates the result.
 export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
-  const candidates = await resolveCandidates(task);
+  const ranked = await resolveCandidates(task);
+  const candidates = ranked.map((item) => item.candidate);
   const prompt = await withDeveloperPreferences(task, basePrompt);
 
   const architecture = await getProjectArchitecture();
-  const labels = candidates.map((candidate) => candidate.label);
-  const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, labels), { task, role: 'orchestrator' });
+  const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, ranked), { task, role: 'orchestrator' });
   const chosen = extractChosen(decision, candidates);
   const ordered = [chosen, ...candidates.filter((candidate) => candidate !== chosen)];
 
@@ -310,7 +325,7 @@ export async function askFor(task: AiTask, basePrompt: string, options: AskForOp
 
 // No Claude round trips: cloud provider of the task (if allowed), then the local chain.
 export async function askLocal(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
-  const candidates = await resolveCandidates(task);
+  const candidates = (await resolveCandidates(task)).map((item) => item.candidate);
   const prompt = await withDeveloperPreferences(task, basePrompt);
   return runWithFallback(task, candidates, prompt, options, async (_label, result) => result);
 }

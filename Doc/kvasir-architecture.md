@@ -103,6 +103,13 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 - Consentimento: `ai.cloud` no `config.json`; perguntado uma vez quando há chave; `kvasir models --cloud on|off`.
 - Falha (429, chave recusada, 5xx, timeout, sem rede) → próximo candidato; a mensagem nunca inclui a chave.
 
+### Escolha pelo desempenho (`performance.ts`)
+`rankedCandidates(task)` pega a ordem padrão acima e aplica `rankCandidates` com as métricas dos últimos 30 dias (só da mesma tarefa):
+- **Pausa:** as 3 últimas chamadas de um candidato falharam e a última foi há menos de 15 min → vai para o fim (continua como último recurso).
+- **Qualidade:** quem tem dados suficientes (≥ 3 avaliações ou ≥ 5 chamadas) ganha nota = aprovação × taxa de sucesso, as duas suavizadas (Laplace); empate (< 0,05) → o mais rápido. Só os candidatos com nota trocam de lugar entre si; os sem dados ficam na posição padrão.
+- Quando o primeiro vem da nota, o router avisa ("📈 X responde primeiro…"). No `askFor`, o Claude recebe a lista já ordenada com o motivo de cada um.
+- `kvasir models` mostra a mesma ordem e o "por quê". O `Entendi:` da frase livre registra aprovação/rejeição da tarefa `intent`.
+
 ### Métricas e preferências (`metrics.ts`, `router.ts`)
 - Toda chamada passa por `recordAiCall`: Ollama (executor, com `prompt_eval_count`/`eval_count`) e Claude via clipboard (orquestrador/validador/direto, com tamanho do prompt e tempo de ida e volta). Arquivo: `~/.kvasir/metrics/calls.jsonl`.
 - Onde o usuário aprova ou rejeita um resultado (commit, branch, review, fix, doc), o módulo chama `recordOutcome(task, decision)`, que liga o veredito à última chamada executora daquela tarefa.

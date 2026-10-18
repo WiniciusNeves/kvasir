@@ -155,7 +155,7 @@ export function getDiff(): string {
 - Local models often wrap answers in backticks, labels, `<think>` blocks or explanations: **always parse defensively** with `@ai/parse` (`cleanAnswer`, `answerLines`, `pickLine`, `truncateForPrompt`); see `parseBranchName`, `parseCommitMessage`, `parseCorrectedLine`.
 - Prompt shape that works with local models: data first (diff, snippet), instructions last, the exact output format, "one line only" when parsing a line; pass known facts (install command, links, export names) instead of letting the model invent them.
 - **Never compensate a model's mistakes with fixed rules in code**: improve the prompt, the context or the data (backlog principle). Only 100% deterministic, proven fixes are allowed (see `DETERMINISTIC_FIXES` in `fix`, e.g. TS6137 from the tsc message).
-- Every model call is recorded in `~/.kvasir/metrics/calls.jsonl` automatically. Where the user approves/rejects AI output, also call `recordOutcome(task, decision)` from `@ai/metrics`.
+- Every model call is recorded in `~/.kvasir/metrics/calls.jsonl` automatically. Where the user approves/rejects AI output, also call `recordOutcome(task, decision)` from `@ai/metrics`: those verdicts reorder the candidates (`@ai/performance`, performance-based routing), so a module that skips it never improves its model choice.
 - The router injects the "Preferências aprendidas" section of `profile.md` into commit/branch/review/doc prompts. Don't read `profile.md` in modules.
 
 ---

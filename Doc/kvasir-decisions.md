@@ -235,6 +235,14 @@
 
 ---
 
+## Escolha de modelo pelo desempenho: determinística e conservadora
+
+**Decisão:** O router reordena os candidatos por aprovação × taxa de sucesso medidas (`ai/performance.ts`), mas só entre os que têm dados suficientes; os outros ficam na ordem padrão. Quem falhou 3 vezes seguidas nos últimos 15 min vai para o fim.
+
+**Por quê:** É escolha por dado real (backlog bloco 6), sem gastar idas ao Claude e sem regra que contorna erro de modelo: só muda a ordem de quem tenta primeiro. Com poucos dados, um acaso (1 rejeição) mudaria o modelo; por isso o mínimo de dados e a suavização. A pausa evita esperar o timeout de um provedor fora do ar em todo comando.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.
