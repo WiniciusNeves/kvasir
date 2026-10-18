@@ -1,6 +1,6 @@
 # OmniContext — RAG local no Kvasir
 
-> Status: **ideia** (implementar depois de `fix`, `review` e do AI router)
+> Status: **F1 implementado** (2026-10-18): `kvasir index` + `kvasir ask`. Ver `Doc/KVASIR-HANDOFF.md` (Onda F1) e `Doc/kvasir-decisions.md`
 
 ## Problema
 
@@ -39,7 +39,7 @@ Os outros módulos (`review`, `fix`) também passam a consultar o contexto antes
 | Parte         | Opção                                           |
 |---------------|-------------------------------------------------|
 | Embeddings    | Ollama + `nomic-embed-text`                     |
-| Banco vetorial| Qdrant (ou ChromaDB) local                      |
+| Banco vetorial| Índice próprio em arquivo (padrão, 0 MB); Qdrant como opção futura (servidor/equipe). LanceDB descartado: 677 MB |
 | Watchers      | `chokidar` (Node) com debounce e ignore de `node_modules`, `dist`, `.git` |
 | LLM           | Modelos já usados no `router.ts`                |
 

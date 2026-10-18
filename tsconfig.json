@@ -14,7 +14,8 @@
       "@ai/*": ["src/ai/*"],
       "@utils/*": ["src/utils/*"],
       "@ktypes/*": ["src/types/*"],
-      "@integrations/*": ["src/integrations/*"]
+      "@integrations/*": ["src/integrations/*"],
+      "@rag/*": ["src/rag/*"]
     },
     "strict": true,
     "noImplicitAny": true,

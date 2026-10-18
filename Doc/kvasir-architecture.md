@@ -209,6 +209,9 @@ askFor('fix', prompt)
 
 ---
 
+## OmniContext (`src/rag/`)
+Módulo isolado (alias `@rag/*`), pode virar pacote próprio. `files.ts` escolhe os arquivos (git ls-files, extensões de texto, regras do `guard` para arquivos e linhas com segredo) → `chunker.ts` (declarações / títulos / janelas) → `@ai/embeddings` (Ollama `/api/embed`, lotes de 32, `nomic-embed-text`) → `store.ts` (`VectorStore`; `FileStore`: int8 normalizado em `vectors.bin` + `chunks.json` + `meta.json` com hash por arquivo e o modelo) → `index.ts`: `indexFolder` (incremental), `search` (vetor + `keyword.ts` BM25, fusão RRF, `balance` código × docs). Runner: `modules/omnicontext` (`runIndex`, `runAsk` com reescrita da pergunta e checagem de citações).
+
 ## Fluxo de cada comando
 
 ### Entrada: menu, erro de digitação e linguagem natural (`modules/menu/`)

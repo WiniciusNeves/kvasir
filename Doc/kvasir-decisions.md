@@ -235,6 +235,14 @@
 
 ---
 
+## OmniContext: índice próprio em vez de LanceDB/Qdrant como padrão
+
+**Decisão:** Os vetores ficam num índice próprio (int8 num arquivo, busca por força bruta), atrás de uma interface `VectorStore`. Qdrant (servidor) entra depois como opção para índice compartilhado. O `kvasir ask` é só local.
+
+**Por quê:** Open source vive de instalação fácil. Medido nesta máquina: o LanceDB funciona, mas instala 677 MB e não tem versão para Mac Intel; Qdrant/Chroma exigem servidor (Docker/Python). O índice próprio instala 0 MB e busca 200 mil pedaços (~10 milhões de linhas) em ~145 ms. As perguntas levam trechos do código do usuário: por isso a tarefa `ask` não vai para a nuvem.
+
+---
+
 ## `kvasir watch` corrige sem perguntar, mas só o que passa na validação
 
 **Decisão:** Erro de código é corrigido direto (princípio do backlog), mas a correção só fica se passar em três camadas: não esconder o erro (`any`, `@ts-ignore`, comentar/apagar), não criar erro novo no projeto (typecheck inteiro antes × depois) e não quebrar o teste do arquivo. Falhou → desfaz e tenta mais uma vez contando o motivo ao modelo. O resultado da validação é o veredito do modelo nas métricas; `fix --undo` depois vale como rejeição.
