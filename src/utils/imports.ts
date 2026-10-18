@@ -108,3 +108,13 @@ export function findFilesNamedLike(specifier: string, root: string = process.cwd
 export function isResolvableImport(specifier: string, fromFile: string, root: string = process.cwd()): boolean {
   return resolveSpecifier(specifier, path.resolve(root, fromFile), readTsconfigPaths(root)) !== null;
 }
+
+const EXPORT_REGEX =
+  /^export\s+(?:default\s+)?(?:async\s+)?(?:function\*?|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm;
+
+// Exported names, found deterministically so models work with real names instead of inventing them.
+export function listExports(code: string): string[] {
+  const names = [...code.matchAll(EXPORT_REGEX)].map((match) => match[1]);
+  if (/^export\s+default\s+(?!async|function|class|const|let|var|interface|type|enum)/m.test(code)) names.push('default');
+  return Array.from(new Set(names));
+}

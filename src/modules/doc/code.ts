@@ -1,6 +1,7 @@
 import path from 'path';
 import { askLocal } from '@ai/router';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
+import { listExports } from '@utils/imports';
 import { confirm, checkbox, select, input } from '@utils/prompt';
 import { writeFile, readFile, pathExists, isDirectory, listFilesRecursive } from '@utils/fs';
 
@@ -29,18 +30,8 @@ function toDocOutputPath(relativeFilePath: string): string {
 }
 
 const MAX_CODE_CHARS = 12_000;
-const EXPORT_REGEX =
-  /^export\s+(?:default\s+)?(?:async\s+)?(?:function\*?|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm;
-
-// Exports are listed deterministically so the model documents real names instead of inventing them.
-function extractExports(code: string): string[] {
-  const names = [...code.matchAll(EXPORT_REGEX)].map((match) => match[1]);
-  if (/^export\s+default\s+(?!async|function|class|const|let|var|interface|type|enum)/m.test(code)) names.push('default');
-  return Array.from(new Set(names));
-}
-
 function buildCodeDocPrompt(relativeFilePath: string, code: string): string {
-  const exportsList = extractExports(code);
+  const exportsList = listExports(code);
 
   return `Você documenta código-fonte em português do Brasil, para outros desenvolvedores do time.
 

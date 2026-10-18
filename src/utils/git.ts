@@ -358,7 +358,7 @@ export function pushBranchWithTags(branch: string): void {
 
 // Paths with any change (staged, unstaged or untracked), from `git status --porcelain`.
 export function getChangedPaths(): string[] {
-  const { stdout } = gitOutput(['status', '--porcelain']);
+  const { stdout } = gitOutput(['status', '--porcelain', '--untracked-files=all']);
   return stdout
     .split('\n')
     .filter(Boolean)
