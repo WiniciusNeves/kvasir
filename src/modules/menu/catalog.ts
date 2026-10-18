@@ -73,6 +73,7 @@ export const MAIN_MENU: CatalogGroup[] = [
       { argv: ['keys'], label: 'Chaves de IA na nuvem (Gemini, Groq)', submenu: 'keys' },
       { argv: ['persona'], label: 'Personas (convenções da empresa)', submenu: 'persona' },
       { argv: ['agents'], label: 'Time de agentes (quem faz cada tarefa, trocar modelos)', submenu: 'agents' },
+      { argv: ['proactive'], label: 'Sugestões proativas (perguntar, automático ou desligar)' },
       { argv: ['models'], label: 'Ver os modelos e o desempenho' },
       { argv: ['doctor'], label: 'Diagnosticar o ambiente' },
     ],

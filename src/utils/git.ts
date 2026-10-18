@@ -364,3 +364,30 @@ export function getChangedPaths(): string[] {
     .filter(Boolean)
     .map((line) => line.slice(3).replace(/^"|"$/g, '').split(' -> ').pop() ?? '');
 }
+
+export interface BranchAge {
+  name: string;
+  // unix seconds of the last commit on the branch
+  lastCommitAt: number;
+}
+
+// Local branches with the date of their last commit, oldest first.
+export function getLocalBranchAges(): BranchAge[] {
+  const result = spawnSync('git', ['for-each-ref', '--sort=committerdate', '--format=%(refname:short)|%(committerdate:unix)', 'refs/heads'], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+  });
+  if (result.error || result.status !== 0) return [];
+  return (result.stdout ?? '')
+    .split('\n')
+    .map((line) => line.trim().split('|'))
+    .filter((parts) => parts.length === 2 && parts[0])
+    .map(([name, time]) => ({ name, lastCommitAt: Number(time) }));
+}
+
+// Commits on `branch` that `base` does not have (0 = already merged).
+export function countUnmergedCommits(branch: string, base: string): number {
+  const result = spawnSync('git', ['rev-list', '--count', `${base}..${branch}`], { encoding: 'utf-8', cwd: process.cwd() });
+  if (result.error || result.status !== 0) return -1;
+  return Number((result.stdout ?? '').trim()) || 0;
+}

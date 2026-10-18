@@ -15,6 +15,7 @@
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
+| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | 🔧 E1 ✅ (2026-10-18); falta E2 e E3 |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -170,7 +171,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | Aprende erros recorrentes ("3º TS6137 esta semana") | ❌ | `knowledge/errors/` | B/M |
 | **9 Aprendizado** | Feedback aprovado/rejeitado | ✅ | — | — |
 | | `learn` → `profile.md` vivo | 🟡 grava, mas nenhum prompt usa | — | B |
-| | Perguntas proativas (commit sem review, lib sem doc, branch parada, erro repetido) | ❌ | métricas + knowledge | M |
+| | Perguntas proativas (commit sem review, lib sem doc, branch parada, erro repetido) | ✅ `modules/proactive` (2026-10-18); "erro repetido" continua no `fix` | — | — |
 | | `kvasir watch` (terminal/clipboard) | ❌ | intenção | M |
 | **10 Stats e deploy** | `kvasir stats` (radar, semana × mês, cards, barras, "o que aprendeu") | ✅ `kvasir stats` (2026-10-18); `deploy` ❌ | métricas + feedback | M |
 | | `kvasir deploy` (EAS Build/Submit/Update; Vercel) | ❌ | `doctor`, `release` | A |
@@ -336,6 +337,18 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+## Onda E1: perguntas proativas com autonomia que cresce com a confiança (2026-10-18)
+
+Plano da onda E combinado com o autor: E1 sugestões proativas; E2 `kvasir watch` que **corrige e valida sozinho** (validação em camadas: todos os erros antes × depois, testes do arquivo mexido, recusa de correção que só esconde o erro como `any`/`@ts-ignore`/apagar código; 2ª tentativa mostrando ao modelo o erro novo; reaproveita soluções do `knowledge/errors`; espera o arquivo ficar parado e o dev server recompilar; corrige o 1º erro da cascata e revalida; desfaz sozinho se piorar; resultado da validação vira aprovação/rejeição nas métricas; nunca commit/push/instalar; para após 3 tentativas no mesmo erro; `ai.autonomy` 1 pergunta / 2 padrão); E3 erros de runtime.
+
+Arquivos E1: `src/modules/proactive/{index,suggestions,settings}.ts`, `src/cli/proactive.ts`, `countChangedLines`/`parseAddedDependencies` em `utils/diff.ts`, `getLocalBranchAges`/`countUnmergedCommits` em `utils/git.ts`; estado em `~/.kvasir/proactive.json`.
+- 4 sugestões, decididas por código (sem IA): **branch da task** (task ativa e você na main/master/develop: no `commit` e no `start`) · **review antes do commit** (≥ 80 linhas alteradas e esse diff ainda não revisado; o `review` grava o hash do diff) · **documentar lib nova** (dependência nova no `package.json` staged sem nota em `knowledge/libs`, depois do commit; `@types/*` fora) · **branch parada** (≥ 14 dias sem commit, no `start`; diz se já foi mergeada; apaga só com `-d`, nunca força)
+- No máximo **uma sugestão por comando**. Respostas: Sim / Agora não / Não perguntar mais sobre "X" / Nunca mais sugerir
+- **Confiança:** ≥ 5 respostas com ≥ 90% de "sim" → oferece fazer sozinho (uma vez); ≤ 20% → para de sugerir e avisa. Ações que mexem no git (branch da task, apagar branch) nunca ficam automáticas
+- `kvasir proactive`: tabela (modo, aceitas, recusadas, automáticas, "não perguntar") e ajuste de cada uma; mudar o modo zera o histórico
+
+**Testado** (perfil temporário + repositório descartável): 5 "sim" no review → ofereceu automático → 6ª vez rodou sozinho; 2ª sugestão no mesmo comando bloqueada; 5 "não" em lib nova → parou e avisou; branch parada não mergeada → "não perguntar desta" lembrado; branch mergeada → apagada; branch da task na main perguntada; `zod` oferecido e `@types/node` ignorado; review não sugerido para diff já revisado nem para diff pequeno; tabela do `kvasir proactive`. Não testado: dentro do `commit` de verdade (usa o Claude via clipboard).
 
 ## Onda D: `kvasir stats`, Agent Board e grafo do knowledge (2026-10-18)
 

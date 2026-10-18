@@ -25,6 +25,7 @@ import { registerPersona } from './persona';
 import { registerKeys } from './keys';
 import { registerAgents } from './agents';
 import { registerStats } from './stats';
+import { registerProactive } from './proactive';
 import { resolveCommandLine } from '@modules/menu';
 import { printCliError } from '@utils/errors';
 
@@ -66,6 +67,7 @@ registerPersona(program);
 registerKeys(program);
 registerAgents(program);
 registerStats(program);
+registerProactive(program);
 
 program.addHelpText(
   'after',

@@ -215,6 +215,10 @@ Never use arrow functions for top-level exported functions.
 
 ---
 
+## Proactive suggestions
+
+`@modules/proactive`: `offerSuggestion({ id, key?, question, action, run })` asks at most once per command and learns from the answers (ask → auto at ≥ 90% yes, → off at ≤ 20%). The facts that trigger a suggestion are computed in code (`suggestions.ts`), never by a model. New suggestion: add its id to `SUGGESTION_LABELS` and `AUTO_ALLOWED` (false for anything that changes git), an `offer*` function with the facts, and call it from the runner. Import the runner it triggers lazily (`await import(...)`) to avoid cycles.
+
 ## Menu, typos and natural language
 
 `src/modules/menu/`: `kvasir` alone opens the menu; a group alone (`keys`, `persona`, `knowledge`) opens its submenu; a typo suggests the closest command; any other text goes to the `intent` AI task, which can only answer with a command from the catalog (validated, then confirmed). **Every new command must be added to `menu/catalog.ts`** (Portuguese label; `usage`/`ask` if it takes an argument). When a command needs another one first, offer to run it inline (`confirm` → call the runner) instead of printing "run kvasir X".

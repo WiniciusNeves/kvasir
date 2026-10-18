@@ -235,6 +235,14 @@
 
 ---
 
+## Sugestões proativas: autonomia que cresce com a confiança
+
+**Decisão:** Cada sugestão começa perguntando. Se você aceita quase sempre (≥ 90% em 5+ respostas), o Kvasir oferece fazer sozinho; se recusa quase sempre (≤ 20%), ele para. Ações que mexem no git nunca ficam automáticas. Uma sugestão por comando, no máximo.
+
+**Por quê:** Fixar o que pergunta e o que faz sozinho erra para alguém: chato para quem quer velocidade, arriscado para quem quer controle. Com os dados de cada pessoa, ele ganha liberdade só onde provou que acerta. Os fatos (linhas, datas, dependências) são calculados por código, sem gastar IA.
+
+---
+
 ## Time de agentes: dono por tarefa, cadeias de modelo continuam por tarefa
 
 **Decisão:** Cada tarefa tem um agente dono (`ai/agents.ts`) com prompt de papel próprio; o agente pode ter os modelos trocados no `config.json`. Sem configuração, cada tarefa mantém a sua cadeia do `MODEL_MAP`.

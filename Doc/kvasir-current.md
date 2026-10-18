@@ -22,6 +22,7 @@
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
 | menu / intenção | ✅ testado (2026-10-18) | `kvasir` sozinho abre o menu; submenus de keys/persona/knowledge; erro de digitação sugere o comando; frase livre vira comando (Groq: 9 de 9 frases certas; só Ollama: errou gírias como "joga isso no remoto" e aí oferece o menu); comandos oferecem rodar o pré-requisito na hora |
+| `proactive` | ✅ testado (2026-10-18) | 4 sugestões (branch da task, review antes do commit, documentar lib nova, branch parada), uma por comando; viram automáticas ou param conforme as suas respostas; `kvasir proactive` mostra e ajusta |
 | `stats` / `board` | ✅ testado (2026-10-18) | HTML offline em `~/.kvasir/reports/`: cards, radar, barras por dia, modelos, o que aprendeu e o Agent Board (a fazer / em andamento ao vivo, feito / falhou); `board` atualiza a cada 3 s |
 | `agents` | ✅ testado (2026-10-18) | Time formal: 5 agentes, dono único por tarefa, prompt de papel, modelos trocáveis por agente (`agents set`), nuvem desligável por agente; métricas e notas no knowledge por agente |
 | `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |

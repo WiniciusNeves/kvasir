@@ -362,6 +362,9 @@ Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e 
 - `add`: categoria (inclui "Erro resolvido") + título + conteúdo (1 linha ou clipboard); nome seguro `[a-z0-9-]`; pergunta antes de substituir.
 - `search` (nome e conteúdo, mostra a linha) · `link` (`Relacionado: [[nota]]` sem duplicar) · `show` (regenera e mostra o `index.md` + caminho do vault, e gera o grafo `~/.kvasir/reports/knowledge.html` com `knowledge/graph.ts`: notas + `[[links]]`, tags opcionais, offline).
 
+### Sugestões proativas (`modules/proactive/`)
+`offerSuggestion` (index.ts): uma por comando; modo por sugestão em `~/.kvasir/proactive.json` (`ask` / `auto` / `off`, últimas 10 respostas, "não perguntar" por chave). ≥ 5 respostas com ≥ 90% sim → oferece `auto` (só onde `AUTO_ALLOWED`); ≤ 20% → `off`. Os fatos estão em `suggestions.ts`: `offerBranchForTask` (commit, start), `offerReviewBeforeCommit` (commit, antes da IA; o review grava o hash com `markDiffReviewed`), `offerDocNewLib` (commit, depois de commitar), `offerStaleBranch` (start). Os runners das sugestões são importados sob demanda (evita ciclo review ↔ proactive). Erro numa sugestão só é mostrado; nunca derruba o comando.
+
 ### `kvasir stats` / `kvasir board`
 `collectStats(dias)` (`modules/stats/data.ts`) lê só o `~/.kvasir`: métricas, `board.json` (jobs ao vivo de `ai/jobs.ts`), notas do knowledge e `profile.md` → `renderStatsHtml` (`html.ts`, HTML único com SVG desenhado por um script pequeno, sem CDN) → `~/.kvasir/reports/stats.html` → abre com `openInDefaultApp` (sem shell). `--watch`/`board`: regrava a cada 3 s e a página se recarrega. Jobs: o router chama `startJob` antes do 1º candidato, `switchJobModel` a cada fallback e `finishJob` no fim; lotes chamam `queueJobs` antes e `clearQueuedJobs` no `finally`.
 

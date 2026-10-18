@@ -19,6 +19,7 @@ import { runPush } from '@modules/push';
 import { confirmAndUndoLastCommit } from '@modules/undo';
 import { runLog } from '@modules/log';
 import { noteCommit } from '@modules/knowledge/auto';
+import { offerBranchForTask, offerReviewBeforeCommit, offerDocNewLib } from '@modules/proactive/suggestions';
 import { guardStagedChanges } from '@modules/guard';
 
 type CommitChoice = 'yes' | 'no' | 'edit';
@@ -148,6 +149,18 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
     console.log('⚠️  kvasir guard pulado (--no-guard).');
   }
 
+  // Proactive (one suggestion at most): branch for the active task, then review of a big change.
+  if (await offerBranchForTask(context)) {
+    diff = getDiff();
+  } else if (await offerReviewBeforeCommit(diff)) {
+    if (!(await confirm('Continuar com o commit?'))) return;
+    diff = getDiff();
+  }
+  if (!diff.trim()) {
+    console.log('Nada no stage para commitar.');
+    return;
+  }
+
   const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat(), context.commitRules.language), { temperature: 0.2 });
   const message = parseCommitMessage(response);
 
@@ -191,6 +204,7 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
   commitWithMessage(finalMessage);
   console.log('✅ Commit realizado com sucesso!');
   await noteCommit(finalMessage, getHeadShortHash(), getCurrentBranch());
+  await offerDocNewLib(diff);
 
   await runPostCommitMenu();
 }

@@ -8,6 +8,7 @@ import { answerLines } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
+import { markDiffReviewed } from '@modules/proactive/suggestions';
 import type { KvasirContext } from '@ktypes/context';
 
 const MAX_REVIEW_LINES = 150;
@@ -114,4 +115,5 @@ export async function runReview(): Promise<void> {
   await recordOutcome('review', useful ? 'approved' : 'rejected');
   console.log('Feedback registrado.');
   if (useful && findings.length > 0) await noteUsefulReview(findings);
+  await markDiffReviewed(diff);
 }
