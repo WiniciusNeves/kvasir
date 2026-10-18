@@ -195,6 +195,14 @@
 
 ---
 
+## `test`: quem valida é o executor de testes
+
+**Decisão:** (2026-10-17) O `kvasir test` gera e corrige com o modelo local (`askLocal`) e valida rodando o teste, sem passar pelo Claude. O usuário aprova o arquivo antes de salvar. Se a falha mostra um bug real no código, o teste não é "consertado" para passar.
+
+**Por quê:** Rodar o teste é um validador objetivo, melhor que uma segunda IA opinando, e evita várias idas ao Claude por arquivo. Fatos que o modelo errava foram parar no prompt como dado: a linha de import exata (ele escrevia `import x from` para export nomeado e depois acusava um "bug" falso no código) e "só valores que o tipo aceita" (ele testava `null` num `number[]`).
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.

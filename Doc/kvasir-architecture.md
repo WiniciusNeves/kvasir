@@ -219,6 +219,14 @@ askFor('fix', prompt)
 7. Notas (opcional): `askLocal('release')` recebe só as mudanças que o usuário percebe (feat/fix/perf/breaking) e reescreve **uma por uma**; copia se aprovado.
 8. Expo: sugere `eas update --branch production --message "vX.Y.Z: …"`. Oferece `git push --follow-tags` se houver upstream.
 
+### `kvasir test [arquivo]`
+1. Arquivos: o informado, ou os `.ts/.tsx` alterados (`git status`, inclusive dentro de pastas novas), sem testes/`.d.ts`/configs; checkbox se forem vários.
+2. `detectTestSetup` (`test/framework.ts`): vitest ou jest (`jest-expo` conta) pelo `package.json`, Testing Library (RN ou web), convenção (`__tests__/` ou `<nome>.test.ts` ao lado) e o teste existente mais próximo como exemplo de estilo. Sem framework → dica de instalação.
+3. `buildGeneratePrompt` (`test/prompt.ts`): código, exports (`listExports`), **linhas de import prontas** (`buildImportLines`: nomeado × default × `import type`), regras do framework, "só valores que os tipos aceitam", 3 a 8 testes.
+4. `askLocal('test')` (qwen2.5-coder → deepseek-r1) → mostra → confirmação → salva.
+5. `runTestFile` (`utils/testRunner.ts`): `node node_modules/jest/bin/jest.js <arq> --ci --colors=false` ou `node node_modules/vitest/vitest.mjs run <arq>` (sem shell, sem npx; `CI=1`, `NO_COLOR=1`).
+6. Falhou → `buildFixPrompt` com a saída: erro de import/sintaxe/tipo é sempre culpa do teste; se uma asserção de comportamento falhou e o código está claramente errado, a IA responde `BUG: …` → o teste fica falhando como evidência e vai para `knowledge/errors/bugs-encontrados-por-testes.md`. Até 3 tentativas; depois, manter ou apagar.
+
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
 - `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn

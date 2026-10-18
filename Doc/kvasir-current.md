@@ -14,6 +14,7 @@
 | `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow ACME, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
 | `daily` | ✅ testado (2026-10-17) | 2 repos descartáveis: pegou só os commits do autor (inclusive em branch de feature), ignorou o do colega e o antigo; llama3.2 escreve o "Ontem" com exemplo de formato; copia e salva em `knowledge/commits/daily.md` |
 | `release` | ✅ testado (2026-10-17) | Repo Expo descartável: v1.4.2 → 1.5.0 (feat), CHANGELOG agrupado, indentação preservada, `versionCode`/`buildNumber` +1, commit + tag + push para remoto local; recusa stage sujo, tag repetida e "nada novo"; notas reescrevem só o que o usuário percebe |
+| `test` | ✅ testado (2026-10-17) | vitest e jest reais: testes passando de primeira em `cart.ts` e `slug.ts`; bug plantado (média dividindo por `length - 1`) detectado em 4 de 4 rodadas, com o teste salvo passando depois da correção |
 | `doctor` | ✅ testado (2026-10-17) | Testado no repo do kvasir e num projeto Expo descartável: pegou Node fora do `engines`, `JAVA_HOME` ≠ `java` do PATH, `gradlew` faltando, EAS desatualizado, `gh` ausente; Ollama com modelo faltando/fora do ar simulado |
 | `guard` | ✅ testado (2026-10-17) | Regras determinísticas (chaves, JWT, senhas, cartão Luhn 🔴; CPF/CNPJ, logs sensíveis 🟡), arquivos proibidos, IA para strings de alta entropia; cancelar / tirar do stage / ignorar com dupla confirmação; `.kvasirignore` com hashes |
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |
@@ -69,4 +70,4 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 - `kvasir task update`
 - `kvasir task` sem `KVASIR_PLANNER_API_URL` não tem fonte de tasks local (só a API)
 - Knowledge base consultada nos prompts (hoje os módulos escrevem notas, mas nenhum lê; vem com o OmniContext)
-- Testes automatizados
+- Testes automatizados do próprio Kvasir (o `kvasir test` gera testes para os projetos, mas o repo do Kvasir ainda não tem os seus)

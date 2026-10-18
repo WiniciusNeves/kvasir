@@ -54,7 +54,7 @@ src/
 ├── adapters/       # claude.ts, copilot.ts, cursor.ts (read kvasir.context.md)
 ├── personas/       # acme.ts + templates/acme-mobile.md, acme-web.md
 ├── integrations/   # planner.ts (KVASIR_PLANNER_API_URL / _TOKEN)
-├── utils/          # git, fs, prompt, editor, typecheck, process, diff, imports, feedback, errors
+├── utils/          # git, fs, prompt, editor, typecheck, testRunner, process, diff, imports, feedback, errors
 └── types/          # context, persona, feedback, knowledge, task
 ```
 

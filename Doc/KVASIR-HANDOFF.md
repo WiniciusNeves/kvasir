@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`), `release` ✅ (`299220a`); próximo: `test` |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`), `release` ✅ (`299220a`), `test` ✅ (`bad5560`); falta: `fix` aprender erros recorrentes, personas (criar/listar/remover) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -293,6 +293,21 @@ Arquivos: `src/modules/release/{index,semver,changelog,versionFiles}.ts`, `src/c
 - **Bugs encontrados e corrigidos no teste:** limpeza do "- -" comia a linha em branco e estragaria `**negrito**`
 
 **Pendências:** `app.json` com objetos numa linha é reformatado em várias linhas (inofensivo); `app.config.js/ts` só gera aviso; versão 0.x com breaking sobe para 1.0.0 (como na especificação).
+
+---
+
+## Onda B: `test` (commit `bad5560`)
+
+Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.ts`, `src/cli/test.ts`; `listExports` foi para `utils/imports.ts` (o `doc --code` usa o mesmo); `getChangedPaths` passou a listar arquivos dentro de pastas novas (`--untracked-files=all`); nova `AiTask 'test'` (qwen2.5-coder → deepseek-r1).
+
+**Testado com runners reais:**
+- vitest 3: `cart.ts` → teste no estilo do `str.test.ts` existente, passou de primeira
+- jest 29 + ts-jest: `slug.ts` passou de primeira em 2 de 2 rodadas (depois da linha de import pronta)
+- Bug plantado (`average` dividindo por `length - 1`): detectado em 4 de 4 rodadas (2 vitest, 2 jest); o teste salvo passou 5/5 depois de corrigir o código
+- Bordas: sem arquivos alterados, sem framework (dica de instalação), arquivo inexistente
+- **Problemas achados e corrigidos pelo prompt (não por regra):** testes com `null`/`undefined` num `number[]`; `import default` para export nomeado seguido de um "bug" falso no código
+
+**Pendências:** testes de componente com Testing Library não foram exercitados (o projeto de teste não tinha RN/React); a explicação do `BUG:` às vezes é confusa, mas vem com os valores errados como evidência.
 
 ---
 
