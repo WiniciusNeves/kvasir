@@ -26,6 +26,7 @@ import { registerKeys } from './keys';
 import { registerAgents } from './agents';
 import { registerStats } from './stats';
 import { registerProactive } from './proactive';
+import { registerWatch } from './watch';
 import { resolveCommandLine } from '@modules/menu';
 import { printCliError } from '@utils/errors';
 
@@ -68,6 +69,7 @@ registerKeys(program);
 registerAgents(program);
 registerStats(program);
 registerProactive(program);
+registerWatch(program);
 
 program.addHelpText(
   'after',

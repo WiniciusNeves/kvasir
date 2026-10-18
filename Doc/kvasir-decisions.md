@@ -235,6 +235,14 @@
 
 ---
 
+## `kvasir watch` corrige sem perguntar, mas só o que passa na validação
+
+**Decisão:** Erro de código é corrigido direto (princípio do backlog), mas a correção só fica se passar em três camadas: não esconder o erro (`any`, `@ts-ignore`, comentar/apagar), não criar erro novo no projeto (typecheck inteiro antes × depois) e não quebrar o teste do arquivo. Falhou → desfaz e tenta mais uma vez contando o motivo ao modelo. O resultado da validação é o veredito do modelo nas métricas; `fix --undo` depois vale como rejeição.
+
+**Por quê:** "O erro sumiu" não prova que foi corrigido: um modelo pequeno cala o compilador com `any` e o Kvasir aprenderia o errado. A recusa de `any`/`@ts-ignore` é checagem de qualidade da saída (o prompt pede o mesmo), não regra contornando a IA. Dizer ao modelo por que errou funciona melhor que trocar de modelo às cegas.
+
+---
+
 ## Sugestões proativas: autonomia que cresce com a confiança
 
 **Decisão:** Cada sugestão começa perguntando. Se você aceita quase sempre (≥ 90% em 5+ respostas), o Kvasir oferece fazer sozinho; se recusa quase sempre (≤ 20%), ele para. Ações que mexem no git nunca ficam automáticas. Uma sugestão por comando, no máximo.

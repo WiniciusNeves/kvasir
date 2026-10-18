@@ -83,12 +83,22 @@ export async function recordOutcome(task: string, decision: OutcomeDecision): Pr
   await append({ type: 'outcome', callId: call.id, timestamp: new Date().toISOString(), task, model: call.model, decision });
 }
 
+// The executor call a verdict would go to, without consuming it (kvasir watch stores it with the backup).
+export function peekLastExecutorCall(task: string): AiCallRecord | undefined {
+  return lastExecutorCall.get(task);
+}
+
+// A verdict that arrives later, in another process: undoing an automatic fix rejects the call that made it.
+export async function recordOutcomeForCall(call: { id: string; task: string; model: string }, decision: OutcomeDecision): Promise<void> {
+  await append({ type: 'outcome', callId: call.id, timestamp: new Date().toISOString(), task: call.task, model: call.model, decision });
+}
+
 export async function readMetrics(sinceDays: number): Promise<MetricsRecord[]> {
   const content = await readFile(getMetricsFile());
   if (!content) return [];
 
   const since = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
-  return content
+  const records = content
     .split('\n')
     .filter(Boolean)
     .map((line) => {
@@ -99,6 +109,12 @@ export async function readMetrics(sinceDays: number): Promise<MetricsRecord[]> {
       }
     })
     .filter((record): record is MetricsRecord => record !== null && Date.parse(record.timestamp) >= since);
+
+  // Only the last verdict on a call counts: a fix validated (approved) and later undone by the user
+  // (rejected) is a rejection, not one of each.
+  const lastVerdict = new Map<string, MetricsRecord>();
+  for (const record of records) if (record.type === 'outcome') lastVerdict.set(record.callId, record);
+  return records.filter((record) => record.type !== 'outcome' || lastVerdict.get(record.callId) === record);
 }
 
 export interface ModelPerformance {

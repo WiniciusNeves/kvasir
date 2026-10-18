@@ -15,7 +15,7 @@
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
-| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | 🔧 E1 ✅ (2026-10-18); falta E2 e E3 |
+| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | 🔧 E1 ✅ · E2 ✅ (2026-10-18); falta E3 (erros de runtime) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -337,6 +337,20 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+## Onda E2: `kvasir watch` corrige e valida sozinho (2026-10-18)
+
+Arquivos: `src/modules/watch/index.ts`, `src/cli/watch.ts`, `src/modules/fix/{auto,validate,backup,line}.ts` (o `fix/index.ts` foi dividido: backup/undo em `backup.ts`, regras + prompt + parser da linha em `line.ts`), `spawnCommand` em `utils/process.ts`, `knownFixesFor` em `knowledge/auto.ts`, `peekLastExecutorCall`/`recordOutcomeForCall` em `ai/metrics.ts`, `ai.autonomy` no `config.json`.
+- **Entradas:** `kvasir watch` vigia o clipboard (copiou um erro do TypeScript → corrige); `kvasir watch -- npm run dev` (ou `tsc --watch`) roda o comando, repassa a saída e age quando a saída fica parada 1,5 s com erros
+- **Por erro** (`fix/auto.ts`): só arquivo do projeto (nunca node_modules/dist/fora da pasta); espera o arquivo ficar 3 s parado; erro complexo (módulo, tsconfig) não é tocado (sugere `kvasir fix`); regra determinística ou IA (`askLocal`, com até 3 correções do mesmo código que já deram certo, do `knowledge/errors`)
+- **Validação em camadas:** (1) recusa quem esconde o erro: `any`, `as unknown as`, `@ts-ignore`/`@ts-expect-error`/`@ts-nocheck`, `eslint-disable`, comentar ou apagar a linha (o prompt também pede isso); (2) typecheck do projeto inteiro antes × depois: o erro alvo some e nenhum erro novo aparece; (3) roda o teste do arquivo, se existir (`x.test.ts`, `__tests__/`); teste que já falhava antes não conta contra
+- Falhou → desfaz na hora e faz a **2ª tentativa contando ao modelo** a linha recusada e o motivo; falhou de novo → arquivo como estava. Nunca escreve se o arquivo mudou desde a leitura
+- **Cascata:** por rodada corrige o 1º erro de cada arquivo, revalida e repete com o que sobrou (até 5 rodadas); para depois de 3 tentativas no mesmo erro
+- **Aprendizado sem você aprovar nada:** validação ok = aprovado, recusada = rejeitado (métricas → ranking da onda C); a chamada fica no manifesto do backup e `kvasir fix --undo` grava rejeição para ela; só o último veredito de cada chamada conta (`readMetrics`); correção validada vira nota em `knowledge/errors`
+- Nunca commit, push nem instala pacote. `ai.autonomy: 1` mostra cada correção e pergunta; 2 (padrão) é sozinho. Agent Board mostra os erros como jobs do Revisor
+- Também: a mensagem "📈 X responde primeiro…" só aparece quando o desempenho mudou a ordem
+
+**Testado** (projeto TS descartável, Groq real): `watch -- tsc --watch` com 2 erros no mesmo arquivo → TS2552 (`formatPrise` → `formatPrice`) e TS2741 (faltava `quantity`) corrigidos e validados em rodadas, tsc 0 erros; `watch -- tsc --noEmit` (comando único) com erros em 2 arquivos; clipboard (simulado) → corrigiu; respostas simuladas para as falhas: `as any` recusado e 2ª tentativa certa; erro novo nas 2 tentativas → arquivo restaurado; quebrou o teste (runner falso) → recusado e 2ª certa; linha comentada → recusada; o 2º prompt sempre trouxe o motivo; `--undo` restaurou e gravou rejeição para as mesmas chamadas (aprovação final 0/2). Pego no teste: `passThroughOptions` derrubava o CLI inteiro (removido). Não testado: dev server real (Next/Expo) e clipboard real.
 
 ## Onda E1: perguntas proativas com autonomia que cresce com a confiança (2026-10-18)
 

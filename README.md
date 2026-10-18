@@ -73,6 +73,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir format` | Roda `npm run format` ou o Prettier | 🧪 |
 | `kvasir knowledge search\|add\|link\|show` | Base de conhecimento estilo Obsidian em `~/.kvasir/knowledge/`, com notas geradas sozinhas pelos outros comandos. `show` abre o grafo de conexões no navegador | ✅ |
 | `kvasir stats` | Painel no navegador: chamadas, aprovação, tempo, tokens, radar de uso, barras por dia, modelos, o que o Kvasir aprendeu e o Agent Board. Offline, gerado em `~/.kvasir/reports/` | ✅ |
+| `kvasir watch` | Corrige erros do TypeScript sozinho: vigia o clipboard ou roda o seu comando (`kvasir watch -- npm run dev`). Cada correção é validada (não aceita `any`/`@ts-ignore`, não pode criar erro novo, roda o teste do arquivo) e desfeita se não passar. Nunca faz commit nem push; `kvasir fix --undo` desfaz | ✅ |
 | `kvasir proactive` | Sugestões do Kvasir no momento certo (criar a branch da task, revisar antes de um commit grande, documentar lib nova, apagar branch parada). Começam perguntando; o que você sempre aceita vira automático, o que sempre recusa para | ✅ |
 | `kvasir board` | Agent Board ao vivo: o que cada agente tem a fazer, está fazendo, fez e falhou (atualiza a cada 3 s) | ✅ |
 | `kvasir learn` | Consolida o feedback e atualiza `~/.kvasir/profile.md` (usado nos prompts) | ✅ |

@@ -230,3 +230,25 @@ export async function recentErrorOccurrences(code: string, days: number): Promis
 
   return { count, files };
 }
+
+export interface KnownFixEntry {
+  message: string;
+  before: string;
+  after: string;
+}
+
+// The last fixes of an error code that were applied (errors/<code>.md): examples for the next fix of
+// the same code, so a solution found once is reused instead of re-discovered ("zero token desperdiçado").
+export async function knownFixesFor(code: string, limit: number): Promise<KnownFixEntry[]> {
+  const note = await readNote('errors', code);
+  if (!note) return [];
+
+  const fixes: KnownFixEntry[] = [];
+  for (const entry of note.body.split(/^## /m).slice(1)) {
+    const message = entry.match(/^> (.+)$/m)?.[1];
+    const before = entry.match(/^- antes: `(.*)`$/m)?.[1];
+    const after = entry.match(/^- depois: `(.*)`$/m)?.[1];
+    if (message && before !== undefined && after !== undefined && before !== after) fixes.push({ message, before, after });
+  }
+  return fixes.slice(-limit);
+}

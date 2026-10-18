@@ -215,6 +215,10 @@ Never use arrow functions for top-level exported functions.
 
 ---
 
+## Automatic fixes (kvasir watch)
+
+`@modules/fix/auto` (`autoFixDiagnostic`) is the only path that writes a fix without asking. It must keep the three validation layers of `fix/validate.ts` (hiding check, whole-project diagnostics before × after, related tests), restore the file when one fails, and record the verdict (`recordOutcome`). Line rules, the line-fix prompt and the parser live in `fix/line.ts`; backups and undo in `fix/backup.ts` (shared with `kvasir fix`).
+
 ## Proactive suggestions
 
 `@modules/proactive`: `offerSuggestion({ id, key?, question, action, run })` asks at most once per command and learns from the answers (ask → auto at ≥ 90% yes, → off at ≤ 20%). The facts that trigger a suggestion are computed in code (`suggestions.ts`), never by a model. New suggestion: add its id to `SUGGESTION_LABELS` and `AUTO_ALLOWED` (false for anything that changes git), an `offer*` function with the facts, and call it from the runner. Import the runner it triggers lazily (`await import(...)`) to avoid cycles.

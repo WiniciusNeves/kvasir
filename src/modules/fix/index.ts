@@ -1,28 +1,29 @@
-import os from 'os';
 import path from 'path';
 import { askFor, askLocal } from '@ai/router';
 import { queueJobs, clearQueuedJobs } from '@ai/jobs';
 import type { AiTask } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { readClipboard } from '@ai/client';
-import { stripThinking } from '@ai/ollama';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { input, confirm, select } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
-import { readFile, writeFile, readJson, copyFile, removeFile } from '@utils/fs';
+import { readFile, writeFile, readJson } from '@utils/fs';
 import { runTypecheck, parseTscDiagnostics } from '@utils/typecheck';
 import type { TscDiagnostic } from '@utils/typecheck';
 import { openDiffInEditor } from '@utils/editor';
-import { noteFixedError, noteBatchFix, noteInvestigation, recentErrorOccurrences } from '@modules/knowledge/auto';
+import { noteFixedError, noteBatchFix, noteInvestigation, recentErrorOccurrences, knownFixesFor } from '@modules/knowledge/auto';
 import { readNote } from '@modules/knowledge/notes';
+import { ensureBackup, undoLastFix } from './backup';
+import type { FixBackup } from './backup';
+import { splitFile, applyDeterministicFix, buildNumberedSnippet, buildLineFixPrompt, parseCorrectedLine, DETERMINISTIC_FIXES, COMPLEX_CODES } from './line';
 import { resolveLocalImports, readTsconfigText, findFilesNamedLike, isResolvableImport } from '@utils/imports';
 
 const MAX_INVESTIGATION_ROUNDS = 3;
 // deepseek-r1 thinks for a long time with a big context; the default 120s cut it off.
 const ARCHITECT_TIMEOUT_MS = 300_000;
-const CONTEXT_RADIUS = 15;
 const MAX_LISTED_DIAGNOSTICS = 10;
+const KNOWN_FIXES_IN_PROMPT = 3;
 const LINE_FIX_MAX_TOKENS = 256;
 
 type ErrorSource = 'clipboard' | 'typecheck' | 'type';
@@ -33,10 +34,6 @@ export interface FixOptions {
   undo?: boolean;
 }
 
-interface FixBackup {
-  filePath: string;
-  backupPath: string;
-}
 
 interface AppliedFix {
   diagnostic: TscDiagnostic;
@@ -46,65 +43,7 @@ interface AppliedFix {
   source: string;
 }
 
-interface SplitFile {
-  lines: string[];
-  eol: string;
-}
 
-// ---------------------------------------------------------------------------
-// Backups and undo (~/.kvasir/backups/fix)
-// ---------------------------------------------------------------------------
-
-function getBackupDir(): string {
-  return path.join(os.homedir(), '.kvasir', 'backups', 'fix');
-}
-
-function getManifestPath(): string {
-  return path.join(getBackupDir(), 'last-fix.json');
-}
-
-// One backup per file per run, taken before the first change; the manifest of the last run powers `--undo`.
-async function ensureBackup(session: FixBackup[], filePath: string): Promise<string> {
-  const absolutePath = path.resolve(filePath);
-  const existing = session.find((backup) => backup.filePath === absolutePath);
-  if (existing) return existing.backupPath;
-
-  const extension = path.extname(absolutePath);
-  const baseName = path.basename(absolutePath, extension);
-  const backupPath = path.join(getBackupDir(), `${Date.now()}-${baseName}.kvasir-original${extension}`);
-
-  await copyFile(absolutePath, backupPath);
-  session.push({ filePath: absolutePath, backupPath });
-  await writeFile(getManifestPath(), JSON.stringify(session, null, 2));
-
-  return backupPath;
-}
-
-async function undoLastFix(): Promise<void> {
-  const manifest = await readJson<FixBackup[]>(getManifestPath());
-  if (!manifest || manifest.length === 0) {
-    console.log('Nenhuma correção do kvasir fix para desfazer.');
-    return;
-  }
-
-  console.log('\nArquivos alterados pelo último kvasir fix:');
-  manifest.forEach((backup) => console.log(`  - ${path.relative(process.cwd(), backup.filePath)}`));
-
-  const approved = await confirm(`Restaurar ${manifest.length} arquivo(s) para a versão anterior?`);
-  if (!approved) {
-    console.log('Nada foi restaurado.');
-    return;
-  }
-
-  for (const backup of manifest) {
-    await copyFile(backup.backupPath, backup.filePath);
-    await removeFile(backup.backupPath);
-  }
-  await removeFile(getManifestPath());
-  await recordFeedback('fixes', 'rejected', `undo: ${manifest.length} arquivo(s) restaurado(s)`);
-
-  console.log(`✅ ${manifest.length} arquivo(s) restaurado(s).`);
-}
 
 // ---------------------------------------------------------------------------
 // Input
@@ -154,104 +93,9 @@ async function readErrorInput(): Promise<string> {
 // Line fixes: deterministic rules first, AI second
 // ---------------------------------------------------------------------------
 
-function splitFile(content: string): SplitFile {
-  return { lines: content.split(/\r?\n/), eol: content.includes('\r\n') ? '\r\n' : '\n' };
-}
-
-function escapeRegex(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function replaceModuleSpecifier(line: string, from: string, to: string): string {
-  return line.replace(new RegExp(`(['"])${escapeRegex(from)}\\1`), `$1${to}$1`);
-}
-
-// Each rule returns the fixed line, or the same line when it doesn't apply.
-const DETERMINISTIC_FIXES: Record<string, (line: string, diagnostic: TscDiagnostic) => string> = {
-  // "Cannot import type declaration files. Consider importing 'X' instead of '@types/X'."
-  TS6137: (line, diagnostic) => {
-    const match = diagnostic.message.match(/importing '([^']+)' instead of '([^']+)'/);
-    if (match) return replaceModuleSpecifier(line, match[2], match[1]);
-    return line.replace(/(['"])@types\/([^'"]+)\1/, '$1$2');
-  },
-};
-
-function applyDeterministicFix(line: string, diagnostic: TscDiagnostic): string | null {
-  const rule = DETERMINISTIC_FIXES[diagnostic.code];
-  if (!rule) return null;
-
-  const fixed = rule(line, diagnostic);
-  return fixed !== line ? fixed : null;
-}
-
-function buildNumberedSnippet(lines: string[], lineIndex: number): string {
-  const start = Math.max(0, lineIndex - CONTEXT_RADIUS);
-  const end = Math.min(lines.length, lineIndex + CONTEXT_RADIUS + 1);
-  const width = String(end).length;
-
-  return lines
-    .slice(start, end)
-    .map((line, offset) => {
-      const index = start + offset;
-      const marker = index === lineIndex ? '>>' : '  ';
-      return `${marker}${String(index + 1).padStart(width)} | ${line}`;
-    })
-    .join('\n');
-}
-
-function buildLineFixPrompt(diagnostic: TscDiagnostic, lines: string[]): string {
-  const lineNumber = diagnostic.lineIndex + 1;
-
-  return `Você corrige UMA linha de um arquivo TypeScript a partir de um erro do compilador.
-
-Erro do tsc:
-${diagnostic.code}: ${diagnostic.message}
-
-Arquivo: ${diagnostic.filePath} (linha ${lineNumber}, coluna ${diagnostic.column})
-
-Trecho do arquivo (a linha com erro está marcada com >>):
-${buildNumberedSnippet(lines, diagnostic.lineIndex)}
-
-Linha ${lineNumber} atual:
-${lines[diagnostic.lineIndex]}
-
-REGRAS:
-- Responda SOMENTE com a linha ${lineNumber} já corrigida, dentro de um bloco \`\`\`ts
-- Uma única linha. Não repita a linha atual, não explique, não mexa em outras linhas
-- Use apenas nomes, imports e caminhos que aparecem no trecho ou na mensagem de erro
-- Se o erro sugerir um nome ou caminho ("Did you mean", "Consider importing"), use exatamente o sugerido
-
-Resposta (só o bloco \`\`\`ts com a linha ${lineNumber} corrigida):`;
-}
-
-const PROSE_PREFIX = /^\s*(#|\*\*|linha|corre[cç][aã]o|explica|aqui|here|the |a linha)/i;
-const LABEL_PREFIX = /^\s*(depois|corrigid[ao]|linha corrigida|after|fixed)\s*:\s*/i;
-const SNIPPET_PREFIX = /^\s*>?>?\s*\d+\s*\|\s?/;
-const LOOKS_LIKE_CODE = /[;{}()=<>[\]'"`]|^\s*(import|export|const|let|var|return|function|type|interface|class)\b/;
-
-// Models answer with a code fence, an echoed snippet, labels or prose: keep the first real code line
-// that differs from the original, with the original indentation.
-function parseCorrectedLine(response: string, oldLine: string): string | null {
-  const text = stripThinking(response);
-  const fence = text.match(/```[\w-]*\r?\n([\s\S]*?)```/);
-  const inline = text.match(/^`([^`]+)`$/m);
-  const body = fence ? fence[1] : inline ? inline[1] : text;
-
-  const candidate = body
-    .split(/\r?\n/)
-    .map((line) => line.replace(SNIPPET_PREFIX, '').replace(LABEL_PREFIX, ''))
-    .filter((line) => line.trim().length > 0 && !line.trim().startsWith('```'))
-    .filter((line) => fence !== null || inline !== null || (!PROSE_PREFIX.test(line) && LOOKS_LIKE_CODE.test(line)))
-    .find((line) => line.trim() !== oldLine.trim());
-
-  if (!candidate) return null;
-
-  const indentation = oldLine.match(/^\s*/)?.[0] ?? '';
-  return `${indentation}${candidate.trim()}`;
-}
 
 async function askLineFix(diagnostic: TscDiagnostic, lines: string[], mode: FixMode): Promise<string | null> {
-  const prompt = buildLineFixPrompt(diagnostic, lines);
+  const prompt = buildLineFixPrompt(diagnostic, lines, { knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT) });
   const options = { temperature: 0, maxTokens: LINE_FIX_MAX_TOKENS };
   const response = mode === 'interactive' ? await askFor('fix', prompt, options) : await askLocal('fix', prompt, options);
 
@@ -327,9 +171,6 @@ Responda em português, exatamente com estas seções:
 
 type ErrorSeverity = 'simple' | 'complex';
 
-// TS2307/2305/2614/2792: module resolution · TS2688: type definitions · TS1259/1192: default-import
-// interop · TS5xxx/TS18003: tsconfig. (TS6137 is complex too but has a proven deterministic fix.)
-const COMPLEX_CODES = /^TS(2307|2305|2614|2792|2688|1259|1192|5\d{3}|18003)$/;
 const CONFIG_FILE = /(^|[\\/])(tsconfig[\w.-]*\.json|babel\.config\.\w+|next\.config\.\w+|metro\.config\.\w+|app\.json|package\.json)$/;
 const MAX_PASTED_FOR_SIMPLE = 5;
 

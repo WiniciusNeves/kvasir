@@ -40,7 +40,8 @@ export const MAIN_MENU: CatalogGroup[] = [
     title: 'Código',
     entries: [
       { argv: ['fix'], label: 'Corrigir o erro que está no clipboard' },
-      { argv: ['fix', '--undo'], label: 'Desfazer o último fix' },
+      { argv: ['fix', '--undo'], label: 'Desfazer o último fix (inclusive o que o watch corrigiu)' },
+      { argv: ['watch'], label: 'Vigiar e corrigir erros sozinho (copie um erro do TypeScript)' },
       { argv: ['review'], label: 'Revisar as mudanças' },
       { argv: ['test'], label: 'Gerar testes', usage: 'test [arquivo]', ask: { message: 'Arquivo (vazio = os arquivos alterados):', required: false } },
       { argv: ['guard'], label: 'Procurar segredos no que está no stage' },

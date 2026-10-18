@@ -10,6 +10,8 @@ export interface AiSettings {
   cloud?: boolean;
   geminiModel?: string;
   groqModel?: string;
+  // kvasir watch: 1 = asks before applying a fix · 2 (default) = fixes, validates and undoes on its own
+  autonomy?: 1 | 2;
 }
 
 // Swaps an agent's models without touching modules (kvasir agents). Names match ai/agents.ts.

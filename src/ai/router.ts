@@ -165,18 +165,23 @@ async function localCandidates(task: AiTask): Promise<{ candidates: Candidate[];
 
 // Default order: cloud first (when allowed), Ollama after. Ollama being down is only fatal when
 // there is no cloud. Then the measured performance reorders it (see performance.ts).
-export async function rankedCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
+async function defaultCandidates(task: AiTask): Promise<Candidate[]> {
   const cloud = await cloudCandidates(task);
   const local = await localCandidates(task);
   if (cloud.length === 0 && local.problem) throw new Error(local.problem);
-  const defaults = [...cloud, ...local.candidates];
-  return rankCandidates(task, defaults, await readMetrics(PERFORMANCE_WINDOW_DAYS));
+  return [...cloud, ...local.candidates];
+}
+
+export async function rankedCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
+  return rankCandidates(task, await defaultCandidates(task), await readMetrics(PERFORMANCE_WINDOW_DAYS));
 }
 
 async function resolveCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
-  const ranked = await rankedCandidates(task);
+  const defaults = await defaultCandidates(task);
+  const ranked = rankCandidates(task, defaults, await readMetrics(PERFORMANCE_WINDOW_DAYS));
   const first = ranked[0];
-  if (first && first.stats.score !== null && ranked.length > 1) {
+  // only worth saying when the measured performance changed who answers
+  if (first && first.candidate !== defaults[0]) {
     console.log(`📈 ${first.candidate.label} responde primeiro em "${task}" pelo desempenho medido (${first.reason}).`);
   }
   return ranked;

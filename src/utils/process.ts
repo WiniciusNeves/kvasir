@@ -1,4 +1,5 @@
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import type { SpawnSyncReturns } from 'child_process';
@@ -60,4 +61,14 @@ export function openInDefaultApp(filePath: string): boolean {
   const bin = IS_WINDOWS ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
   const result = spawnSync(bin, [filePath], { stdio: 'ignore', timeout: 15_000 });
   return !result.error && (IS_WINDOWS || result.status === 0);
+}
+
+// Long-running command with piped output (kvasir watch -- npm run dev). Same rules as runCommand:
+// no shell; on Windows cmd.exe /d /s /c with escaped args so .cmd scripts work.
+export function spawnCommand(bin: string, args: string[]): ChildProcess {
+  const options = { cwd: process.cwd(), stdio: ['inherit', 'pipe', 'pipe'] as ('inherit' | 'pipe')[], env: { ...process.env, FORCE_COLOR: '1' } };
+  if (!IS_WINDOWS) return spawn(bin, args, options);
+
+  const commandLine = [bin, ...args].map(quoteWindowsArg).join(' ');
+  return spawn('cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], { ...options, windowsVerbatimArguments: true });
 }

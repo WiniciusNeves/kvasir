@@ -22,6 +22,7 @@
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
 | menu / intenção | ✅ testado (2026-10-18) | `kvasir` sozinho abre o menu; submenus de keys/persona/knowledge; erro de digitação sugere o comando; frase livre vira comando (Groq: 9 de 9 frases certas; só Ollama: errou gírias como "joga isso no remoto" e aí oferece o menu); comandos oferecem rodar o pré-requisito na hora |
+| `watch` | ✅ testado (2026-10-18) | Corrige erros do TypeScript sozinho (clipboard ou `kvasir watch -- <comando>`) e valida em camadas: não aceita esconder o erro, compara todos os erros antes × depois, roda o teste do arquivo; desfaz e tenta de novo explicando ao modelo; aprende com o resultado e com o `fix --undo` |
 | `proactive` | ✅ testado (2026-10-18) | 4 sugestões (branch da task, review antes do commit, documentar lib nova, branch parada), uma por comando; viram automáticas ou param conforme as suas respostas; `kvasir proactive` mostra e ajusta |
 | `stats` / `board` | ✅ testado (2026-10-18) | HTML offline em `~/.kvasir/reports/`: cards, radar, barras por dia, modelos, o que aprendeu e o Agent Board (a fazer / em andamento ao vivo, feito / falhou); `board` atualiza a cada 3 s |
 | `agents` | ✅ testado (2026-10-18) | Time formal: 5 agentes, dono único por tarefa, prompt de papel, modelos trocáveis por agente (`agents set`), nuvem desligável por agente; métricas e notas no knowledge por agente |
