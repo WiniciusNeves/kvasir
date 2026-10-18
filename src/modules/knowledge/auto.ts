@@ -156,3 +156,12 @@ export async function notePullRequest(taskId: string, title: string, url: string
     'append'
   );
 }
+
+// commits/daily.md: the personal log of what was reported (not tied to one project).
+export async function noteDaily(message: string): Promise<void> {
+  await trySave(
+    { category: 'commits', title: 'daily', body: message.replace(/^\*\*(Daily · .+)\*\*$/m, '## $1'), origin: 'kvasir daily', tags: ['daily'] },
+    'append',
+    true
+  );
+}

@@ -263,3 +263,49 @@ export function pushWithUpstream(branch: string): void {
 
   assertGitSuccess(result, 'push -u');
 }
+
+function gitIn(repo: string, args: string[]): { ok: boolean; stdout: string } {
+  const result = spawnSync('git', ['-C', repo, ...args], { encoding: 'utf-8' });
+  if (result.error) throw result.error;
+  return { ok: result.status === 0, stdout: (result.stdout ?? '').trim() };
+}
+
+export function isGitRepo(dir: string): boolean {
+  return gitIn(dir, ['rev-parse', '--is-inside-work-tree']).ok;
+}
+
+export function getRepoRoot(dir: string): string | null {
+  const { ok, stdout } = gitIn(dir, ['rev-parse', '--show-toplevel']);
+  return ok && stdout ? stdout : null;
+}
+
+export function getGitConfigIn(repo: string, key: string): string {
+  return gitIn(repo, ['config', '--get', key]).stdout;
+}
+
+export interface AuthoredCommit {
+  hash: string;
+  date: string;
+  subject: string;
+}
+
+// Commits by `author` on any branch since `since` (anything git accepts: "2026-10-16", "yesterday").
+export function getCommitsByAuthor(repo: string, author: string, since: string): AuthoredCommit[] {
+  const { stdout } = gitIn(repo, [
+    'log',
+    '--all',
+    '--no-merges',
+    `--author=${author}`,
+    `--since=${since}`,
+    '--date=short',
+    '--pretty=format:%h%x09%ad%x09%s',
+  ]);
+
+  return stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [hash, date, ...subject] = line.split('\t');
+      return { hash, date, subject: subject.join('\t') };
+    });
+}
