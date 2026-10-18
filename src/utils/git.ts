@@ -219,3 +219,47 @@ export function unstageFiles(files: string[]): void {
 
   assertGitSuccess(result, 'restore --staged');
 }
+
+function gitOutput(args: string[]): { ok: boolean; stdout: string } {
+  const result = spawnSync('git', args, { encoding: 'utf-8', cwd: process.cwd() });
+  if (result.error) throw result.error;
+  return { ok: result.status === 0, stdout: (result.stdout ?? '').trim() };
+}
+
+export function refExists(ref: string): boolean {
+  return gitOutput(['rev-parse', '--verify', '--quiet', ref]).ok;
+}
+
+// Commits on HEAD that are not on `base`, oldest first: "hash subject".
+export function getCommitsSince(base: string): string[] {
+  const { stdout } = gitOutput(['log', '--reverse', '--pretty=format:%h %s', `${base}..HEAD`]);
+  return stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+// Three-dot: changes of this branch since it forked from `base` (what the PR will show).
+export function getDiffAgainst(base: string): string {
+  return gitOutput(['diff', `${base}...HEAD`]).stdout;
+}
+
+export function getDiffStatAgainst(base: string): string {
+  return gitOutput(['diff', '--stat', `${base}...HEAD`]).stdout;
+}
+
+export function getChangedFilesAgainst(base: string): string[] {
+  return gitOutput(['diff', '--name-only', `${base}...HEAD`]).stdout.split('\n').filter(Boolean);
+}
+
+export function getUpstream(): string | null {
+  const { ok, stdout } = gitOutput(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+  return ok && stdout ? stdout : null;
+}
+
+export function pushWithUpstream(branch: string): void {
+  const result = spawnSync('git', ['push', '-u', 'origin', branch], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
+
+  assertGitSuccess(result, 'push -u');
+}

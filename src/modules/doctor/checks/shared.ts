@@ -1,4 +1,4 @@
-import { runCommand } from '@utils/process';
+import { runCommand, commandExists } from '@utils/process';
 import { readJson } from '@utils/fs';
 
 const PROBE_TIMEOUT_MS = 15_000;
@@ -11,13 +11,12 @@ export interface ProbeResult {
 
 // Runs a tool with a short timeout and returns stdout+stderr (java prints its version to stderr).
 export function probe(bin: string, args: string[]): ProbeResult {
+  // Existence comes from `where`/`which` (commandExists), never from the localized error message.
+  if (!commandExists(bin)) return { found: false, output: '', exitCode: null };
+
   const result = runCommand(bin, args, { timeoutMs: PROBE_TIMEOUT_MS });
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
-  // Exit codes, not messages: cmd.exe answers 9009 for an unknown command (in any language, and the
-  // Portuguese message arrives with broken accents), POSIX shells answer 127.
-  const notFound =
-    Boolean(result.error) || result.status === 9009 || result.status === 127 || /not recognized|reconhecido|command not found|ENOENT/i.test(output);
-  return { found: !notFound && result.status !== null, output, exitCode: result.status };
+  return { found: !result.error && result.status !== null, output, exitCode: result.status };
 }
 
 export function firstVersion(text: string): string | null {

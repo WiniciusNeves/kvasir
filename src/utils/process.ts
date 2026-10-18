@@ -1,4 +1,6 @@
 import { spawnSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import type { SpawnSyncReturns } from 'child_process';
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -36,5 +38,17 @@ export function runCommand(bin: string, args: string[], options: RunCommandOptio
 }
 
 export function commandSucceeded(result: SpawnSyncReturns<string>): boolean {
+  return !result.error && result.status === 0;
+}
+
+// True when the executable is on the PATH (or the given path exists). Asks the OS (`where` / `which`)
+// instead of running the tool: through `cmd /c` an unknown command exits with 1 like any failure,
+// and the "not recognized" message is localized (with broken accents on a Portuguese Windows).
+export function commandExists(bin: string): boolean {
+  if (path.isAbsolute(bin) || /[\\/]/.test(bin)) {
+    return ['', '.exe', '.cmd', '.bat'].some((extension) => fs.existsSync(`${bin}${extension}`));
+  }
+
+  const result = spawnSync(IS_WINDOWS ? 'where' : 'which', [bin], { encoding: 'utf-8', stdio: 'pipe' });
   return !result.error && result.status === 0;
 }

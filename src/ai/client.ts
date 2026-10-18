@@ -17,6 +17,11 @@ export async function readClipboard(): Promise<string> {
   return clipboard.read();
 }
 
+export async function writeClipboard(text: string): Promise<void> {
+  const clipboard = await loadClipboard();
+  await clipboard.write(text);
+}
+
 export interface PromptAIMeta {
   task: string;
   role: AiRole;

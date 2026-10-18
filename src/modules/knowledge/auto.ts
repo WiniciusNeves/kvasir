@@ -149,3 +149,10 @@ export async function noteAgentPerformance(summary: MetricsSummary, days: number
     );
   }
 }
+
+export async function notePullRequest(taskId: string, title: string, url: string): Promise<void> {
+  await trySave(
+    { category: 'tasks', title: taskId, body: `- ${today()} · PR: [${title}](${url})`, origin: 'kvasir task', tags: ['task', 'pr'] },
+    'append'
+  );
+}
