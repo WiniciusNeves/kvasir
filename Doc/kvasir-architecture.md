@@ -85,9 +85,24 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 | Função | Arquivo | Quando usar |
 |---|---|---|
 | `askFor(task, prompt, opts?)` | `router.ts` | **Padrão.** Qualquer tarefa com um tipo definido em `AiTask` |
-| `askLocal(task, prompt, opts?)` | `router.ts` | Lote / rápido: primeiro modelo instalado de `MODEL_MAP[task]`, com fallback, sem clipboard (`doc --code`, expansão do `fix`) |
+| `askLocal(task, prompt, opts?)` | `router.ts` | Sem as idas ao Claude: nuvem da tarefa (se permitida) e depois a cadeia local, com fallback |
 | `askOllama(prompt, opts?)` | `ollama.ts` | Chamada crua ao Ollama (usada pelo router; `num_ctx` 8192, remove `<think>`) |
 | `promptAI(prompt)` | `client.ts` | Só o Claude, via clipboard (usada no `learn`) |
+
+### Candidatos: nuvem (opcional) → Ollama
+`resolveCandidates(task)` monta a ordem: provedores de `CLOUD_MAP[task]` com chave no ambiente e consentimento → modelos de `MODEL_MAP[task]` instalados no Ollama. Ollama fora do ar só é fatal se não houver nuvem.
+
+| Tarefa | Nuvem (antes) | Local (depois) |
+|---|---|---|
+| doc, daily, release | Gemini Flash | llama3.2 / qwen2.5-coder |
+| pr | Gemini → Groq | qwen2.5-coder / llama3.2 |
+| commit, branch, fix, review, test | Groq | qwen2.5-coder / codellama / deepseek-r1 |
+| architect | — (fica no deepseek-r1) | deepseek-r1 / llama3.2 |
+| guard | — (nunca sai da máquina) | qwen2.5-coder / llama3.2 |
+
+- Chaves: `GEMINI_API_KEY` / `GROQ_API_KEY` (ou `KVASIR_*`). Modelos: `ai.geminiModel` (padrão `gemini-2.5-flash`) e `ai.groqModel` (padrão `llama-3.3-70b-versatile`) em `~/.kvasir/config.json`. `KVASIR_GEMINI_BASE_URL`/`KVASIR_GROQ_BASE_URL` servem para proxy ou mock.
+- Consentimento: `ai.cloud` no `config.json`; perguntado uma vez quando há chave; `kvasir models --cloud on|off`.
+- Falha (429, chave recusada, 5xx, timeout, sem rede) → próximo candidato; a mensagem nunca inclui a chave.
 
 ### Métricas e preferências (`metrics.ts`, `router.ts`)
 - Toda chamada passa por `recordAiCall`: Ollama (executor, com `prompt_eval_count`/`eval_count`) e Claude via clipboard (orquestrador/validador/direto, com tamanho do prompt e tempo de ida e volta). Arquivo: `~/.kvasir/metrics/calls.jsonl`.
@@ -108,7 +123,7 @@ askFor('fix', prompt)
    │
    ├─ 3. ordena os modelos: [escolhido, ...resto de MODEL_MAP[task]]
    │
-   ├─ 4. EXECUTOR: askOllama(prompt, { model, timeout 120s, temperature? })
+   ├─ 4. EXECUTOR: candidato escolhido (nuvem: timeout 60s · Ollama: 120s), depois os outros
    │     (os modelos vêm de MODEL_MAP filtrados pelos instalados: "qwen2.5-coder"
    │      casa com "qwen2.5-coder:7b"; Ollama fora do ar → erro com dica)
    │     se falhar → tenta o próximo modelo da lista
@@ -156,7 +171,7 @@ askFor('fix', prompt)
 │   ├── commits.md          # aprovações/rejeições do commit
 │   ├── fixes.md            # aprovações/rejeições do fix
 │   └── patterns.md         # aprovações/rejeições do review
-├── config.json             # config do usuário (hoje: daily.repos)
+├── config.json             # config do usuário: daily.repos, ai.cloud, ai.geminiModel, ai.groqModel (NUNCA chaves)
 ├── metrics/calls.jsonl     # cada chamada de IA (tarefa, modelo, papel, tempo, tokens) + veredito do usuário
 └── knowledge/              # vault do Obsidian; toda nota tem frontmatter (title, tags, projetos, origem, criado, atualizado)
     ├── index.md            # GERADO a cada escrita (mapa por pasta, mais recentes primeiro)

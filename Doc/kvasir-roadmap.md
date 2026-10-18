@@ -38,8 +38,8 @@ Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboa
 
 - [ ] Escolha determinística do modelo por padrão (primeiro instalado do `MODEL_MAP`), sem clipboard (problema #1)
 - [ ] Validação pelo Claude opcional
-- [ ] `src/ai/gemini.ts`: Gemini Flash (gratuito, melhor para português; ~1500 req/dia)
-- [ ] `src/ai/groq.ts`: Groq (gratuito, rápido para código)
+- [x] `src/ai/gemini.ts`: Gemini Flash (gratuito, melhor para português) (2026-10-17)
+- [x] `src/ai/groq.ts`: Groq (gratuito, rápido para código) (2026-10-17)
 - [ ] Fallback: nuvem gratuita → Ollama se estiver offline ou se o limite estourar
 
 | Tarefa | Preferido | Fallback |

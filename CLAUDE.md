@@ -30,7 +30,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 | Prompts | @inquirer/prompts (wrapped in `@utils/prompt`) |
 | HTTP | axios |
 | FS | fs-extra (wrapped in `@utils/fs`) |
-| AI (executor) | Ollama at `http://localhost:11434` |
+| AI (executor) | Ollama at `http://localhost:11434`; optional cloud: Gemini Flash (`ai/gemini.ts`) and Groq (`ai/groq.ts`), opt-in, keys only from `GEMINI_API_KEY` / `GROQ_API_KEY` |
 | AI (orchestrator) | Claude via clipboard (`clipboardy`), **no Anthropic SDK, no API key** |
 | Validation | zod (used for external data: `integrations/planner.ts`) |
 | Build | `tsc` + `tsc-alias`; templates copied to `dist/personas/templates` |
@@ -148,7 +148,8 @@ export function getDiff(): string {
 | Raw | `askOllama(prompt, { model })` | Used by the router. Prefer `askLocal`; if you call it, pass `model` explicitly (default is `codellama`) |
 | Claude only | `promptAI(prompt)` | Prompt goes to the clipboard; the user copies Claude's answer and presses Enter (read back from the clipboard, multi-line safe) |
 
-- New task type? Add it to `AiTask` and `MODEL_MAP` in `router.ts`; `kvasir models` picks it up automatically.
+- New task type? Add it to `AiTask`, `MODEL_MAP` (local chain) and `CLOUD_MAP` (cloud providers tried first, or `[]` if the prompt must never leave the machine) in `router.ts`; `kvasir models` picks it up automatically.
+- **API keys never go in code or in `~/.kvasir/config.json`**: read them from environment variables. Never print them (use `describeHttpError` from `@ai/providers`).
 - **Never** import `axios`/Ollama/clipboardy directly in a module; go through `src/ai/`.
 - Prompts are written in Portuguese. When the output must be English (commits, branches), say it explicitly.
 - Local models often wrap answers in backticks, labels, `<think>` blocks or explanations: **always parse defensively** with `@ai/parse` (`cleanAnswer`, `answerLines`, `pickLine`, `truncateForPrompt`); see `parseBranchName`, `parseCommitMessage`, `parseCorrectedLine`.

@@ -13,7 +13,7 @@
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`c550d50`), `doctor` (`4fa36a2`), `pr` (`c487239`), `daily` (`c030292`), `release` (`299220a`), `test` (`bad5560`), recorrência no `fix` (`a53cd89`), personas (`9c4551b`) |
-| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ⏳ próxima |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`3da3e69`); falta: escolha por desempenho, time de agentes formal |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -319,6 +319,22 @@ Arquivos: `src/modules/test/{index,framework,prompt}.ts`, `src/utils/testRunner.
 **Personas:** `kvasir persona list/show/create/remove` (`modules/persona`), validação zod no `personaLoader`, `init` escolhe a persona e mantém a task ativa, `branch` e `commit` seguem a persona, `adapters/claude.ts` carrega a persona do projeto. Testado: criar `empresa-x` (prefixos `feat/ bug/ chore/`, português) copiando a ACME, JSON corrompido recusado, reset da embutida, nome repetido recusado, `init` gravando a persona no `kvasir.context.md` e no `CLAUDE.md`, qwen2.5-coder usando `bug/` e commit em português.
 
 **Limite conhecido:** com persona em português, o qwen2.5-coder ainda escreve algumas branches em inglês (comparado com o llama3.2, que foi pior).
+
+---
+
+## Onda C: Gemini Flash e Groq (commit `3da3e69`)
+
+Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config compartilhada; o `daily` passou a usar), `src/modules/doctor/checks/cloud.ts`; `router.ts` reescrito com candidatos (`CLOUD_MAP` + `MODEL_MAP`); métricas por provedor; `kvasir models --cloud on|off`.
+
+**Testado com servidor falso** (imitando as duas APIs, chaves falsas, HOME temporário) e Ollama real:
+- 1º uso com chave → pergunta o consentimento; "sim" → `commit` respondido pelo Groq, `daily` pelo Gemini
+- `guard` e `architect` com nuvem permitida → 0 requisições à nuvem
+- Groq 429 → Ollama respondeu; `pr` com Gemini 500 → Groq respondeu
+- `--cloud off` → 0 requisições; consentimento "não" → grava `cloud: false` e usa o Ollama; sem chave → nem pergunta
+- `kvasir models` mostra quem responde cada tarefa; `kvasir doctor` valida a chave (chave errada → "chave recusada (401)")
+- Nenhuma chave aparece em métricas, config ou knowledge
+
+**Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
 
 ---
 

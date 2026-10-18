@@ -57,14 +57,14 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir release` | Calcula a próxima versão SemVer pelos Conventional Commits, atualiza `CHANGELOG.md`, `package.json`/`package-lock.json`/`app.json` (Expo), commita `chore(release): vX.Y.Z` e cria a tag; notas de release em português com IA (opcional) | ✅ |
 | `kvasir test [arquivo]` | Gera testes (vitest/jest, no estilo dos testes do projeto) para os arquivos alterados, roda e corrige sozinho até 3 vezes; se o teste revelar um bug real no código, avisa em vez de "consertar" o teste | ✅ |
 | `kvasir doctor` | Diagnóstico do ambiente com ✅/⚠️/❌ e como corrigir: Node × `engines`, Git, JDK/Android/Expo/EAS (projetos mobile), Ollama e modelos (oferece baixar os que faltam), `~/.kvasir`, VS Code, `gh` | ✅ |
-| `kvasir models` | Lista os modelos do Ollama, qual está ativo para cada tarefa e o desempenho real (tempo, tokens, aprovação) | ✅ |
+| `kvasir models` | Mostra modelos locais e na nuvem, quem responde cada tarefa e o desempenho real (tempo, tokens, aprovação). `--cloud on\|off` liga/desliga Gemini e Groq | ✅ |
 | `kvasir fix` | Copie o erro e rode: ele corrige o arquivo do erro (regra determinística ou IA), abre o diff lado a lado no VS Code, conta os erros iguais no projeto e pergunta se corrige os outros. `kvasir fix --undo` desfaz | ✅ |
-| `kvasir review` | Revisa o diff staged seguindo as regras do projeto | 🧪 |
+| `kvasir review` | Revisa as linhas adicionadas do diff staged, uma por uma, e aponta `arquivo:linha` | ✅ |
 | `kvasir push` / `undo` / `log` | Push (normal ou `--force-with-lease`), desfaz o último commit (soft) e mostra o histórico em tabela | 🧪 |
 | `kvasir format` | Roda `npm run format` ou o Prettier | 🧪 |
-| `kvasir knowledge search\|add\|link\|show` | Base de conhecimento estilo Obsidian em `~/.kvasir/knowledge/` | 🧪 |
-| `kvasir learn` | Consolida o feedback e atualiza `~/.kvasir/profile.md` | 🧪 |
-| `kvasir task` / `start` | Busca tasks (Planner/API) e mostra o resumo do dia | 🧪 |
+| `kvasir knowledge search\|add\|link\|show` | Base de conhecimento estilo Obsidian em `~/.kvasir/knowledge/`, com notas geradas sozinhas pelos outros comandos | ✅ |
+| `kvasir learn` | Consolida o feedback e atualiza `~/.kvasir/profile.md` (usado nos prompts) | ✅ |
+| `kvasir task` / `start` | Busca tasks (Planner/API), grava a task ativa e mostra o resumo do dia | ✅ |
 
 ✅ funcionando · 🔧 em desenvolvimento · 🧪 implementado, falta testar
 
@@ -78,6 +78,20 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 - Git
 - [Ollama](https://ollama.com) rodando em `http://localhost:11434`
 - VS Code (o `kvasir fix` abre o diff com o comando `code`)
+
+**Opcional: IA na nuvem (grátis)**
+
+Com uma chave, textos em português vão para o Gemini Flash e tarefas de código para o Groq; se o limite grátis acabar ou não houver internet, o Kvasir volta para o Ollama sozinho. Sem chave, tudo roda local.
+
+```bash
+setx GEMINI_API_KEY "sua-chave"   # aistudio.google.com
+setx GROQ_API_KEY "sua-chave"     # console.groq.com
+```
+
+- A chave fica só na variável de ambiente da sua máquina: nunca no código nem no `~/.kvasir/config.json` (o `kvasir guard` bloqueia commit de chave do Google).
+- Na primeira vez, o Kvasir pergunta se pode enviar prompts (que podem conter código) para a nuvem. Mude depois com `kvasir models --cloud on|off`.
+- O `guard` nunca usa a nuvem e o modelo de arquitetura continua local.
+- Para não ter custo: não ative o faturamento no projeto do Google e não cadastre cartão no Groq (confira os planos nos painéis deles).
 
 **Modelos usados pelo router**
 

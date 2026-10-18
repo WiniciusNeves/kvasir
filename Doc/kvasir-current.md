@@ -38,6 +38,7 @@
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
 - Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
+- IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local
 - Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
 - `profile.md` injetado nos prompts de commit, branch, review e doc
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
@@ -67,7 +68,6 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 
 ## Ainda não implementado
 
-- Gemini Flash e Groq no router (só Ollama + Claude via clipboard)
 - `kvasir task update`
 - `kvasir task` sem `KVASIR_PLANNER_API_URL` não tem fonte de tasks local (só a API)
 - Knowledge base consultada nos prompts (hoje os módulos escrevem notas, mas nenhum lê; vem com o OmniContext)

@@ -211,6 +211,14 @@
 
 ---
 
+## Nuvem opt-in, chaves só no ambiente, `guard` sempre local
+
+**Decisão:** (2026-10-17) Gemini Flash e Groq entram no router antes do Ollama só quando há chave em variável de ambiente **e** o usuário autorizou o envio (`ai.cloud`, perguntado uma vez). O `guard` nunca vai para a nuvem e o `architect` fica no deepseek-r1 local. Qualquer falha cai para o próximo candidato, terminando no Ollama.
+
+**Por quê:** Prompts levam código da empresa (fintech): sair da máquina precisa ser escolha explícita. Chave em variável de ambiente não vai para o repositório (o projeto é open source: cada pessoa usa a própria chave) nem para o `config.json`, que é fácil de sincronizar ou compartilhar sem querer. O fallback para o Ollama também cobre o fim do limite grátis (429) sem custo. Com isso, o `daily` (decisão anterior de usar `askLocal`) passa a ir para o Gemini quando a nuvem está permitida: continua sem idas ao Claude.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.
