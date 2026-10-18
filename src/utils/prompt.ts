@@ -5,6 +5,7 @@ import {
   checkbox as inquirerCheckbox,
   expand as inquirerExpand,
   editor as inquirerEditor,
+  password as inquirerPassword,
 } from '@inquirer/prompts';
 
 export async function confirm(message: string): Promise<boolean> {
@@ -77,6 +78,11 @@ export async function expandChoice<T extends string>(
   defaultKey?: ExpandKey
 ): Promise<T> {
   return inquirerExpand<T>({ message, choices, default: defaultKey });
+}
+
+// Hidden input (API keys): the typed value is masked and never echoed.
+export async function password(message: string): Promise<string> {
+  return inquirerPassword({ message, mask: '*' });
 }
 
 export async function editor(message: string, defaultValue?: string): Promise<string> {

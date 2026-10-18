@@ -30,10 +30,10 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 | Prompts | @inquirer/prompts (wrapped in `@utils/prompt`) |
 | HTTP | axios |
 | FS | fs-extra (wrapped in `@utils/fs`) |
-| AI (executor) | Ollama at `http://localhost:11434`; optional cloud: Gemini Flash (`ai/gemini.ts`) and Groq (`ai/groq.ts`), opt-in, keys only from `GEMINI_API_KEY` / `GROQ_API_KEY` |
+| AI (executor) | Ollama at `http://localhost:11434`; optional cloud: Gemini Flash (`ai/gemini.ts`) and Groq (`ai/groq.ts`), opt-in, keys only from `GEMINI_API_KEY` / `GROQ_API_KEY` (saved by `kvasir keys` as user env vars via `@utils/userEnv`) |
 | AI (orchestrator) | Claude via clipboard (`clipboardy`), **no Anthropic SDK, no API key** |
 | Validation | zod (used for external data: `integrations/planner.ts`) |
-| Build | `tsc` + `tsc-alias`; templates copied to `dist/personas/templates` |
+| Build | `tsc` + `tsc-alias` |
 
 Scripts: `npm run dev -- <cmd>` · `npm run build` · `npm run typecheck` · `npm link` for global `kvasir`.
 
@@ -54,7 +54,7 @@ src/
 ├── adapters/       # claude.ts, copilot.ts, cursor.ts (read kvasir.context.md)
 ├── personas/       # default.ts (the only built-in, neutral). Company personas/templates live in ~/.kvasir
 ├── integrations/   # planner.ts (KVASIR_PLANNER_API_URL / _TOKEN)
-├── utils/          # git, fs, prompt, editor, typecheck, testRunner, process, diff, imports, feedback, errors
+├── utils/          # git, fs, prompt, editor, userEnv, typecheck, testRunner, process, diff, imports, feedback, errors
 └── types/          # context, persona, feedback, knowledge, task
 ```
 

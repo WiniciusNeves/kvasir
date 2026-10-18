@@ -21,7 +21,6 @@ interface TaskModelRow {
 }
 
 const CLOUD_PROVIDERS: CloudProvider[] = ['gemini', 'groq'];
-const KEY_VARIABLES: Record<CloudProvider, string> = { gemini: 'GEMINI_API_KEY', groq: 'GROQ_API_KEY' };
 
 function isInstalled(model: string, installed: string[]): boolean {
   return installed.some((name) => name === model || name.startsWith(`${model}:`));
@@ -45,7 +44,7 @@ async function printCloud(consent: boolean | undefined): Promise<void> {
   const label = consent === true ? '✅ permitida' : consent === false ? '🔒 desligada' : '❔ ainda não perguntado (pergunto no primeiro uso, se houver chave)';
   console.log(`\n☁️  IA na nuvem: ${label}`);
   for (const provider of CLOUD_PROVIDERS) {
-    const key = cloudKeyFor(provider) ? 'chave definida' : `sem chave (defina ${KEY_VARIABLES[provider]})`;
+    const key = cloudKeyFor(provider) ? 'chave definida' : `sem chave (kvasir keys set ${provider})`;
     console.log(`  - ${provider}: ${await cloudModelFor(provider)} · ${key}`);
   }
   console.log('  Ligar/desligar: kvasir models --cloud on | off');

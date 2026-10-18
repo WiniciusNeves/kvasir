@@ -227,6 +227,14 @@
 
 ---
 
+## Chaves da nuvem salvas por `kvasir keys` como variável de ambiente do usuário
+
+**Decisão:** `kvasir keys set` pede a chave (entrada oculta), testa na API e grava como variável de ambiente do usuário (`setx` no Windows; bloco marcado no perfil do shell no macOS/Linux). O Kvasir lê esse valor salvo direto quando o processo ainda não tem a variável.
+
+**Por quê:** Digitar `setx` à mão era chato e fácil de errar. Continua valendo "chave só em variável de ambiente": nada vai para o código, para o git ou para o `~/.kvasir/config.json`, e a chave nunca é mostrada. Ler o valor salvo evita ter que reabrir o terminal/VS Code.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.

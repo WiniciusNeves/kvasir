@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { describeHttpError } from '@ai/providers';
+import { readSavedUserEnv } from '@utils/userEnv';
 import type { ProviderCallOptions, ProviderResult } from '@ai/providers';
 
 // Gemini Flash (Google AI Studio, free tier). Key from the environment only.
@@ -12,7 +13,7 @@ interface GeminiResponse {
 }
 
 export function getGeminiApiKey(): string | null {
-  return process.env.GEMINI_API_KEY || process.env.KVASIR_GEMINI_API_KEY || null;
+  return process.env.GEMINI_API_KEY || process.env.KVASIR_GEMINI_API_KEY || readSavedUserEnv('GEMINI_API_KEY');
 }
 
 // KVASIR_GEMINI_BASE_URL: proxy or local mock (tests).
@@ -49,9 +50,8 @@ export async function askGemini(prompt: string, options: ProviderCallOptions): P
   }
 }
 
-// Cheap key check (lists models, no generation): used by `kvasir doctor`.
-export async function checkGeminiKey(timeoutMs: number): Promise<string | null> {
-  const key = getGeminiApiKey();
+// Cheap key check (lists models, no generation): used by `kvasir doctor` and `kvasir keys set`.
+export async function checkGeminiKey(timeoutMs: number, key: string | null = getGeminiApiKey()): Promise<string | null> {
   if (!key) return 'sem chave';
   try {
     await axios.get(`${baseUrl()}/v1beta/models`, { headers: { 'x-goog-api-key': key }, timeout: timeoutMs });

@@ -3,6 +3,19 @@
 export type CloudProvider = 'gemini' | 'groq';
 export type ProviderName = 'ollama' | CloudProvider;
 
+export interface CloudKeyInfo {
+  variable: string;
+  // where to create a free key
+  url: string;
+  // documented key prefix, only to warn about a wrong paste
+  prefix: string;
+}
+
+export const CLOUD_KEY_INFO: Record<CloudProvider, CloudKeyInfo> = {
+  gemini: { variable: 'GEMINI_API_KEY', url: 'https://aistudio.google.com/apikey', prefix: 'AIza' },
+  groq: { variable: 'GROQ_API_KEY', url: 'https://console.groq.com/keys', prefix: 'gsk_' },
+};
+
 export interface ProviderCallOptions {
   model: string;
   maxTokens?: number;

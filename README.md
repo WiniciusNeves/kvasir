@@ -57,6 +57,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir release` | Calcula a próxima versão SemVer pelos Conventional Commits, atualiza `CHANGELOG.md`, `package.json`/`package-lock.json`/`app.json` (Expo), commita `chore(release): vX.Y.Z` e cria a tag; notas de release em português com IA (opcional) | ✅ |
 | `kvasir test [arquivo]` | Gera testes (vitest/jest, no estilo dos testes do projeto) para os arquivos alterados, roda e corrige sozinho até 3 vezes; se o teste revelar um bug real no código, avisa em vez de "consertar" o teste | ✅ |
 | `kvasir doctor` | Diagnóstico do ambiente com ✅/⚠️/❌ e como corrigir: Node × `engines`, Git, JDK/Android/Expo/EAS (projetos mobile), Ollama e modelos (oferece baixar os que faltam), `~/.kvasir`, VS Code, `gh` | ✅ |
+| `kvasir keys` / `keys set` / `keys remove` | Salva a chave do Gemini ou do Groq com um comando: você cola (fica oculta), ele testa na API e grava como variável de ambiente do seu usuário. Nunca vai para o git nem para o `~/.kvasir` | ✅ |
 | `kvasir models` | Mostra modelos locais e na nuvem, quem responde cada tarefa e o desempenho real (tempo, tokens, aprovação). `--cloud on\|off` liga/desliga Gemini e Groq | ✅ |
 | `kvasir fix` | Copie o erro e rode: ele corrige o arquivo do erro (regra determinística ou IA), abre o diff lado a lado no VS Code, conta os erros iguais no projeto e pergunta se corrige os outros. `kvasir fix --undo` desfaz | ✅ |
 | `kvasir review` | Revisa as linhas adicionadas do diff staged, uma por uma, e aponta `arquivo:linha` | ✅ |
@@ -84,11 +85,16 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 Com uma chave, textos em português vão para o Gemini Flash e tarefas de código para o Groq; se o limite grátis acabar ou não houver internet, o Kvasir volta para o Ollama sozinho. Sem chave, tudo roda local.
 
 ```bash
-setx GEMINI_API_KEY "sua-chave"   # aistudio.google.com
-setx GROQ_API_KEY "sua-chave"     # console.groq.com
+kvasir keys set gemini
 ```
 
-- A chave fica só na variável de ambiente da sua máquina: nunca no código nem no `~/.kvasir/config.json` (o `kvasir guard` bloqueia commit de chave do Google).
+```bash
+kvasir keys set groq
+```
+
+O comando mostra onde criar a chave grátis, pede para colar (sem mostrar na tela), testa na API e salva. Funciona na hora, sem reabrir o terminal. `kvasir keys` mostra o que está configurado e `kvasir keys remove` apaga.
+
+- A chave fica só na variável de ambiente do seu usuário (Windows: variáveis de ambiente do usuário; macOS/Linux: um bloco marcado no `~/.zshrc`/`~/.bashrc`): nunca no código nem no `~/.kvasir/config.json` (o `kvasir guard` bloqueia commit de chave do Google).
 - Na primeira vez, o Kvasir pergunta se pode enviar prompts (que podem conter código) para a nuvem. Mude depois com `kvasir models --cloud on|off`.
 - O `guard` nunca usa a nuvem e o modelo de arquitetura continua local.
 - Para não ter custo: não ative o faturamento no projeto do Google e não cadastre cartão no Groq (confira os planos nos painéis deles).

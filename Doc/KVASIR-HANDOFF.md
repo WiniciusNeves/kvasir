@@ -336,6 +336,12 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
 
+### `kvasir keys` (2026-10-18)
+
+A pedido do autor: um comando para salvar a chave sem digitar `setx`. `kvasir keys` (status), `keys set [gemini|groq]` (link → cola oculta → testa na API → confirma → grava como variável de ambiente do usuário → oferece ligar a nuvem), `keys remove`. Arquivos: `src/utils/userEnv.ts`, `src/modules/keys/index.ts`, `src/cli/keys.ts`, `CLOUD_KEY_INFO` em `providers.ts`, `checkCloudKey` no router, `password()` em `@utils/prompt`. `getGeminiApiKey`/`getGroqApiKey` também leem o valor salvo (funciona sem reabrir o terminal). `doctor` e `models` sugerem `kvasir keys set`.
+
+**Testado:** API Groq falsa (chave aceita → salva e pergunta a nuvem; recusada 401 → pergunta se salva mesmo assim; prefixo `AIza` no Groq → avisa); registro real do Windows (grava, processo novo lê, remove, nada sobrou); valor com aspas/`;` recusado. Não testado: o prompt oculto num terminal real (só com respostas simuladas) e macOS/Linux.
+
 ---
 
 ## Kvasir genérico: persona da empresa fora do repositório

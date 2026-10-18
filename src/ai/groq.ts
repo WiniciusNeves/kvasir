@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { describeHttpError } from '@ai/providers';
+import { readSavedUserEnv } from '@utils/userEnv';
 import type { ProviderCallOptions, ProviderResult } from '@ai/providers';
 
 // Groq (OpenAI-compatible API, free tier, fast). Key from the environment only.
@@ -12,7 +13,7 @@ interface GroqResponse {
 }
 
 export function getGroqApiKey(): string | null {
-  return process.env.GROQ_API_KEY || process.env.KVASIR_GROQ_API_KEY || null;
+  return process.env.GROQ_API_KEY || process.env.KVASIR_GROQ_API_KEY || readSavedUserEnv('GROQ_API_KEY');
 }
 
 // KVASIR_GROQ_BASE_URL: proxy or local mock (tests).
@@ -45,8 +46,7 @@ export async function askGroq(prompt: string, options: ProviderCallOptions): Pro
 }
 
 // Cheap key check (lists models, no generation): used by `kvasir doctor`.
-export async function checkGroqKey(timeoutMs: number): Promise<string | null> {
-  const key = getGroqApiKey();
+export async function checkGroqKey(timeoutMs: number, key: string | null = getGroqApiKey()): Promise<string | null> {
   if (!key) return 'sem chave';
   try {
     await axios.get(`${baseUrl()}/models`, { headers: { Authorization: `Bearer ${key}` }, timeout: timeoutMs });

@@ -1,8 +1,8 @@
 import os from 'os';
 import path from 'path';
 import { askOllamaDetailed, listInstalledModels } from '@ai/ollama';
-import { askGemini, getGeminiApiKey, DEFAULT_GEMINI_MODEL } from '@ai/gemini';
-import { askGroq, getGroqApiKey, DEFAULT_GROQ_MODEL } from '@ai/groq';
+import { askGemini, getGeminiApiKey, checkGeminiKey, DEFAULT_GEMINI_MODEL } from '@ai/gemini';
+import { askGroq, getGroqApiKey, checkGroqKey, DEFAULT_GROQ_MODEL } from '@ai/groq';
 import type { CloudProvider, ProviderName, ProviderResult } from '@ai/providers';
 import { recordAiCall } from '@ai/metrics';
 import { promptAI } from '@ai/client';
@@ -70,6 +70,11 @@ export interface Candidate {
 
 export function cloudKeyFor(provider: CloudProvider): string | null {
   return provider === 'gemini' ? getGeminiApiKey() : getGroqApiKey();
+}
+
+// Validates a key against the provider without generating anything: null when accepted.
+export async function checkCloudKey(provider: CloudProvider, key: string, timeoutMs = 10_000): Promise<string | null> {
+  return provider === 'gemini' ? checkGeminiKey(timeoutMs, key) : checkGroqKey(timeoutMs, key);
 }
 
 export async function cloudModelFor(provider: CloudProvider): Promise<string> {

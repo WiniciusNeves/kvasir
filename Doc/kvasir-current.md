@@ -21,6 +21,7 @@
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |
 | `doc <lib>` | ✅ funcionando | npm → fallback GitHub |
 | `doc --code` | ✅ funcionando | Seleção por pasta já implementada (o bug dos 391 arquivos foi resolvido) |
+| `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |
 | `models` | ✅ funcionando | Mostra também o desempenho real por tarefa × modelo (métricas) e o custo das idas ao Claude |
 | `fix` | ✅ funcionando | Clipboard com erro do tsc é usado direto; classifica simples × complexo; simples corrige sem perguntar (regra comprovada → IA); complexo investiga a causa raiz com imports, tsconfig, versões e arquivos de mesmo nome; nota em `knowledge/errors/`; expansão e `--undo` |
 | `review` | ✅ testado (2026-10-17) | Veredito da IA linha por linha (sem regras fixas); achados com `arquivo:linha`; reviews úteis viram nota em `knowledge/patterns/` |
@@ -34,11 +35,11 @@
 
 ## Infraestrutura
 
-- Node.js >= 18 + TypeScript strict, compilado com `tsc` + `tsc-alias`; o build copia `src/personas/templates` para `dist/`
+- Node.js >= 18 + TypeScript strict, compilado com `tsc` + `tsc-alias`
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
 - Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
-- IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local
+- IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local; chaves salvas com `kvasir keys`
 - Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
 - `profile.md` injetado nos prompts de commit, branch, review e doc
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
