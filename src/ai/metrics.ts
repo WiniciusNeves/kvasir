@@ -17,6 +17,8 @@ export interface AiCallRecord {
   task: string;
   // owner agent of the task (ai/agents.ts); absent in records from before the agent team
   agent?: string;
+  // what the job was about (Agent Board): "src/cart.ts", "commit em kvasir"
+  title?: string;
   provider: AiProvider;
   model: string;
   role: AiRole;

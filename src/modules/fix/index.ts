@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { askFor, askLocal } from '@ai/router';
+import { queueJobs, clearQueuedJobs } from '@ai/jobs';
 import type { AiTask } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { readClipboard } from '@ai/client';
@@ -549,13 +550,21 @@ async function offerSameCodeFixes(code: string, attempted: Set<string>, session:
   }
 
   const fixedFiles: string[] = [];
-  for (let i = 0; i < sameCode.length; i += 1) {
-    const diagnostic = sameCode[i];
-    attempted.add(diagnosticKey(diagnostic));
-    console.log(`\nCorrigindo ${i + 1}/${sameCode.length}: ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
+  // Agent Board: without a deterministic rule each error is a job of the Revisor, "a fazer" until its turn.
+  if (!(code in DETERMINISTIC_FIXES)) {
+    queueJobs('fix', sameCode.map((diagnostic) => `${code} em ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`));
+  }
+  try {
+    for (let i = 0; i < sameCode.length; i += 1) {
+      const diagnostic = sameCode[i];
+      attempted.add(diagnosticKey(diagnostic));
+      console.log(`\nCorrigindo ${i + 1}/${sameCode.length}: ${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
 
-    const applied = await fixDiagnostic(diagnostic, session, 'batch');
-    if (applied) fixedFiles.push(`${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
+      const applied = await fixDiagnostic(diagnostic, session, 'batch');
+      if (applied) fixedFiles.push(`${diagnostic.filePath}:${diagnostic.lineIndex + 1}`);
+    }
+  } finally {
+    clearQueuedJobs('fix');
   }
 
   console.log(`\n✅ ${fixedFiles.length}/${sameCode.length} erro(s) ${code} corrigido(s).`);

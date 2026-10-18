@@ -211,3 +211,26 @@ export async function rebuildIndex(): Promise<void> {
     `${frontmatter}\n\n# Kvasir knowledge\n\n> Gerado automaticamente pelo Kvasir: não edite à mão. ${total} nota(s).\n\n${sections.join('\n\n')}\n`
   );
 }
+
+export interface VaultNote {
+  category: KnowledgeCategory;
+  slug: string;
+  meta: NoteMeta;
+  body: string;
+}
+
+// Every note of the vault with its body (stats, graph view).
+export async function listAllNotes(): Promise<VaultNote[]> {
+  const notes: VaultNote[] = [];
+  for (const category of KNOWLEDGE_CATEGORIES) {
+    const dir = path.join(getKnowledgeDir(), category);
+    if (!(await fs.pathExists(dir))) continue;
+    for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const slug = entry.name.replace(/\.md$/, '');
+      const { meta, body } = parseNote(await fs.readFile(path.join(dir, entry.name), 'utf-8'), slug);
+      notes.push({ category, slug, meta, body });
+    }
+  }
+  return notes;
+}

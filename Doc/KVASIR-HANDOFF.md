@@ -13,7 +13,8 @@
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
-| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | 🔧 em andamento: Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
+| 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
+| 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -139,7 +140,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | `index.md` automático | ❌ (o `show` só lê se existir) | frontmatter | B |
 | | Notas automáticas | 🟡 só o `doc` grava em `libs/`; falta `fix`, `commit`, `task`, `review`, `learn` | frontmatter | M |
 | | `search/add/link/show` | ✅ básico (corrigido na Fase 3) | — | — |
-| | `show` como grafo HTML | ❌ | infra HTML do bloco 5/10 | M |
+| | `show` como grafo HTML | ✅ `knowledge/graph.ts` (2026-10-18) | — | — |
 | | Sync entre PCs | ❌ | bloco 13 | B |
 | | `profile.md` usado nos prompts | ❌ (o `learn` grava, ninguém lê) | — | B |
 | **2 OmniContext** | `src/rag/`, `index`/`ask`, embeddings, banco vetorial, watchers, PDFs, sync LAN, contexto 256k | ❌ tudo | bloco 1 + Fase 5 + `nomic-embed-text` + Qdrant/Chroma + `chokidar` | A |
@@ -153,7 +154,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | Claude orquestra e valida | ✅ (`askFor`) | — | — |
 | | Contexto isolado por agente, dono único da tarefa | ❌ (não existe a abstração "agente") | métricas | M |
 | | Avaliar agentes extras (claude, codex, opencode, hermes, cline, copilot, qwen, openclaw) | ❌ | métricas | M |
-| **5 Agent Board** | Kanban por agente, dono único, métricas (chamadas, tokens, tempo, aprovação, erros), "em que cada IA é melhor", HTML dark + Chart.js | ❌ tudo; **hoje nenhuma métrica é registrada** (o Ollama devolve `eval_count`/`total_duration`, e o código ignora) | métricas no router | A |
+| **5 Agent Board** | Kanban por agente, dono único, métricas (chamadas, tokens, tempo, aprovação, erros), "em que cada IA é melhor", HTML dark | ✅ `kvasir board` / seção do `kvasir stats` (2026-10-18), SVG próprio em vez de Chart.js (offline) | — | — |
 | **6 AI Router** | Gemini Flash + Groq + fallback Ollama | ❌ | chaves gratuitas | M |
 | | Mapa por tarefa | 🟡 só Ollama | — | — |
 | | Escolha por desempenho | ✅ `ai/performance.ts` (2026-10-18) | — | — |
@@ -171,7 +172,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | `learn` → `profile.md` vivo | 🟡 grava, mas nenhum prompt usa | — | B |
 | | Perguntas proativas (commit sem review, lib sem doc, branch parada, erro repetido) | ❌ | métricas + knowledge | M |
 | | `kvasir watch` (terminal/clipboard) | ❌ | intenção | M |
-| **10 Stats e deploy** | `kvasir stats` (radar, semana × mês, cards, barras, "o que aprendeu") | ❌ | métricas + feedback | M |
+| **10 Stats e deploy** | `kvasir stats` (radar, semana × mês, cards, barras, "o que aprendeu") | ✅ `kvasir stats` (2026-10-18); `deploy` ❌ | métricas + feedback | M |
 | | `kvasir deploy` (EAS Build/Submit/Update; Vercel) | ❌ | `doctor`, `release` | A |
 | **11 Desktop** | Widget, wake word, Whisper, TTS, ver a tela, estados do robô | ❌ tudo; Electron × Tauri pendente | CLI estável + router + intenção | A |
 | **12 Auto-melhoria** | Níveis de autonomia (perguntar / seguro sozinho / autônomo em branch) | ❌ (hoje: confirm em tudo, exceto `fix`) | config | B/M |
@@ -335,6 +336,16 @@ Arquivos: `src/ai/{gemini,groq,providers}.ts`, `src/utils/userConfig.ts` (config
 - Nenhuma chave aparece em métricas, config ou knowledge
 
 **Pendências:** não testei com as APIs reais (não tenho as suas chaves e não devo vê-las); os nomes padrão de modelo (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) podem mudar com o tempo: troque em `ai.geminiModel`/`ai.groqModel` no `config.json`. Falta, da onda C: escolher o modelo pelo desempenho medido e o time de agentes formal.
+
+## Onda D: `kvasir stats`, Agent Board e grafo do knowledge (2026-10-18)
+
+Arquivos: `src/ai/jobs.ts` (estado ao vivo em `~/.kvasir/metrics/board.json`: `queueJobs`, `startJob`, `switchJobModel`, `finishJob`, `clearQueuedJobs`; jobs de processos mortos ou com mais de 30 min somem), `src/modules/stats/{data,html,report,index}.ts`, `src/cli/stats.ts` (`stats`, `board`), `src/modules/knowledge/graph.ts`, `listAllNotes` em `notes.ts`, `openInDefaultApp` em `utils/process.ts`, campo `title` nas métricas.
+- **`kvasir stats [--days N] [--watch] [--no-open]`** → `~/.kvasir/reports/stats.html`: cards (chamadas, aprovação, tempo, tokens, % nuvem, idas ao Claude), radar (commit, branch, fix, review, doc, task: últimos 7 dias × média semanal de 30), barras por dia (ok × falhou), tabela modelo × tarefa, "o que aprendeu" (notas por pasta, erros recentes, preferências do `profile.md`).
+- **Agent Board** (seção do stats; `kvasir board` = stats ao vivo, recarrega a cada 3 s e abre no board): um quadro por agente com A fazer / Em andamento (ao vivo) / Feito / Falhou (7 dias), "mais usado" e "rendeu melhor". O router abre um job a cada chamada; `doc --code` e a expansão do `fix` enfileiram os arquivos antes ("a fazer").
+- **`kvasir knowledge show`** também gera `~/.kvasir/reports/knowledge.html`: grafo de notas e `[[links]]` (força dirigida em canvas), cores por pasta, busca, clique mostra a nota, "ligar por tags", zoom/arrastar, a tela se ajusta sozinha.
+- Tudo offline: sem CDN (não usei Chart.js para funcionar sem internet e nada sair da máquina); texto dos dados só via `textContent`; JSON embutido com `<` e U+2028/2029 escapados.
+
+**Testado:** perfil temporário com 30 dias de métricas sintéticas, 8 notas com links e jobs ao vivo; as duas páginas abertas no navegador (cards, radar, barras, board com 2 a fazer + 2 em andamento, grafo com 8 notas/5 links, clique na nota, ligar por tags). Com os dados reais: `stats`, `knowledge show` e `board` (refresh no modo ao vivo, sem refresh no normal), `--days 0` recusado. Não testado: abrir o navegador sozinho (`explorer.exe`/`open`/`xdg-open`) no seu PC.
 
 ### Time de agentes formal (2026-10-18): fim da onda C
 

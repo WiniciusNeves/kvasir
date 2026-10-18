@@ -5,6 +5,8 @@ import { readFile, writeFile, pathExists } from '@utils/fs';
 import { getKnowledgeDir, getIndexPath, getNotePath, slugify, saveNote, rebuildIndex } from './notes';
 import { input, select, confirm } from '@utils/prompt';
 import type { KnowledgeCategory } from '@ktypes/knowledge';
+import { collectGraph, renderGraphHtml } from './graph';
+import { writeReport, openReport } from '@modules/stats/report';
 
 type ContentSource = 'type' | 'clipboard';
 
@@ -150,8 +152,14 @@ export async function linkKnowledge(): Promise<void> {
   console.log('✅ Notas ligadas.');
 }
 
-// index.md is generated: rebuild it (notes may have been edited in Obsidian) and print it.
-export async function showKnowledge(): Promise<void> {
+export interface ShowKnowledgeOptions {
+  // commander --no-open
+  open?: boolean;
+}
+
+// index.md is generated: rebuild it (notes may have been edited in Obsidian) and print it, then the
+// graph view (~/.kvasir/reports/knowledge.html) opens in the browser.
+export async function showKnowledge(options: ShowKnowledgeOptions = {}): Promise<void> {
   const files = await walkMarkdownFiles(getKnowledgeDir());
   if (files.length === 0) {
     await offerFirstNote();
@@ -161,4 +169,9 @@ export async function showKnowledge(): Promise<void> {
   await rebuildIndex();
   console.log((await readFile(getIndexPath())) ?? '');
   console.log(`Vault do Obsidian: ${getKnowledgeDir()}`);
+
+  const graph = await collectGraph();
+  const filePath = await writeReport('knowledge.html', renderGraphHtml(graph));
+  console.log(`🕸️  Grafo (${graph.nodes.length} notas, ${graph.links.length} links): ${filePath}`);
+  if (options.open !== false) openReport(filePath);
 }

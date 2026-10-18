@@ -22,6 +22,7 @@ export function registerKnowledge(program: Command): void {
 
   knowledge
     .command('show')
-    .description('Show the knowledge base index')
+    .description('Show the knowledge base index and open the graph view in the browser')
+    .option('--no-open', 'Only generate the graph HTML, do not open the browser')
     .action(withErrorHandling(showKnowledge));
 }

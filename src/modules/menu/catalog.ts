@@ -32,6 +32,8 @@ export const MAIN_MENU: CatalogGroup[] = [
       { argv: ['push'], label: 'Enviar/subir os commits para o repositório remoto (push)' },
       { argv: ['pr'], label: 'Abrir/criar o pull request (PR) com título e descrição' },
       { argv: ['daily'], label: 'Resumo para a daily (ontem, hoje, impedimentos)' },
+      { argv: ['stats'], label: 'Estatísticas e painel dos agentes (abre no navegador)' },
+      { argv: ['board'], label: 'Agent Board ao vivo: o que cada IA está fazendo agora' },
     ],
   },
   {
@@ -110,7 +112,7 @@ export const SUBMENUS: Record<string, CatalogGroup> = {
       { argv: ['knowledge', 'search'], label: 'Buscar', usage: 'knowledge search <termo>', ask: { message: 'Buscar por:', required: true } },
       { argv: ['knowledge', 'add'], label: 'Adicionar uma nota' },
       { argv: ['knowledge', 'link'], label: 'Ligar duas notas' },
-      { argv: ['knowledge', 'show'], label: 'Ver o índice' },
+      { argv: ['knowledge', 'show'], label: 'Ver o índice e o grafo de conexões (navegador)' },
     ],
   },
 };

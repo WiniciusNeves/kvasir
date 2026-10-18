@@ -1,5 +1,6 @@
 import path from 'path';
 import { askLocal } from '@ai/router';
+import { queueJobs, clearQueuedJobs } from '@ai/jobs';
 import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { listExports } from '@utils/imports';
 import { confirm, checkbox, select, input } from '@utils/prompt';
@@ -87,18 +88,26 @@ function summarizeRootFolders(files: string[]): RootFolderSummary[] {
 async function processFilesWithProgress(files: string[], force: boolean): Promise<void> {
   const total = files.length;
 
-  for (let index = 0; index < total; index += 1) {
-    const file = files[index];
-    const position = index + 1;
-    const outputPath = toDocOutputPath(file);
+  // Agent Board: the files still to document show as "a fazer" for the Documentador.
+  const pending: string[] = [];
+  for (const file of files) if (force || !(await pathExists(toDocOutputPath(file)))) pending.push(file);
+  queueJobs('doc', pending);
 
-    if (!force && (await pathExists(outputPath))) {
-      console.log(`Documentando ${position}/${total} — ${file} (já existe, pulando)`);
-      continue;
+  try {
+    for (let index = 0; index < total; index += 1) {
+      const file = files[index];
+      const position = index + 1;
+
+      if (!pending.includes(file)) {
+        console.log(`Documentando ${position}/${total} — ${file} (já existe, pulando)`);
+        continue;
+      }
+
+      console.log(`Documentando ${position}/${total} — ${file}`);
+      await documentFile(file);
     }
-
-    console.log(`Documentando ${position}/${total} — ${file}`);
-    await documentFile(file);
+  } finally {
+    clearQueuedJobs('doc');
   }
 
   console.log(`\nConcluído: ${total} arquivo(s) processado(s).`);

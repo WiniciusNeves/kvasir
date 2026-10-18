@@ -52,3 +52,12 @@ export function commandExists(bin: string): boolean {
   const result = spawnSync(IS_WINDOWS ? 'where' : 'which', [bin], { encoding: 'utf-8', stdio: 'pipe' });
   return !result.error && result.status === 0;
 }
+
+// Opens a local file (an HTML report) with the system's default app. No shell: explorer/open/xdg-open
+// receive the path as a single argument. explorer.exe exits with 1 even when it worked, so the
+// result is not checked on Windows.
+export function openInDefaultApp(filePath: string): boolean {
+  const bin = IS_WINDOWS ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const result = spawnSync(bin, [filePath], { stdio: 'ignore', timeout: 15_000 });
+  return !result.error && (IS_WINDOWS || result.status === 0);
+}

@@ -360,7 +360,10 @@ Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e 
 - Escrita sempre por `modules/knowledge/notes.ts` (`saveNote` em modo `append` ou `replace`): frontmatter, tags e projetos mesclados, `index.md` regenerado. Notas sem frontmatter (antigas/manuais) são lidas com padrões.
 - Notas automáticas: `modules/knowledge/auto.ts` (`noteFixedError`, `noteBatchFix`, `noteInvestigation`, `noteCommit`, `noteTaskActivated`, `noteTaskBranch`, `noteUsefulReview`, `noteAgentPerformance`). Uma falha ao gravar só avisa; nunca quebra o comando.
 - `add`: categoria (inclui "Erro resolvido") + título + conteúdo (1 linha ou clipboard); nome seguro `[a-z0-9-]`; pergunta antes de substituir.
-- `search` (nome e conteúdo, mostra a linha) · `link` (`Relacionado: [[nota]]` sem duplicar) · `show` (regenera e mostra o `index.md` + caminho do vault).
+- `search` (nome e conteúdo, mostra a linha) · `link` (`Relacionado: [[nota]]` sem duplicar) · `show` (regenera e mostra o `index.md` + caminho do vault, e gera o grafo `~/.kvasir/reports/knowledge.html` com `knowledge/graph.ts`: notas + `[[links]]`, tags opcionais, offline).
+
+### `kvasir stats` / `kvasir board`
+`collectStats(dias)` (`modules/stats/data.ts`) lê só o `~/.kvasir`: métricas, `board.json` (jobs ao vivo de `ai/jobs.ts`), notas do knowledge e `profile.md` → `renderStatsHtml` (`html.ts`, HTML único com SVG desenhado por um script pequeno, sem CDN) → `~/.kvasir/reports/stats.html` → abre com `openInDefaultApp` (sem shell). `--watch`/`board`: regrava a cada 3 s e a página se recarrega. Jobs: o router chama `startJob` antes do 1º candidato, `switchJobModel` a cada fallback e `finishJob` no fim; lotes chamam `queueJobs` antes e `clearQueuedJobs` no `finally`.
 
 ### `kvasir task` / `kvasir start`
 - `fetchMyTasks()` (`integrations/planner.ts`): lê `KVASIR_PLANNER_API_URL` / `_TOKEN` na hora da chamada, GET com timeout de 10s, valida a resposta com **zod** (lista de `{ id, title, status }`, `id` numérico vira string). Erros viram mensagens em português (token recusado, sem conexão, formato inesperado).

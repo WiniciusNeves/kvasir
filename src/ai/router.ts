@@ -7,6 +7,7 @@ import type { CloudProvider, ProviderName, ProviderResult } from '@ai/providers'
 import { recordAiCall, readMetrics } from '@ai/metrics';
 import { rankCandidates, PERFORMANCE_WINDOW_DAYS } from '@ai/performance';
 import { agentForTask } from '@ai/agents';
+import { startJob, switchJobModel, finishJob } from '@ai/jobs';
 import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
 import { promptAI } from '@ai/client';
@@ -204,9 +205,13 @@ async function runWithFallback(
   onResult: (label: string, result: string) => Promise<string>
 ): Promise<string> {
   const failures: string[] = [];
+  // Agent Board: the owner agent's job is "em andamento" while its models work on it.
+  const job = startJob(task, candidates[0]?.label ?? '');
+  const agent = agentForTask(task).name;
 
   for (const candidate of candidates) {
     const startedAt = Date.now();
+    switchJobModel(job, candidate.label);
     let result: ProviderResult;
     try {
       result = await callCandidate(candidate, prompt, options);
@@ -215,7 +220,7 @@ async function runWithFallback(
       console.log(`⚠️  ${candidate.label} falhou (${message}). Tentando o próximo...`);
       failures.push(`${candidate.label}: ${message}`);
       await recordAiCall({
-        task, agent: agentForTask(task).name, provider: candidate.provider, model: candidate.model, role: 'executor', ok: false, error: message,
+        task, agent, title: job.title, provider: candidate.provider, model: candidate.model, role: 'executor', ok: false, error: message,
         durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: 0,
       });
       continue;
@@ -223,13 +228,15 @@ async function runWithFallback(
 
     if (candidate.provider !== 'ollama') console.log(`☁️  Respondido por ${candidate.label}`);
     await recordAiCall({
-      task, agent: agentForTask(task).name, provider: candidate.provider, model: candidate.model, role: 'executor', ok: true,
+      task, agent, title: job.title, provider: candidate.provider, model: candidate.model, role: 'executor', ok: true,
       durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: result.text.length,
       promptTokens: result.promptTokens, outputTokens: result.outputTokens,
     });
+    finishJob(job);
     return onResult(candidate.label, result.text);
   }
 
+  finishJob(job);
   throw new Error(`Nenhum modelo respondeu para a tarefa "${task}".\n${failures.map((line) => `  - ${line}`).join('\n')}`);
 }
 
