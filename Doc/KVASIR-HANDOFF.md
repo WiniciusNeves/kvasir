@@ -15,7 +15,7 @@
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
-| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1 e E2 (PR #1, mergeado), E3 (PR #2) |
+| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1 e E2 (PR #1), E3 (PR #2), ambos mergeados |
 | 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (2026-10-18, branch `feature/omnicontext`) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
@@ -352,7 +352,7 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 
 ## Onda F1: OmniContext, busca local no código e nas anotações (2026-10-18)
 
-Branch `feature/omnicontext` (saiu da main antes do merge do PR #2). Arquivos: `src/rag/{files,chunker,keyword,store,index}.ts` (alias `@rag/*`), `src/ai/embeddings.ts`, `src/modules/omnicontext/index.ts`, `src/cli/omnicontext.ts`; tarefa `ask` no router (`CLOUD_MAP` vazio: só local) com dono Documentador.
+Branch `feature/omnicontext` (saiu da main já com o PR #2). Arquivos: `src/rag/{files,chunker,keyword,store,index}.ts` (alias `@rag/*`), `src/ai/embeddings.ts`, `src/modules/omnicontext/index.ts`, `src/cli/omnicontext.ts`; tarefa `ask` no router (`CLOUD_MAP` vazio: só local) com dono Documentador.
 
 **Decisão do banco (com números medidos nesta máquina):** o LanceDB funciona no Windows (busca de 20 mil pedaços em 36 ms), mas instala **677 MB** (302 MB só do binário nativo + onnxruntime/transformers opcionais) e não tem versão para Mac Intel. O índice próprio (vetores normalizados em int8 num arquivo binário, busca por força bruta) instala 0 MB e busca 20 mil pedaços em 16 ms, 100 mil em 73 ms e 200 mil em 145 ms. Padrão: índice próprio, atrás da interface `VectorStore`; Qdrant (servidor, via HTTP) fica como backend opcional futuro para índice compartilhado. Qdrant/Chroma como padrão foram descartados (precisam de servidor).
 
