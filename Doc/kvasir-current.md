@@ -11,6 +11,7 @@
 |---|---|---|
 | `init` | ✅ funcionando | Detecta ACME (nome contém `acme`) e a stack, gera contexto e os 3 adapters |
 | `commit` | ✅ funcionando | Roda o `guard` antes (`--no-guard` pula); prompt com stat + diff limitado; menu pós-commit em loop |
+| `pr` | ✅ testado (2026-10-17) | Base pelo Git Flow ACME, fatos por código (tipo, tela, task, commits), IA escreve só o texto; copiar, criar com `gh` (com `push -u`), editar, gerar de novo. qwen2.5-coder gerou um PR bom na 1ª tentativa; criação testada com `gh` falso e remoto local |
 | `doctor` | ✅ testado (2026-10-17) | Testado no repo do kvasir e num projeto Expo descartável: pegou Node fora do `engines`, `JAVA_HOME` ≠ `java` do PATH, `gradlew` faltando, EAS desatualizado, `gh` ausente; Ollama com modelo faltando/fora do ar simulado |
 | `guard` | ✅ testado (2026-10-17) | Regras determinísticas (chaves, JWT, senhas, cartão Luhn 🔴; CPF/CNPJ, logs sensíveis 🟡), arquivos proibidos, IA para strings de alta entropia; cancelar / tirar do stage / ignorar com dupla confirmação; `.kvasirignore` com hashes |
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |

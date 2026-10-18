@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`); próximo: `pr` |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`); próximo: `daily` |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -247,6 +247,23 @@ Arquivos: `src/modules/doctor/index.ts` + `checks/{shared,node,git,mobile,ollama
 - **Bug encontrado e corrigido:** o `gh` aparecia ✅ sem estar instalado (a mensagem do Windows em português chega com acento quebrado); a detecção passou a usar o código de saída
 
 **Pendência:** o download de modelos (`ollama pull`) não foi exercitado de verdade (são GBs; testei só a recusa).
+
+**Correção posterior (no commit do `pr`):** a detecção "não instalado" não funcionava pelo código 9009 como eu tinha escrito: via `cmd /c` o código é 1, e o doctor só acertava porque o regex `reconhecido` sobrevivia ao acento quebrado. Agora `commandExists` usa `where`/`which`.
+
+---
+
+## Onda B: `pr` (commit `c487239`)
+
+Arquivos: `src/modules/pr/{index,description}.ts`, `src/cli/pr.ts`; `utils/git.ts` ganhou `refExists`, `getCommitsSince`, `getDiffAgainst`, `getDiffStatAgainst`, `getChangedFilesAgainst`, `getUpstream`, `pushWithUpstream`; `ai/client.ts` ganhou `writeClipboard`; `utils/process.ts` ganhou `commandExists`; nova `AiTask 'pr'` (qwen2.5-coder → llama3.2, com preferências do `profile.md`).
+
+**Testado** (repo descartável com `main`, `develop`, `feature/google-login`, 2 commits, um `.tsx` em `components/`, task ativa):
+- Base sugerida `develop` (e `main` para `hotfix/`), tipo `feat`, tela detectada
+- qwen2.5-coder real: título "feat: Adiciona login com Google", mudanças e passos de teste corretos na 1ª tentativa
+- CLI: escolher base, gerar de novo (métricas: rejeitado → aprovado), copiar (clipboard com acentos certos)
+- Criar: `gh` falso + `origin` local → `push -u` confirmado, `gh pr create --base develop --head feature/google-login --title … --body-file …`, temporário apagado, URL na nota `tasks/acme-42.md`
+- **Bug encontrado e corrigido:** a opção "Criar o PR" aparecia sem o `gh` instalado (detecção por código de saída errada; ver correção no doctor)
+
+**Pendências:** não testei com o `gh` real (criaria um PR de verdade) nem a opção "editar" (abre editor externo).
 
 ---
 

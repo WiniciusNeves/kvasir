@@ -186,6 +186,7 @@ When modifying a user file, back it up first and restore on rejection. Exception
 
 ### Shell & git
 - Git and shell commands use **`spawnSync` with an args array**. Never `execSync` (Windows breaks on flags). Add new git helpers to `@utils/git`.
+- To check whether a tool is installed use `commandExists(bin)` from `@utils/process` (`where`/`which`). Never infer it from exit codes or messages of `runCommand`: through `cmd /c` an unknown command exits with 1 and the message is localized.
 - **Never `shell: true`, `exec` or `execSync`.** For `npm`/`npx`/`code` use `runCommand(bin, args)` from `@utils/process` (on Windows it calls `cmd.exe /d /s /c` with escaped args, because spawning a `.cmd` without a shell throws `EINVAL`). Git helpers check `status` via `assertGitSuccess`.
 
 ### Language

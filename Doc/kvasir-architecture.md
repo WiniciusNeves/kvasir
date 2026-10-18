@@ -194,6 +194,13 @@ askFor('fix', prompt)
 4. Relatório com trecho mascarado (`AKIA****MPLE`). Só 🟡 → "continuar?". Algum 🔴 → cancelar · tirar os arquivos do stage (`git restore --staged`) · ignorar (segunda confirmação, feedback em `guard.md`).
 5. Ao ignorar/continuar, oferece gravar no `.kvasirignore`: arquivo pelo caminho e valores por `hash:<sha256>` (nunca o segredo em texto). Entradas manuais: glob de caminho, `rule:<id>`, `match:<texto>`.
 
+### `kvasir pr`
+1. Branch atual; base sugerida pelo Git Flow ACME (`hotfix/` e `release/` → main/master, o resto → develop), local ou `origin/`, só as que existem; se houver mais de uma, o usuário escolhe.
+2. Fatos por código (`pr/description.ts`): commits `base..HEAD`, `git diff --stat` e diff `base...HEAD` (até 10k), tipo pelo prefixo da branch (`feature/` → `feat`), "mexeu em tela" (`.tsx/.jsx` em `screens/`, `components/`, `pages/`, `app/`…), task ativa.
+3. `askFor('pr', temperature 0.3)` (com as preferências do `profile.md`) devolve `TITULO:`, `## O que mudou` e `## Como testar`; `parsePrDraft` garante o prefixo do tipo e no máx. 72 caracteres.
+4. `buildPrBody` monta o markdown: o que mudou · como testar · prints/vídeos (só com mudança de tela) · checklist (testes, lint, tipos) · task · commits (em `<details>`).
+5. Menu: copiar (clipboard) · criar com `gh pr create` (só se o `gh` existe; faz `git push -u` antes se a branch não tem upstream, com confirmação; corpo via `--body-file`) · editar (editor externo, 1ª linha = título) · gerar de novo · cancelar. Copiar/criar = aprovado, gerar de novo/cancelar = rejeitado nas métricas; a URL do PR vai para a nota da task.
+
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
 - `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn
@@ -201,7 +208,7 @@ Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, 
 - `mobile.ts` (só se o projeto tem `expo` ou `react-native`): JDK 17, `JAVA_HOME` existe e é o mesmo JDK do `java` do PATH, `ANDROID_HOME`, `adb`, `android/gradlew`, versão do Expo, EAS CLI (versão nova?) e `eas whoami`
 - `ollama.ts`: rodando? cada modelo do `MODEL_MAP` instalado (casa tags como `:7b`)? alguma tarefa sem nenhum modelo → ❌
 - `kvasir.ts`: `~/.kvasir`, `kvasir.context.md`, `profile.md`, comando `code`, `gh` + `gh auth status`
-- `shared.ts`: `probe()` roda a ferramenta via `runCommand` com timeout de 15s; "não encontrado" = código 9009 (cmd) / 127 (POSIX), nunca pela mensagem (o Windows em português chega com acento quebrado)
+- `shared.ts`: `probe()` primeiro pergunta ao sistema se o executável existe (`commandExists` = `where`/`which`), depois roda com timeout de 15s. Via `cmd /c`, comando inexistente sai com 1 como qualquer erro, e a mensagem "não é reconhecido" vem traduzida e com acento quebrado: nenhuma das duas serve para detectar
 - No fim: resumo e, se faltar modelo, oferece `ollama pull` (com confirmação).
 
 ### `kvasir branch`
