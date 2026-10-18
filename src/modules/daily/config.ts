@@ -1,36 +1,22 @@
-import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { readJson, writeFile } from '@utils/fs';
+import { readUserConfig, updateUserConfig, getUserConfigPath } from '@utils/userConfig';
 import { isGitRepo, getRepoRoot } from '@utils/git';
 
 // ~/.kvasir/config.json → { "daily": { "repos": ["C:/code/app", ...] } }
 
-interface KvasirConfig {
-  daily?: { repos?: string[] };
-  [key: string]: unknown;
-}
-
 const SCAN_DEPTH = 2;
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next', '.expo', 'android', 'ios']);
 
-function getConfigPath(): string {
-  return path.join(os.homedir(), '.kvasir', 'config.json');
-}
-
-async function readConfig(): Promise<KvasirConfig> {
-  return (await readJson<KvasirConfig>(getConfigPath())) ?? {};
-}
-
 export async function getConfiguredRepos(): Promise<string[]> {
-  const repos = (await readConfig()).daily?.repos ?? [];
+  const repos = (await readUserConfig()).daily?.repos ?? [];
   return repos.filter((repo) => fs.pathExistsSync(repo));
 }
 
 export async function saveRepos(repos: string[]): Promise<void> {
-  const config = await readConfig();
-  config.daily = { ...config.daily, repos: Array.from(new Set(repos.map((repo) => path.resolve(repo)))) };
-  await writeFile(getConfigPath(), `${JSON.stringify(config, null, 2)}\n`);
+  await updateUserConfig((config) => {
+    config.daily = { ...config.daily, repos: Array.from(new Set(repos.map((repo) => path.resolve(repo)))) };
+  });
 }
 
 // Git repositories inside `root` (the folder itself or up to 2 levels down).
@@ -59,5 +45,5 @@ export function currentRepo(): string | null {
 }
 
 export function getConfigLocation(): string {
-  return getConfigPath();
+  return getUserConfigPath();
 }

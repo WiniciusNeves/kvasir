@@ -6,6 +6,7 @@ import { checkGit } from './checks/git';
 import { checkMobile, isMobileProject } from './checks/mobile';
 import { checkOllama } from './checks/ollama';
 import { checkKvasir, checkGithubCli } from './checks/kvasir';
+import { checkCloud } from './checks/cloud';
 import type { CheckResult, CheckSection, CheckStatus } from '@ktypes/doctor';
 
 const ICONS: Record<CheckStatus, string> = { ok: '✅', warn: '⚠️ ', fail: '❌' };
@@ -44,6 +45,7 @@ export async function runDoctor(): Promise<void> {
     { title: 'Git', results: checkGit() },
     ...(isMobileProject(pkg) ? [{ title: 'Mobile (React Native / Expo)', results: checkMobile(pkg) }] : []),
     { title: 'IA local (Ollama)', results: ollama.results },
+    { title: 'IA na nuvem (opcional)', results: await checkCloud() },
     { title: 'Kvasir', results: await checkKvasir() },
     { title: 'GitHub', results: checkGithubCli() },
   ];

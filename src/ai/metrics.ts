@@ -5,7 +5,7 @@ import { appendLine, readFile } from '@utils/fs';
 // Every AI call (and the user's verdict on its result) goes to ~/.kvasir/metrics/calls.jsonl.
 // This is the raw data for the Agent Board, `kvasir stats`, performance-based routing and learning.
 
-export type AiProvider = 'ollama' | 'claude';
+export type AiProvider = 'ollama' | 'gemini' | 'groq' | 'claude';
 export type AiRole = 'executor' | 'orchestrator' | 'validator' | 'direct';
 export type OutcomeDecision = 'approved' | 'rejected';
 
@@ -99,6 +99,7 @@ export async function readMetrics(sinceDays: number): Promise<MetricsRecord[]> {
 
 export interface ModelPerformance {
   task: string;
+  provider: AiProvider;
   model: string;
   calls: number;
   failures: number;
@@ -123,19 +124,22 @@ export function summarizeMetrics(records: MetricsRecord[]): MetricsSummary {
   const outcomes = records.filter((record): record is AiOutcomeRecord => record.type === 'outcome');
   const byKey = new Map<string, AiCallRecord[]>();
 
-  for (const call of calls.filter((record) => record.provider === 'ollama')) {
-    const key = `${call.task}\u0000${call.model}`;
+  // Every executor provider (Ollama and cloud); Claude via clipboard is reported apart.
+  for (const call of calls.filter((record) => record.provider !== 'claude')) {
+    const key = `${call.task}\u0000${call.provider}\u0000${call.model}`;
     byKey.set(key, [...(byKey.get(key) ?? []), call]);
   }
 
   const models = [...byKey.entries()].map(([key, group]): ModelPerformance => {
-    const [task, model] = key.split('\u0000');
+    const [task, , model] = key.split('\u0000');
+    const provider = group[0].provider;
     const ok = group.filter((call) => call.ok);
     const withTokens = ok.filter((call) => call.outputTokens !== undefined);
     const verdicts = outcomes.filter((outcome) => outcome.task === task && outcome.model === model);
 
     return {
       task,
+      provider,
       model,
       calls: group.length,
       failures: group.length - ok.length,
