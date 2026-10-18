@@ -52,6 +52,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir doc <lib>` | Busca o README no npm/GitHub, resume em português e salva em `DOC/libs/` e `~/.kvasir/knowledge/libs/` | ✅ |
 | `kvasir doc --code [caminho]` | Documenta o código do projeto em `DOC/code/` (`--all` = projeto inteiro, `--force` = refaz) | ✅ |
 | `kvasir pr` | Título e descrição do Pull Request em português (o que mudou, como testar, prints se mexeu em tela, checklist, task, commits) a partir dos commits e do diff contra a base do Git Flow; copia ou cria com `gh pr create` | ✅ |
+| `kvasir daily` | Resume seus commits (todas as branches, de ontem ou de sexta na segunda) em "Ontem / Hoje / Impedimentos" em português e copia para colar no chat do time. `--repos <pasta>`, `--since <data>` | ✅ |
 | `kvasir doctor` | Diagnóstico do ambiente com ✅/⚠️/❌ e como corrigir: Node × `engines`, Git, JDK/Android/Expo/EAS (projetos mobile), Ollama e modelos (oferece baixar os que faltam), `~/.kvasir`, VS Code, `gh` | ✅ |
 | `kvasir models` | Lista os modelos do Ollama, qual está ativo para cada tarefa e o desempenho real (tempo, tokens, aprovação) | ✅ |
 | `kvasir fix` | Copie o erro e rode: ele corrige o arquivo do erro (regra determinística ou IA), abre o diff lado a lado no VS Code, conta os erros iguais no projeto e pergunta se corrige os outros. `kvasir fix --undo` desfaz | ✅ |

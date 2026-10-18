@@ -168,7 +168,7 @@ export function getDiff(): string {
 
 ## Global data (`~/.kvasir/`)
 
-`profile.md` · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents}/`)
+`profile.md` · `config.json` (user config, e.g. `daily.repos`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents}/`)
 
 **Knowledge:** write notes only through `saveNote` (`@modules/knowledge/notes`) or the helpers in `@modules/knowledge/auto`; never `writeFile` into the vault directly.
 

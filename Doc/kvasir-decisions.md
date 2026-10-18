@@ -179,6 +179,14 @@
 
 ---
 
+## `daily` usa o modelo local direto (`askLocal`)
+
+**Decisão:** (2026-10-17) O resumo da daily não passa pelo Claude (sem orquestração nem validação via clipboard).
+
+**Por quê:** É um texto curto de baixo risco que o usuário lê antes de copiar; duas idas ao Claude para isso seriam desperdício de token e de tempo ("zero token desperdiçado"). Comandos que mexem em código ou em conteúdo que vai para outras pessoas sem revisão continuam com `askFor`.
+
+---
+
 ## Ollama não vem empacotado
 
 **Decisão:** O Ollama é um requisito externo, instalado separadamente.

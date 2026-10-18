@@ -156,6 +156,7 @@ askFor('fix', prompt)
 │   ├── commits.md          # aprovações/rejeições do commit
 │   ├── fixes.md            # aprovações/rejeições do fix
 │   └── patterns.md         # aprovações/rejeições do review
+├── config.json             # config do usuário (hoje: daily.repos)
 ├── metrics/calls.jsonl     # cada chamada de IA (tarefa, modelo, papel, tempo, tokens) + veredito do usuário
 └── knowledge/              # vault do Obsidian; toda nota tem frontmatter (title, tags, projetos, origem, criado, atualizado)
     ├── index.md            # GERADO a cada escrita (mapa por pasta, mais recentes primeiro)
@@ -200,6 +201,13 @@ askFor('fix', prompt)
 3. `askFor('pr', temperature 0.3)` (com as preferências do `profile.md`) devolve `TITULO:`, `## O que mudou` e `## Como testar`; `parsePrDraft` garante o prefixo do tipo e no máx. 72 caracteres.
 4. `buildPrBody` monta o markdown: o que mudou · como testar · prints/vídeos (só com mudança de tela) · checklist (testes, lint, tipos) · task · commits (em `<details>`).
 5. Menu: copiar (clipboard) · criar com `gh pr create` (só se o `gh` existe; faz `git push -u` antes se a branch não tem upstream, com confirmação; corpo via `--body-file`) · editar (editor externo, 1ª linha = título) · gerar de novo · cancelar. Copiar/criar = aprovado, gerar de novo/cancelar = rejeitado nas métricas; a URL do PR vai para a nota da task.
+
+### `kvasir daily`
+1. Repositórios: `--repos <pasta>` (procura `.git` até 2 níveis; oferece salvar) → `~/.kvasir/config.json` (`daily.repos`) → repositório atual (oferece salvar).
+2. Período (`daily/summary.ts`): de 00:00 de ontem; na segunda e no fim de semana, desde sexta; `--since` substitui.
+3. Commits do autor: `git -C <repo> log --all --no-merges --author=<user.email do repo> --since=…`.
+4. "Ontem": `askLocal('daily')` (llama3.2 → qwen2.5-coder, sem clipboard: é texto de baixo risco que o usuário revisa) com exemplo de formato e "traduza o sentido"; sem commits, pergunta. "Hoje": sugere a task ativa. "Impedimentos": padrão "Nenhum".
+5. `buildDailyMessage` monta o texto; copiar · editar · gerar o "Ontem" de novo · cancelar. Copiada → `knowledge/commits/daily.md`.
 
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:

@@ -12,7 +12,7 @@
 | 3 | Testar `review`, `task`, `start`, `learn`, `knowledge` | ✅ concluída (2026-10-17) |
 | 4 | Mapa completo do backlog v2 (`Doc/ideas/backlog.md`) | ✅ ordem em ondas aprovada (2026-10-17) |
 | 4.A | Onda A: conflitos com os princípios, métricas, knowledge v2 | ✅ concluída (2026-10-17) |
-| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`); próximo: `daily` |
+| 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | 🔧 em andamento: `guard` ✅ (`c550d50`), `doctor` ✅ (`4fa36a2`), `pr` ✅ (`c487239`), `daily` ✅ (`c030292`); próximo: `release` |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -264,6 +264,20 @@ Arquivos: `src/modules/pr/{index,description}.ts`, `src/cli/pr.ts`; `utils/git.t
 - **Bug encontrado e corrigido:** a opção "Criar o PR" aparecia sem o `gh` instalado (detecção por código de saída errada; ver correção no doctor)
 
 **Pendências:** não testei com o `gh` real (criaria um PR de verdade) nem a opção "editar" (abre editor externo).
+
+---
+
+## Onda B: `daily` (commit `c030292`)
+
+Arquivos: `src/modules/daily/{index,config,summary}.ts`, `src/cli/daily.ts`; `utils/git.ts` ganhou `isGitRepo`, `getRepoRoot`, `getGitConfigIn`, `getCommitsByAuthor`; nova `AiTask 'daily'` (llama3.2 → qwen2.5-coder); `~/.kvasir/config.json`.
+
+**Testado:**
+- Período: seg → sexta, ter → ontem, sáb → ontem (sexta), dom → sexta; `--since` repassado ao git
+- 2 repos descartáveis: `app-acme` 3 commits (inclui o da branch `feature/profile`), `api-acme` 2; o commit do colega e o de 10 dias atrás ficaram de fora
+- `--repos` salvou a lista em `config.json`; copiou a daily; nota em `knowledge/commits/daily.md`
+- Prompt melhorado depois do 1º teste: "cart" virava "cartão" e sobrava " - " depois de `[repo]`; com exemplo de formato e "traduza o sentido" o llama3.2 escreveu "Corrigi o travamento ao abrir o carrinho vazio"
+
+**Pendência:** o llama3.2 às vezes repete um assunto em dois itens; o usuário revisa antes de copiar (e "gerar de novo" fica registrado como rejeição nas métricas).
 
 ---
 
