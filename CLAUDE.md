@@ -69,6 +69,7 @@ src/
 | `@utils/*` | `src/utils/*` |
 | `@ktypes/*` | `src/types/*` (**not** `@types`: that conflicts with DefinitelyTyped) |
 | `@integrations/*` | `src/integrations/*` |
+| `@rag/*` | `src/rag/*` (OmniContext: `indexFolder`, `search`) |
 
 ---
 
@@ -214,6 +215,10 @@ Never use arrow functions for top-level exported functions.
 - Network/Ollama failures: catch and show a Portuguese hint (e.g. "Verifique se o Ollama está rodando").
 
 ---
+
+## OmniContext (local RAG)
+
+`src/rag/` is isolated: modules use only `indexFolder` / `search` / `hasIndex` from `@rag/index`. Embeddings go through `@ai/embeddings` (Ollama, never the cloud). The default store is the built-in `FileStore`; another backend must implement `VectorStore`. Never index what the guard blocks (`listIndexableFiles` / `readWithoutSecrets`). The `ask` task is local only (`CLOUD_MAP.ask = []`).
 
 ## Automatic fixes (kvasir watch)
 

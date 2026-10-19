@@ -15,7 +15,8 @@
 | 4.B | Onda B: guard → doctor → pr → daily → release → test, fix aprende erros recorrentes, personas | ✅ concluída (2026-10-17): `guard` (`5c2b1da`), `doctor` (`3c1c78f`), `pr` (`685f7bd`), `daily` (`b4ec48f`), `release` (`ba2036f`), `test` (`c23372d`), recorrência no `fix` (`6f8d467`), personas (`42b6a8f`) |
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
-| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1, E2 (PR #1, mergeado) e E3 (branch `feature/watch-runtime-errors`) |
+| 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1 e E2 (PR #1), E3 (PR #2), ambos mergeados |
+| 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (2026-10-18, branch `feature/omnicontext`) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -348,6 +349,20 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 - Erros de tipo continuam primeiro: projeto que não compila não tem erro de execução útil
 
 **Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
+
+## Onda F1: OmniContext, busca local no código e nas anotações (2026-10-18)
+
+Branch `feature/omnicontext` (saiu da main já com o PR #2). Arquivos: `src/rag/{files,chunker,keyword,store,index}.ts` (alias `@rag/*`), `src/ai/embeddings.ts`, `src/modules/omnicontext/index.ts`, `src/cli/omnicontext.ts`; tarefa `ask` no router (`CLOUD_MAP` vazio: só local) com dono Documentador.
+
+**Decisão do banco (com números medidos nesta máquina):** o LanceDB funciona no Windows (busca de 20 mil pedaços em 36 ms), mas instala **677 MB** (302 MB só do binário nativo + onnxruntime/transformers opcionais) e não tem versão para Mac Intel. O índice próprio (vetores normalizados em int8 num arquivo binário, busca por força bruta) instala 0 MB e busca 20 mil pedaços em 16 ms, 100 mil em 73 ms e 200 mil em 145 ms. Padrão: índice próprio, atrás da interface `VectorStore`; Qdrant (servidor, via HTTP) fica como backend opcional futuro para índice compartilhado. Qdrant/Chroma como padrão foram descartados (precisam de servidor).
+
+- **`kvasir index`**: projeto atual (raiz do git) + `~/.kvasir/knowledge` (`--no-knowledge` pula). Arquivos: `git ls-files` (respeita `.gitignore`) ou varredura; só texto/código até 200 KB; nunca o que o `guard` bloqueia (`.env`, chaves) e linhas com segredo viram "[linha removida: possível segredo]"
+- Pedaços: código por declaração no topo do arquivo, markdown por título, o resto por janelas; 8–60 linhas com sobreposição. Embeddings `nomic-embed-text` (Ollama, com os prefixos `search_document:`/`search_query:`); o Kvasir pergunta antes de baixar (~274 MB)
+- **Incremental** por hash do conteúdo; se o modelo de embeddings mudar, refaz do zero (vetores de modelos diferentes não se comparam). Índice em `~/.kvasir/index/<pasta>-<hash>/` (`meta.json`, `chunks.json`, `vectors.bin`)
+- **`kvasir ask "pergunta"`** (`--all` busca em todas as pastas indexadas): atualiza o índice do que mudou, **reescreve a pergunta nos termos do código** (modelo local, em inglês), busca **híbrida** (vetores + BM25 com identificadores quebrados, fundidos por posição) com **vagas para código e para documentação**, responde só com os trechos citando `arquivo:linha`, mostra as fontes e **avisa se a resposta citar algo fora dos trechos**. "A resposta ajudou?" vira métrica
+- Sem índice no projeto → oferece indexar na hora
+
+**Testado** (repositório do Kvasir, perfil temporário): 152 arquivos / 718 pedaços em 15,7 s; 2ª vez 0,1 s (nada mudou); depois de editar 2 arquivos, o `ask` reindexou só os 2. Perguntas em português: antes da reescrita e do equilíbrio, só documentação voltava e o modelo inventou `performance.ts:12`; depois, as fontes trouxeram `router.ts`, `validate.ts`, `keys.ts` e nenhuma citação fora dos trechos; "como é calculado o frete?" → "não encontrei". Segredos: `.env`, `.pem` e pasta ignorada não entraram; a linha com chave `AIza…` foi removida e o resto do arquivo indexado. Não testado: projeto grande (dezenas de milhares de arquivos) e o menu interativo do `ask`.
 
 ## Onda E2: `kvasir watch` corrige e valida sozinho (2026-10-18)
 

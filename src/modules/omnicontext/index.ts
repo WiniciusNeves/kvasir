@@ -1,0 +1,159 @@
+import fs from 'fs';
+import path from 'path';
+import { askLocal } from '@ai/router';
+import { recordOutcome } from '@ai/metrics';
+import { cleanAnswer } from '@ai/parse';
+import { hasEmbeddingModel, pullEmbeddingModel, EMBEDDING_MODEL } from '@ai/embeddings';
+import { confirm } from '@utils/prompt';
+import { getRepoRoot } from '@utils/git';
+import { indexFolder, hasIndex, knowledgeRoot, listIndexes, search } from '@rag/index';
+import type { IndexProgress, IndexReport, SearchHit } from '@rag/index';
+
+// kvasir index / kvasir ask: OmniContext, local search over the project, its docs and the knowledge
+// vault. Everything stays on the machine (embeddings and answers by Ollama).
+
+export interface IndexOptions {
+  // commander --no-knowledge
+  knowledge?: boolean;
+}
+
+export interface AskOptions {
+  all?: boolean;
+}
+
+const HITS_IN_PROMPT = 8;
+const MAX_CHUNK_LINES_IN_PROMPT = 40;
+
+function projectRoot(): string {
+  return getRepoRoot(process.cwd()) ?? process.cwd();
+}
+
+function showProgress(label: string): (progress: IndexProgress) => void {
+  return (progress) => {
+    if (progress.phase === 'embed' && progress.total > 0) {
+      process.stdout.write(`\r   ${label}: ${progress.done}/${progress.total} pedaço(s)…`);
+      if (progress.done >= progress.total) process.stdout.write('\n');
+    }
+  };
+}
+
+function describeReport(report: IndexReport): string {
+  const changes =
+    report.added + report.changed + report.removed === 0
+      ? 'nada mudou'
+      : `${report.added} novo(s), ${report.changed} alterado(s), ${report.removed} removido(s)`;
+  return `${report.name}: ${report.files} arquivo(s), ${report.chunks} pedaço(s) (${changes})${report.rebuilt ? ' · refeito do zero: o modelo de embeddings mudou' : ''}`;
+}
+
+// The embedding model is a download: ask before pulling it.
+async function ensureEmbeddingModel(): Promise<boolean> {
+  if (await hasEmbeddingModel()) return true;
+  console.log(`\nO OmniContext precisa do modelo de embeddings "${EMBEDDING_MODEL}" no Ollama (~274 MB, roda local).`);
+  if (!(await confirm(`Baixar agora (ollama pull ${EMBEDDING_MODEL})?`))) return false;
+  if (!pullEmbeddingModel()) throw new Error(`Não consegui baixar o ${EMBEDDING_MODEL}. Tente "ollama pull ${EMBEDDING_MODEL}" no terminal.`);
+  return true;
+}
+
+export async function runIndex(options: IndexOptions = {}): Promise<void> {
+  if (!(await ensureEmbeddingModel())) return;
+
+  const root = projectRoot();
+  console.log(`🧠 Indexando ${root} (só local; .gitignore, .env e chaves ficam de fora)…`);
+  const started = Date.now();
+  console.log(`✅ ${describeReport(await indexFolder(root, path.basename(root), showProgress('projeto')))}`);
+
+  if (options.knowledge !== false && fs.existsSync(knowledgeRoot())) {
+    console.log(`✅ ${describeReport(await indexFolder(knowledgeRoot(), 'knowledge', showProgress('knowledge')))}`);
+  }
+  console.log(`Pronto em ${((Date.now() - started) / 1000).toFixed(1)}s. Pergunte com: kvasir ask "sua pergunta"`);
+}
+
+function buildAskPrompt(question: string, hits: SearchHit[]): string {
+  const excerpts = hits
+    .map((hit, position) => {
+      const lines = hit.chunk.text.split('\n').slice(0, MAX_CHUNK_LINES_IN_PROMPT);
+      const numbered = lines.map((line, offset) => `${String(hit.chunk.startLine + offset).padStart(4)} | ${line}`).join('\n');
+      const where = hit.index === 'knowledge' ? `knowledge/${hit.chunk.file}` : hit.chunk.file;
+      return `[${position + 1}] ${where} (linhas ${hit.chunk.startLine}-${hit.chunk.endLine})\n${numbered}`;
+    })
+    .join('\n\n');
+
+  return `Trechos encontrados no projeto e nas anotações do desenvolvedor:
+
+${excerpts}
+
+Pergunta: ${question}
+
+REGRAS:
+- Responda em português, direto, usando SOMENTE os trechos acima
+- Cite de onde tirou cada afirmação no formato arquivo:linha (ex.: src/cart.ts:12)
+- Se os trechos não respondem, diga "Não encontrei isso no que está indexado" e sugira onde procurar; não invente`;
+}
+
+// The code is in English, the question usually in Portuguese: ask the local model for the words the
+// code probably uses, and search with both.
+async function expandQuestion(question: string): Promise<string> {
+  try {
+    const prompt = `Pergunta de um desenvolvedor sobre o próprio código: "${question}"\n\nEscreva em UMA linha só os termos que provavelmente aparecem no código para responder isso, em inglês: nomes de funções, variáveis, arquivos e conceitos, separados por espaço. Sem explicação.`;
+    return cleanAnswer(await askLocal('ask', prompt, { temperature: 0, maxTokens: 60 }))
+      .split('\n')[0]
+      .replace(/[`"*]/g, '')
+      .slice(0, 300);
+  } catch {
+    return '';
+  }
+}
+
+// Citations the answer makes that are not inside the excerpts it was given (the model made them up).
+function citationsOutsideHits(answer: string, hits: SearchHit[]): string[] {
+  const cited = [...answer.matchAll(/([\w./@-]+\.[a-z]{1,5}):(\d+)/g)];
+  return cited
+    .filter(([, file, line]) => {
+      const number = Number(line);
+      return !hits.some((hit) => {
+        const where = hit.index === 'knowledge' ? `knowledge/${hit.chunk.file}` : hit.chunk.file;
+        return (where.endsWith(file) || file.endsWith(where)) && number >= hit.chunk.startLine && number <= hit.chunk.endLine;
+      });
+    })
+    .map(([match]) => match);
+}
+
+export async function runAsk(words: string[], options: AskOptions = {}): Promise<void> {
+  const question = words.join(' ').trim();
+  if (!question) throw new Error('Faltou a pergunta. Exemplo: kvasir ask "onde o carrinho calcula o frete?"');
+
+  const root = projectRoot();
+  if (!hasIndex(root)) {
+    console.log('Este projeto ainda não foi indexado (é o "kvasir index" que faz isso).');
+    if (!(await confirm('Indexar agora?'))) return;
+    await runIndex();
+  } else if (await ensureEmbeddingModel()) {
+    // always answer from the current code: re-embeds only what changed since the last run
+    const report = await indexFolder(root, path.basename(root));
+    if (report.added + report.changed + report.removed > 0) console.log(`🔄 Índice atualizado: ${describeReport(report)}`);
+  } else {
+    return;
+  }
+
+  const roots = options.all ? listIndexes().map((meta) => meta.root) : [root, knowledgeRoot()];
+  const expansion = await expandQuestion(question);
+  const hits = await search(question, roots, HITS_IN_PROMPT, { expansion });
+  if (hits.length === 0) {
+    console.log('Não encontrei nada indexado sobre isso.');
+    return;
+  }
+
+  console.log('🔎 Pensando com os trechos encontrados…');
+  const answer = cleanAnswer(await askLocal('ask', buildAskPrompt(question, hits), { temperature: 0.1, maxTokens: 700 }));
+  console.log(`\n${answer}\n`);
+  console.log('📚 Fontes:');
+  hits.forEach((hit, position) => {
+    const where = hit.index === 'knowledge' ? `knowledge/${hit.chunk.file}` : hit.chunk.file;
+    console.log(`  [${position + 1}] ${where}:${hit.chunk.startLine}-${hit.chunk.endLine}`);
+  });
+  const invented = citationsOutsideHits(answer, hits);
+  if (invented.length > 0) console.log(`⚠️  A resposta cita trechos que não estavam nas fontes (confira antes de confiar): ${[...new Set(invented)].join(', ')}`);
+
+  const helped = await confirm('A resposta ajudou?');
+  await recordOutcome('ask', helped ? 'approved' : 'rejected');
+}

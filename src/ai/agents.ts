@@ -68,6 +68,7 @@ export const TASK_OWNER: Record<AiTask, AgentName> = {
   commit: 'executor',
   branch: 'executor',
   intent: 'executor',
+  ask: 'documenter',
 };
 
 export const AGENT_NAMES = Object.keys(AGENTS) as AgentName[];

@@ -27,6 +27,7 @@ import { registerAgents } from './agents';
 import { registerStats } from './stats';
 import { registerProactive } from './proactive';
 import { registerWatch } from './watch';
+import { registerOmniContext } from './omnicontext';
 import { resolveCommandLine } from '@modules/menu';
 import { printCliError } from '@utils/errors';
 
@@ -70,6 +71,7 @@ registerAgents(program);
 registerStats(program);
 registerProactive(program);
 registerWatch(program);
+registerOmniContext(program);
 
 program.addHelpText(
   'after',
