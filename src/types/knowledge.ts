@@ -1,6 +1,6 @@
-export type KnowledgeCategory = 'libs' | 'patterns' | 'decisions' | 'tasks' | 'commits' | 'errors' | 'agents';
+export type KnowledgeCategory = 'libs' | 'patterns' | 'decisions' | 'tasks' | 'commits' | 'errors' | 'agents' | 'answers';
 
-export const KNOWLEDGE_CATEGORIES: KnowledgeCategory[] = ['libs', 'patterns', 'decisions', 'tasks', 'commits', 'errors', 'agents'];
+export const KNOWLEDGE_CATEGORIES: KnowledgeCategory[] = ['libs', 'patterns', 'decisions', 'tasks', 'commits', 'errors', 'agents', 'answers'];
 
 export interface NoteMeta {
   title: string;

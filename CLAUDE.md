@@ -171,7 +171,7 @@ export function getDiff(): string {
 
 ## Global data (`~/.kvasir/`)
 
-`profile.md` · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents}/`)
+`profile.md` · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents,answers}/`) · `index/` (OmniContext indexes, regenerable)
 
 **Knowledge:** write notes only through `saveNote` (`@modules/knowledge/notes`) or the helpers in `@modules/knowledge/auto`; never `writeFile` into the vault directly.
 

@@ -35,8 +35,9 @@ function walk(root: string, dir: string = root, files: string[] = []): string[] 
   return files;
 }
 
-export function listIndexableFiles(root: string): string[] {
-  const all = gitFiles(root) ?? walk(root);
+// `exclude`: relative paths to leave out (the knowledge vault's generated index.md is only a list of links).
+export function listIndexableFiles(root: string, exclude: string[] = []): string[] {
+  const all = (gitFiles(root) ?? walk(root)).filter((file) => !exclude.includes(file));
   const blocked = new Set(checkStagedFiles(all).map((finding) => finding.filePath));
 
   return all.filter((file) => {

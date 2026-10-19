@@ -66,9 +66,9 @@ function openOrCreate(root: string, name: string): { store: FileStore; rebuilt: 
 }
 
 // Incremental: only new or changed files (by content hash) are embedded again.
-export async function indexFolder(root: string, name: string, onProgress?: (progress: IndexProgress) => void): Promise<IndexReport> {
+export async function indexFolder(root: string, name: string, onProgress?: (progress: IndexProgress) => void, exclude: string[] = []): Promise<IndexReport> {
   const { store, rebuilt } = openOrCreate(root, name);
-  const files = listIndexableFiles(root);
+  const files = listIndexableFiles(root, exclude);
   onProgress?.({ phase: 'scan', done: files.length, total: files.length });
 
   const current = new Map<string, { hash: string; text: string }>();

@@ -37,6 +37,7 @@ const CATEGORY_TITLES: Record<KnowledgeCategory, string> = {
   commits: 'Commits',
   errors: 'Erros resolvidos',
   agents: 'Agentes',
+  answers: 'Perguntas respondidas',
 };
 
 export function getKnowledgeDir(): string {

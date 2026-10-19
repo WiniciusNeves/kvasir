@@ -26,6 +26,9 @@ export interface StatsCards {
   cloudCalls: number;
   claudeRoundTrips: number;
   claudeTokens: number;
+  // kvasir ask: questions answered and how many the developer said helped
+  askQuestions: number;
+  askHelped: number;
 }
 
 export interface DayBar {
@@ -66,7 +69,7 @@ export interface StatsData {
   daily: DayBar[];
   models: ModelPerformance[];
   agents: AgentStats[];
-  learned: { preferences: string[]; notesByCategory: Record<string, number>; recentErrors: string[]; totalNotes: number };
+  learned: { preferences: string[]; notesByCategory: Record<string, number>; recentErrors: string[]; recentAnswers: string[]; totalNotes: number };
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -213,6 +216,8 @@ export async function collectStats(days: number): Promise<StatsData> {
       cloudCalls: ok.filter((call) => call.provider !== 'ollama').length,
       claudeRoundTrips: claude.length,
       claudeTokens: Math.round(claude.reduce((sum, call) => sum + call.promptChars, 0) / 4),
+      askQuestions: outcomes.filter((outcome) => outcome.task === 'ask').length,
+      askHelped: outcomes.filter((outcome) => outcome.task === 'ask' && outcome.decision === 'approved').length,
     },
     radar: { axes: [...RADAR_AXES], week, monthWeeklyAvg: month.map((value) => Math.round((value / (30 / 7)) * 10) / 10) },
     daily,
@@ -223,6 +228,11 @@ export async function collectStats(days: number): Promise<StatsData> {
       notesByCategory,
       recentErrors: notes
         .filter((note) => note.category === 'errors')
+        .sort((a, b) => b.meta.updated.localeCompare(a.meta.updated))
+        .slice(0, 6)
+        .map((note) => note.meta.title),
+      recentAnswers: notes
+        .filter((note) => note.category === 'answers')
         .sort((a, b) => b.meta.updated.localeCompare(a.meta.updated))
         .slice(0, 6)
         .map((note) => note.meta.title),

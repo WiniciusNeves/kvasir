@@ -145,7 +145,8 @@ ${options.focusBoard ? '<script>window.addEventListener("load", function () { do
     ['Tempo médio', secs(c.avgSeconds), 'por resposta'],
     ['Tokens gerados', fmt(c.outputTokens), 'pelos modelos executores'],
     ['Na nuvem', c.calls ? Math.round((c.cloudCalls / Math.max(c.calls - c.failures, 1)) * 100) + '%' : '—', fmt(c.cloudCalls) + ' respostas do Gemini/Groq'],
-    ['Claude (clipboard)', fmt(c.claudeRoundTrips), '~' + fmt(c.claudeTokens) + ' tokens enviados']
+    ['Claude (clipboard)', fmt(c.claudeRoundTrips), '~' + fmt(c.claudeTokens) + ' tokens enviados'],
+    ['Perguntas ao código', fmt(c.askQuestions), c.askQuestions ? c.askHelped + ' ajudaram e viraram nota' : 'kvasir ask "sua pergunta"']
   ];
   var cardBox = document.getElementById('cards');
   cards.forEach(function (item) {
@@ -259,6 +260,12 @@ ${options.focusBoard ? '<script>window.addEventListener("load", function () { do
     var errors = el('ul');
     data.learned.recentErrors.forEach(function (title) { errors.appendChild(el('li', null, title)); });
     notes.appendChild(errors);
+  }
+  if (data.learned.recentAnswers.length) {
+    notes.appendChild(el('h2', { style: 'margin-top:14px' }, 'Perguntas respondidas recentes'));
+    var answers = el('ul');
+    data.learned.recentAnswers.forEach(function (title) { answers.appendChild(el('li', null, title)); });
+    notes.appendChild(answers);
   }
 
   var prefs = document.getElementById('prefs');
