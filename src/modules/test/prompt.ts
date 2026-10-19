@@ -55,7 +55,7 @@ function frameworkRules(setup: TestSetup, isComponent: boolean): string {
   return rules.join('\n');
 }
 
-export function buildGeneratePrompt(target: TestTarget, setup: TestSetup): string {
+export function buildGeneratePrompt(target: TestTarget, setup: TestSetup, projectContext = ''): string {
   const exportsList = listExports(target.source);
   const isComponent = target.sourceFile.endsWith('.tsx');
   const example = setup.example
@@ -70,7 +70,7 @@ Exports: ${exportsList.join(', ') || '(nenhum encontrado)'}
 ${truncateForPrompt(target.source, MAX_SOURCE_CHARS)}
 \`\`\`
 
-${example}Escreva o arquivo de teste ${target.testFile}.
+${projectContext ? `${projectContext}\n` : ''}${example}Escreva o arquivo de teste ${target.testFile}.
 - Importe o arquivo testado EXATAMENTE assim (já está certo, não troque por import default/nomeado):
 ${buildImportLines(target).join('\n')}
 ${frameworkRules(setup, isComponent)}
@@ -84,7 +84,7 @@ ${frameworkRules(setup, isComponent)}
 Responda só com o arquivo completo dentro de um bloco \`\`\`ts.`;
 }
 
-export function buildFixPrompt(target: TestTarget, setup: TestSetup, testCode: string, failure: string): string {
+export function buildFixPrompt(target: TestTarget, setup: TestSetup, testCode: string, failure: string, projectContext = ''): string {
   return `Um teste gerado está falhando.
 
 Arquivo testado: ${target.sourceFile}
@@ -102,7 +102,7 @@ Saída do ${setup.framework}:
 ${truncateForPrompt(failure, MAX_OUTPUT_CHARS)}
 \`\`\`
 
-Import correto do arquivo testado (use exatamente):
+${projectContext ? `${projectContext}\n` : ''}Import correto do arquivo testado (use exatamente):
 ${buildImportLines(target).join('\n')}
 
 Decida a causa:

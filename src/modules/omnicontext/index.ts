@@ -16,6 +16,8 @@ import type { IndexProgress, IndexReport, SearchHit } from '@rag/index';
 export interface IndexOptions {
   // commander --no-knowledge
   knowledge?: boolean;
+  // keep re-indexing while files change
+  watch?: boolean;
 }
 
 export interface AskOptions {
@@ -69,6 +71,46 @@ export async function runIndex(options: IndexOptions = {}): Promise<void> {
     console.log(`✅ ${describeReport(await indexFolder(knowledgeRoot(), 'knowledge', showProgress('knowledge'), KNOWLEDGE_EXCLUDE))}`);
   }
   console.log(`Pronto em ${((Date.now() - started) / 1000).toFixed(1)}s. Pergunte com: kvasir ask "sua pergunta"`);
+  if (options.watch) await watchAndReindex(root);
+}
+
+const REINDEX_DEBOUNCE_MS = 3000;
+const NOT_SOURCE = /(^|[\\/])(\.git|node_modules|dist|build|\.next|\.expo|coverage)([\\/]|$)/;
+
+// Re-embeds only what changed, a few seconds after the last save (fs.watch recursive: Windows, macOS,
+// Linux with Node 20+). Runs until Ctrl+C.
+async function watchAndReindex(root: string): Promise<void> {
+  console.log('👀 Reindexando a cada mudança (Ctrl+C para parar).');
+  let timer: NodeJS.Timeout | null = null;
+  let running = false;
+  let pending = false;
+
+  const reindex = async (): Promise<void> => {
+    if (running) {
+      pending = true;
+      return;
+    }
+    running = true;
+    try {
+      const report = await indexFolder(root, path.basename(root));
+      if (report.added + report.changed + report.removed > 0) console.log(`🔄 ${new Date().toLocaleTimeString('pt-BR')} ${describeReport(report)}`);
+    } catch (error) {
+      console.log(`⚠️  Não consegui reindexar: ${(error as Error).message}`);
+    } finally {
+      running = false;
+      if (pending) {
+        pending = false;
+        void reindex();
+      }
+    }
+  };
+
+  fs.watch(root, { recursive: true }, (_event, file) => {
+    if (!file || NOT_SOURCE.test(String(file))) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => void reindex(), REINDEX_DEBOUNCE_MS);
+  });
+  await new Promise<never>(() => undefined);
 }
 
 function buildAskPrompt(question: string, hits: SearchHit[]): string {

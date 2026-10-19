@@ -5,6 +5,8 @@ import { readFile, writeFile, pathExists, removeFile } from '@utils/fs';
 import { getChangedPaths } from '@utils/git';
 import { runTestFile } from '@utils/testRunner';
 import { noteBugFoundByTest } from '@modules/knowledge/auto';
+import { relatedContext } from '@modules/omnicontext/context';
+import { listExports } from '@utils/imports';
 import { detectTestSetup, testFileFor, isTestableSource, installHint, runnerMissingHint } from './framework';
 import type { TestSetup } from './framework';
 import { buildGeneratePrompt, buildFixPrompt, parseTestAnswer } from './prompt';
@@ -50,9 +52,22 @@ async function giveUp(testFile: string): Promise<void> {
   }
 }
 
+// Related code the file under test uses (types, helpers from other files), for both prompts.
+async function testContext(target: TestTarget): Promise<string> {
+  const imports = target.source
+    .split('\n')
+    .filter((line) => /^\s*import\b/.test(line))
+    .join('\n');
+  return relatedContext(`${target.sourceFile}\n${listExports(target.source).join(' ')}\n${imports}`, {
+    excludeFiles: [target.sourceFile, target.testFile],
+    limit: 3,
+  });
+}
+
 async function generateAndRun(target: TestTarget, setup: TestSetup): Promise<void> {
+  const projectContext = await testContext(target);
   console.log(`\n🧪 Gerando teste para ${target.sourceFile} (${setup.framework}${setup.example ? `, estilo de ${setup.example.file}` : ''})...`);
-  const first = parseTestAnswer(await askLocal('test', buildGeneratePrompt(target, setup), AI_OPTIONS));
+  const first = parseTestAnswer(await askLocal('test', buildGeneratePrompt(target, setup, projectContext), AI_OPTIONS));
   if (!first.code) {
     console.log('⚠️  A IA não devolveu um arquivo de teste. Tente de novo.');
     await recordOutcome('test', 'rejected');
@@ -84,7 +99,7 @@ async function generateAndRun(target: TestTarget, setup: TestSetup): Promise<voi
     if (attempt === MAX_ATTEMPTS) break;
 
     console.log('🔧 Pedindo a correção à IA...');
-    const fixed = parseTestAnswer(await askLocal('test', buildFixPrompt(target, setup, code, run.output), AI_OPTIONS));
+    const fixed = parseTestAnswer(await askLocal('test', buildFixPrompt(target, setup, code, run.output, projectContext), AI_OPTIONS));
 
     // A real bug: keep the failing test as evidence instead of bending it to pass.
     if (fixed.bug) {

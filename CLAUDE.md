@@ -218,7 +218,7 @@ Never use arrow functions for top-level exported functions.
 
 ## OmniContext (local RAG)
 
-`src/rag/` is isolated: modules use only `indexFolder` / `search` / `hasIndex` from `@rag/index`. Embeddings go through `@ai/embeddings` (Ollama, never the cloud). The default store is the built-in `FileStore`; another backend must implement `VectorStore`. Never index what the guard blocks (`listIndexableFiles` / `readWithoutSecrets`). The `ask` task is local only (`CLOUD_MAP.ask = []`).
+`src/rag/` is isolated: modules use only `indexFolder` / `search` / `hasIndex` from `@rag/index`. Embeddings go through `@ai/embeddings` (Ollama, never the cloud). The default store is the built-in `FileStore`; another backend must implement `VectorStore`. Never index what the guard blocks (`listIndexableFiles` / `readWithoutSecrets`). The `ask` task is local only (`CLOUD_MAP.ask = []`). Prompts that benefit from the rest of the code base get it through `relatedContext(query, { exclude, excludeFiles })` from `@modules/omnicontext/context` (returns `''` when unavailable; never make a module depend on it).
 
 ## Automatic fixes (kvasir watch)
 

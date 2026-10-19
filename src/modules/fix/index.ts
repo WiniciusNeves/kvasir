@@ -16,7 +16,8 @@ import { noteFixedError, noteBatchFix, noteInvestigation, recentErrorOccurrences
 import { readNote } from '@modules/knowledge/notes';
 import { ensureBackup, undoLastFix } from './backup';
 import type { FixBackup } from './backup';
-import { splitFile, applyDeterministicFix, buildNumberedSnippet, buildLineFixPrompt, parseCorrectedLine, DETERMINISTIC_FIXES, COMPLEX_CODES } from './line';
+import { splitFile, applyDeterministicFix, buildNumberedSnippet, buildLineFixPrompt, lineFixContextQuery, parseCorrectedLine, DETERMINISTIC_FIXES, COMPLEX_CODES } from './line';
+import { relatedContext } from '@modules/omnicontext/context';
 import { resolveLocalImports, readTsconfigText, findFilesNamedLike, isResolvableImport } from '@utils/imports';
 
 const MAX_INVESTIGATION_ROUNDS = 3;
@@ -95,7 +96,11 @@ async function readErrorInput(): Promise<string> {
 
 
 async function askLineFix(diagnostic: TscDiagnostic, lines: string[], mode: FixMode): Promise<string | null> {
-  const prompt = buildLineFixPrompt(diagnostic, lines, { knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT) });
+  const { query, shown } = lineFixContextQuery(diagnostic, lines);
+  const prompt = buildLineFixPrompt(diagnostic, lines, {
+    knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT),
+    projectContext: await relatedContext(query, { exclude: [shown] }),
+  });
   const options = { temperature: 0, maxTokens: LINE_FIX_MAX_TOKENS };
   const response = mode === 'interactive' ? await askFor('fix', prompt, options) : await askLocal('fix', prompt, options);
 
