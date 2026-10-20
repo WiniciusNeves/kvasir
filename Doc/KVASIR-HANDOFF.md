@@ -329,6 +329,24 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 
 **Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
 
+## Atualizações do Dependabot (2026-10-20, branches `chore/zod-4` e `chore/node22-esm-deps`)
+
+O Dependabot abriu 7 PRs logo que foi ligado. O CI só compila e roda `--help`, então cada major foi lido no changelog e testado de verdade (Node 24, Windows).
+
+| PR | Decisão | Por quê |
+|---|---|---|
+| #14 zod 3 → 4 | ✅ aplicado em `chore/zod-4` (substitui o #14) | Continua com build CommonJS. Mesmo resultado do zod 3 para `kvasir.context.md` válido e inválido (mensagem com o que falta), personas válidas e inválidas (chave a mais ignorada como antes) e respostas do Planner (id numérico → texto, `status` padrão `?`, formato errado → erro). Só mudam os textos padrão do zod ("Too small: expected array to have >=1 items"). `{ message }` (deprecado no v4) virou `{ error }` |
+| #11 commander 12 → 15 e #12 @inquirer/prompts 7 → 8 | ✅ aplicados juntos em `chore/node22-esm-deps` (substitui os dois) | Os dois só publicam ESM e exigem Node 22.12 / `^22.13.0`; no Node 18 do CI quebram (`ERR_REQUIRE_ESM`). O projeto continua CommonJS e carrega os dois por `require(esm)`, e o mínimo vai para Node 22.13 (18 e 20 já saíram de suporte; o `clipboardy` 5 já exigia 20). Ver `kvasir-decisions.md` |
+| #13 axios 1.19 → 1.20 | ✅ pode mergear como está | Minor, CI verde |
+| #8 actions/checkout 4 → 7, #9 actions/setup-node 4 → 7 | ✅ podem mergear como estão | As versões existem (o CI rodou com elas, verde nos 4 jobs) |
+| #10 dev-dependencies | ❌ não mergear | TypeScript 7 (a versão nativa) removeu `moduleResolution: node` e `baseUrl`: o typecheck falha no `tsconfig.json`. Migrar é trabalho próprio (`moduleResolution` novo, `paths` relativos, conferir `tsc-alias` e o `ts-node` do `npm run dev`, que usa a API JS do TypeScript). `@types/node` 26 também não combina com o mínimo do `engines`: deveria seguir o Node 22 |
+
+**Testado no commander 15 + inquirer 8** (comparando com o 12/7 no mesmo build): help de todos os 77 comandos e subcomandos igual (só a quebra de linha mudou); `keys status`, `persona list`, `persona show default`, `watch -- node -e …` (código 0 e 3, flags depois do segundo `--`), `watch node -e …` sem `--`, `stats --no-open --days 7`, `models --cloud maybe`, erro de digitação (`persna list` → sugestão), argumento obrigatório faltando; `--no-open` e `--no-guard` continuam `true` por padrão e `false` com a flag; todos os prompts do `@utils/prompt` com teclas simuladas (confirm sim/não, select com seta, input com valor e com padrão, checkbox, expand, password) e Ctrl+C ainda dá `ExitPromptError`. Não testado: `editor()` (abre o editor) e rodar no Node 22.13 em si (o CI cobre o carregamento: o `--help` importa todos os módulos).
+
+**Mudança de comportamento:** commander 13+ recusa argumento a mais. `kvasir commit extra` antes ignorava o `extra` e seguia para o prompt do `git add .`; agora para com "too many arguments". Isso expôs um bug antigo: `kvasir knowledge search react hooks` buscava só "react" (e o intent separa a resposta do modelo por espaço); o `search` agora aceita a frase.
+
+**Para o autor:** o ruleset da `main` exige o check `build (ubuntu-latest, node 18)`, que deixa de existir no PR do Node 22.13. Trocar no ruleset por `build (ubuntu-latest, node 22.13)` antes de mergear esse PR. Depois de mergear os PRs que substituem o #11, #12 e #14, fechar os três do Dependabot (ou ele fecha sozinho quando a versão chega na `main`).
+
 ## Configuração de projeto open source (2026-10-20, branch `chore/open-source-setup`)
 
 A pedido do autor ("como é open source, tem que configurar as regras"). Antes não existia `.github/`: push direto na `main`, nada verificado, nenhum guia.
