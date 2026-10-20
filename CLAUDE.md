@@ -144,7 +144,7 @@ export function getDiff(): string {
 
 | Use | Function | Notes |
 |---|---|---|
-| **Default** | `askFor(task, prompt, opts?)` | Claude picks a model from the installed ones in `MODEL_MAP[task]` (clipboard), Ollama runs with fallback + 120s timeout, Claude validates (clipboard). `opts`: `maxTokens`, `temperature` |
+| **Default** | `askFor(task, prompt, opts?)` | Candidates ranked by measured performance (cloud if allowed, then `MODEL_MAP[task]`), fallback + timeouts; Claude validates via clipboard only while the answering model has not earned trust (5+ verdicts, 80%+; `ai.claudeValidation`). `opts`: `maxTokens`, `temperature` |
 | Batch / fast, no orchestration | `askLocal(task, prompt, opts?)` | First installed model of `MODEL_MAP[task]` with fallback, no clipboard (`doc --code`, `fix` expansion) |
 | Raw | `askOllama(prompt, { model })` | Used by the router. Prefer `askLocal`; if you call it, pass `model` explicitly (default is `codellama`) |
 | Claude only | `promptAI(prompt)` | Prompt goes to the clipboard; the user copies Claude's answer and presses Enter (read back from the clipboard, multi-line safe) |

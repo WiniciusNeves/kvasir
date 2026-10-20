@@ -6,6 +6,7 @@ import { cleanAnswer, truncateForPrompt } from '@ai/parse';
 import { confirm } from '@utils/prompt';
 import { writeFile } from '@utils/fs';
 import { loadContext } from '@modules/init/ensure';
+import { projectDocsDir } from './folder';
 
 interface NpmRepository {
   type?: string;
@@ -148,7 +149,7 @@ export async function runDoc(libraryName: string): Promise<void> {
     })
   );
 
-  const projectDocPath = `DOC/libs/${toLibFileName(libraryName)}`;
+  const projectDocPath = `${projectDocsDir()}/libs/${toLibFileName(libraryName)}`;
   const knowledgePath = getNotePath('libs', libraryName);
 
   console.log(`\nIsso vai salvar a documentação em:`);

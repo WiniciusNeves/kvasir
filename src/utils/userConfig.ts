@@ -12,6 +12,8 @@ export interface AiSettings {
   groqModel?: string;
   // kvasir watch: 1 = asks before applying a fix · 2 (default) = fixes, validates and undoes on its own
   autonomy?: 1 | 2;
+  // Claude (clipboard) validating askFor answers: auto = only until the model earns trust (default)
+  claudeValidation?: 'auto' | 'always' | 'never';
 }
 
 // Swaps an agent's models without touching modules (kvasir agents). Names match ai/agents.ts.

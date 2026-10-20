@@ -59,17 +59,17 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 
 | # | Problema | Onde | Sugestão |
 |---|---|---|---|
-| 1 | Cada `askFor` exige **2 idas ao clipboard** (Claude escolhe o modelo + Claude valida). Um `commit` simples vira copiar/colar duas vezes | `src/ai/router.ts` | Escolher o modelo pelo `MODEL_MAP` (primeiro instalado) por padrão, deixar validação opcional (`--validate`) ou só para `fix`/`architect` |
-| 2 | `kvasir models` mostra o "modelo ativo" como o primeiro instalado, mas quem decide na prática é o Claude no passo de orquestração | `models/index.ts` × `router.ts` | Se resolver o #1, os dois passam a bater |
+| 1 | ✅ resolvido (2026-10-20): o `askFor` não pede mais ao Claude para escolher o modelo (o ranking de desempenho escolhe) e só pede a validação enquanto o modelo que respondeu não provou que acerta naquela tarefa (5+ avaliações com 80%+). Um `commit`: de 2 idas ao clipboard para 1 no começo e 0 depois. `ai.claudeValidation`: `auto` / `always` / `never` | `src/ai/router.ts` | — |
+| 2 | ✅ resolvido (2026-10-20): sem a escolha do Claude, a ordem que o `kvasir models` mostra é a que o `askFor` usa | `models/index.ts` | — |
 | 3 | ✅ resolvido (2026-10-17): a pergunta virou "As sugestões foram úteis?" | `review/index.ts` | — |
 | 4 | ✅ resolvido (2026-10-17): `task` grava a task ativa (`setActiveTask`) e o `branch` usa e vincula a branch | `task`, `branch`, `contextWriter` | — |
 | 5 | ✅ resolvido (2026-10-17): `format` usa `runCommand` | `format/index.ts` | — |
 | 6 | ✅ resolvido (2026-10-17): `doc --code` usa `askLocal('doc')` (llama3.2) | `doc/code.ts` | — |
-| 7 | Mensagens em inglês só no `doc --code` (o resto foi traduzido em 2026-10-17) | `doc/code.ts` | Traduzir |
-| 8 | `activeModules` ainda é uma lista fixa no `init` (atualizada em 2026-10-17 com todos os módulos) | `init/index.ts` | Gerar a partir dos comandos registrados |
-| 9 | Pasta de saída é `DOC/` (maiúsculo), mas este repo usa `Doc/`. No Windows é a mesma pasta; no Mac/Linux são diferentes | `doc/` | Padronizar um nome |
-| 10 | `kvasir.context.md` é parseado com regex; se o formato mudar à mão, quebra em silêncio | `contextWriter.ts` | Validar com `zod` (já é dependência) |
-| 11 | `branch`: o menu pós-branch e `-d` não foram retestados depois que os helpers do git passaram a conferir o `status` (a criação com task ativa foi testada) | `branch/index.ts` | Testar |
+| 7 | ✅ resolvido (2026-10-20): mensagens do `doc --code` em português | `doc/code.ts` | — |
+| 8 | ✅ resolvido (2026-10-20): `activeModules` sai do catálogo de comandos (`commandNames()`): comando novo aparece sem mexer no `init` | `init/index.ts`, `menu/catalog.ts` | — |
+| 9 | ✅ resolvido (2026-10-20): o `doc` grava na pasta de documentação que o projeto já tem, com a grafia real (`Doc/`, `docs/`…; padrão `Doc/`) | `doc/folder.ts` | — |
+| 10 | ✅ resolvido (2026-10-20): o `kvasir.context.md` é validado com zod depois de lido; campo apagado à mão vira erro dizendo o que falta, em vez de "" silencioso | `contextWriter.ts` | — |
+| 11 | ✅ resolvido (2026-10-20): retestado em repositório descartável: criar branch, listar ("(nenhuma)" sem remoto), apagar mergeada, forçar não mergeada depois de perguntar, voltar para a anterior | `branch/index.ts` | — |
 
 ---
 

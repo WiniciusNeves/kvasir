@@ -1,3 +1,4 @@
+import { commandNames } from '@modules/menu/catalog';
 import path from 'path';
 import { detectStack, readPackageName } from './detector';
 import { loadPersona, listPersonas, getKvasirHome, findPersonaForPackage } from './personaLoader';
@@ -14,8 +15,6 @@ interface PackageJson {
 }
 
 const NO_PERSONA = '__none__';
-const ACTIVE_MODULES = ['branch', 'commit', 'guard', 'fix', 'review', 'test', 'pr', 'daily', 'release', 'doc', 'task', 'knowledge', 'doctor'];
-
 // The persona matched by the package name (its "match" field) comes first; any other can be picked.
 async function choosePersona(detected: string | null): Promise<string | null> {
   const personas = await listPersonas();
@@ -76,7 +75,8 @@ export async function runInit(): Promise<void> {
       language: persona.commitRules.language,
       format: persona.commitRules.format,
     },
-    activeModules: ACTIVE_MODULES,
+    // from the command catalog: a new command shows up here without editing init
+    activeModules: commandNames(),
     activeTask: await readExistingTask(),
     summary: `${projectName} (${persona.name}) — stack: ${stack.join(', ')}`,
   };

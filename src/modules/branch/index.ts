@@ -207,6 +207,7 @@ export async function runListBranches(): Promise<void> {
   local.forEach((branch) => console.log(`  ${branch}`));
 
   console.log('\nBranches remotas:');
+  if (remote.length === 0) console.log('  (nenhuma)');
   remote.forEach((branch) => console.log(`  ${branch}`));
 }
 

@@ -121,6 +121,11 @@ export const SUBMENUS: Record<string, CatalogGroup> = {
   },
 };
 
+// Every command the user can run (kvasir.context.md lists them as the project's active modules).
+export function commandNames(): string[] {
+  return [...new Set([...MAIN_MENU, ...Object.values(SUBMENUS)].flatMap((group) => group.entries).map((entry) => entry.argv[0]))];
+}
+
 export function allEntries(): CatalogEntry[] {
   return [...MAIN_MENU, ...Object.values(SUBMENUS)].flatMap((group) => group.entries).filter((entry) => !entry.submenu);
 }

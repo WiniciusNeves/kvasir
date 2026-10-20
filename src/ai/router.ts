@@ -59,7 +59,6 @@ export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
 // and a weaker fallback answered silently instead.
 const REQUEST_TIMEOUT_MS = 120_000;
 const CLOUD_TIMEOUT_MS = 60_000;
-const CONTEXT_FILE = 'kvasir.context.md';
 
 export interface AskForOptions {
   maxTokens?: number;
@@ -252,33 +251,6 @@ async function runWithFallback(
 // Prompts around the executor
 // ---------------------------------------------------------------------------
 
-async function getProjectArchitecture(): Promise<string> {
-  const content = await readFile(CONTEXT_FILE);
-  return content ?? '(kvasir.context.md não encontrado — rode "kvasir init")';
-}
-
-function buildOrchestratorPrompt(task: AiTask, prompt: string, architecture: string, ranked: RankedCandidate<Candidate>[]): string {
-  const labels = ranked.map((item) => `- ${item.candidate.label}: ${item.reason}`).join('\n');
-  return `Você é o orquestrador. Analise e decida qual modelo usar. Depois valide o resultado antes de retornar.
-
-Tarefa: ${task}
-Agente responsável: ${agentForTask(task).label} (${agentForTask(task).role}). A tarefa é só dele: escolha entre os modelos deste agente.
-
-Arquitetura do projeto (kvasir.context.md):
-${architecture}
-
-Modelos disponíveis para esta tarefa, já ordenados pelo desempenho medido neste PC (os com "/" estão na nuvem; os outros, no Ollama local):
-${labels}
-
-Analise a tarefa e o prompt abaixo e decida qual desses modelos é o mais adequado para executá-la. Prefira o primeiro, a menos que a tarefa peça claramente outro.
-
-Responda APENAS com uma linha no formato:
-MODELO: <nome-do-modelo>
-
-Tarefa/erro e prompt que será enviado ao modelo escolhido:
-${prompt}`;
-}
-
 function buildValidationPrompt(task: AiTask, prompt: string, model: string, result: string): string {
   return `Você é o orquestrador, validando o resultado de um modelo antes de retorná-lo.
 
@@ -292,17 +264,6 @@ Resultado retornado pelo modelo:
 ${result}
 
 Valide se o resultado está correto e completo para a tarefa. Se estiver correto, responda com o resultado final. Se houver problemas, corrija e responda apenas com o resultado final já corrigido. Responda APENAS com o resultado final, sem explicações sobre a validação.`;
-}
-
-function extractChosen(decision: string, candidates: Candidate[]): Candidate {
-  const match = decision.match(/MODELO:\s*(\S+)/i);
-  const chosen = match ? match[1].replace(/[`'"*]/g, '').trim() : null;
-
-  if (chosen) {
-    const known = candidates.find((candidate) => candidate.label === chosen || matchesModel(chosen, candidate.model));
-    if (known) return known;
-  }
-  return candidates[0];
 }
 
 // profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
@@ -338,20 +299,38 @@ async function buildAgentPrompt(task: AiTask, basePrompt: string): Promise<strin
 // Public API
 // ---------------------------------------------------------------------------
 
-// Claude (clipboard) picks the candidate and validates the result.
+// Claude (clipboard) as the validator, only while the model that answered has not earned trust
+// in this task. The model is chosen by measured performance (no round trip): before, every askFor
+// cost two copy-and-paste trips (choose + validate), even for a commit message.
+const TRUST_MIN_VERDICTS = 5;
+const TRUST_MIN_APPROVAL = 0.8;
+
+export type ClaudeValidationMode = 'auto' | 'always' | 'never';
+
+function trustReason(stats: { approved: number; rejected: number }): string | null {
+  const verdicts = stats.approved + stats.rejected;
+  if (verdicts < TRUST_MIN_VERDICTS) return null;
+  const approval = stats.approved / verdicts;
+  return approval >= TRUST_MIN_APPROVAL ? `aprovação ${Math.round(approval * 100)}% em ${verdicts} avaliações` : null;
+}
+
 export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const ranked = await resolveCandidates(task);
-  const candidates = ranked.map((item) => item.candidate);
   const prompt = await buildAgentPrompt(task, basePrompt);
+  const mode: ClaudeValidationMode = (await readUserConfig()).ai?.claudeValidation ?? 'auto';
+  const statsByLabel = new Map(ranked.map((item) => [item.candidate.label, item.stats]));
 
-  const architecture = await getProjectArchitecture();
-  const decision = await promptAI(buildOrchestratorPrompt(task, prompt, architecture, ranked), { task, role: 'orchestrator' });
-  const chosen = extractChosen(decision, candidates);
-  const ordered = [chosen, ...candidates.filter((candidate) => candidate !== chosen)];
-
-  return runWithFallback(task, ordered, prompt, options, (label, result) =>
-    promptAI(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' })
-  );
+  return runWithFallback(task, ranked.map((item) => item.candidate), prompt, options, async (label, result) => {
+    const stats = statsByLabel.get(label);
+    const trusted = stats ? trustReason(stats) : null;
+    if (mode === 'never' || (mode === 'auto' && trusted)) {
+      if (mode === 'auto') console.log(`✔ ${label} já é confiável em "${task}" (${trusted}): sem validação do Claude.`);
+      return result;
+    }
+    if (mode === 'always') console.log('🔎 Validação do Claude (ai.claudeValidation: always).');
+    else console.log(`🔎 Validação do Claude: ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação).`);
+    return promptAI(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' });
+  });
 }
 
 // No Claude round trips: cloud provider of the task (if allowed), then the local chain.

@@ -235,6 +235,14 @@
 
 ---
 
+## Claude valida só até o modelo provar que acerta
+
+**Decisão:** O `askFor` não pergunta mais ao Claude qual modelo usar (o ranking de desempenho decide) e só pede a validação do Claude enquanto o modelo que respondeu não tem 5+ avaliações com 80%+ de aprovação naquela tarefa. `ai.claudeValidation`: `auto` (padrão), `always`, `never`.
+
+**Por quê:** Cada `askFor` custava duas idas ao clipboard, até para uma mensagem de commit ("zero token desperdiçado"). A escolha do modelo já tem dado real (onda C). A validação continua onde ainda não há confiança, o mesmo critério das sugestões proativas: autonomia que cresce com a prova.
+
+---
+
 ## Contexto do projeto nos prompts: opcional e sem watcher obrigatório
 
 **Decisão:** `fix`, `watch`, `review` e `test` recebem trechos de código relacionados quando o projeto está indexado; sem índice, nada muda. O índice se atualiza sozinho (só o que mudou, no máximo a cada 30 s) na hora de buscar; `kvasir index --watch` é opcional. `rag.context: false` desliga.
