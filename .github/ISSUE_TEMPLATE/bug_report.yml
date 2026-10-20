@@ -1,0 +1,39 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! **Falha de segurança não vai aqui:** veja o SECURITY.md (reporte privado).
+        Nunca cole chaves de API, tokens ou código da sua empresa nesta issue.
+  - type: input
+    id: command
+    attributes:
+      label: Comando
+      description: Qual comando você rodou?
+      placeholder: kvasir watch -- npm run dev
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: O que aconteceu
+      description: O que você esperava e o que aconteceu. Cole a saída do terminal (sem segredos).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. ...
+        2. ...
+  - type: input
+    id: environment
+    attributes:
+      label: Ambiente
+      description: Sistema operacional, versão do Node, do Kvasir e modelos do Ollama (a saída do `kvasir doctor` ajuda)
+      placeholder: Windows 11, Node 22, qwen2.5-coder
+    validations:
+      required: true
