@@ -2,6 +2,8 @@
   "name": "kvasir",
   "version": "0.1.0",
   "description": "Kvasir — modular productivity ecosystem CLI for developers",
+  "author": "WiniciusNeves",
+  "license": "MIT",
   "type": "commonjs",
   "main": "dist/cli/index.js",
   "bin": {

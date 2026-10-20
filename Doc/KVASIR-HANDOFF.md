@@ -164,7 +164,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | **13 Infra/produto** | GitHub, contexto entre IAs (adapters), personas criar/listar/remover | ✅ | — | — |
 | | `kvasir setup` / instalador | ❌ | `doctor` | M |
 | | `~/.kvasir` sincronizado, servidor 24h + Tailscale | ❌ | — | B |
-| | LICENSE | ❌ | decisão do autor | B |
+| | LICENSE | ✅ MIT © WiniciusNeves (2026-10-20) | — | — |
 | **14 Tarefas** | Task ativa ↔ branch ↔ contexto, `kvasir start` | ✅ | — | — |
 | | Microsoft Planner real (Graph API + OAuth) | 🟡 hoje é um GET genérico | conta Microsoft | M |
 | | Task manager próprio da empresa | ❌ | API da empresa | M |
