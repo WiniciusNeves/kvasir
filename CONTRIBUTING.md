@@ -45,7 +45,7 @@ A `main` é protegida por um ruleset do GitHub. As regras valem para **todo mund
 | Regra | O que significa |
 |---|---|
 | Só por pull request | Ninguém faz `git push` direto na `main`; toda mudança chega por um PR |
-| CI obrigatório | O merge só é liberado quando as 4 checagens passam: `build (ubuntu-latest, node 18)`, `build (ubuntu-latest, node 22)`, `build (windows-latest, node 22)` e `build (macos-latest, node 22)` (cada uma roda `npm ci`, `typecheck`, `build` e `kvasir --help`) |
+| CI obrigatório | O merge só é liberado quando as 4 checagens passam: `build (ubuntu-latest, node 22.13)`, `build (ubuntu-latest, node 22)`, `build (windows-latest, node 22)` e `build (macos-latest, node 22)` (cada uma roda `npm ci`, `typecheck`, `build` e `kvasir --help`) |
 | Só merge commit | Squash e rebase estão desligados: o histórico guarda cada commit como foi feito (a documentação cita IDs de commit) |
 | Sem force push | Ninguém reescreve o histórico da `main` |
 | Sem exclusão | Ninguém apaga a `main` |
