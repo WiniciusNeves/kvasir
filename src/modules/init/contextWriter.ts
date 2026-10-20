@@ -63,7 +63,7 @@ function extractListItem(markdown: string, section: string): string {
 
 // The file is markdown and people edit it by hand: a field lost in an edit used to become "" silently
 // (a branch without prefix, a commit in the wrong language). Now it fails with what is missing.
-const required = (field: string) => z.string().min(1, { message: field });
+const required = (field: string) => z.string().min(1, { error: field });
 const ContextSchema = z.object({
   project: z.object({ name: required('Project → name'), type: z.string(), stack: z.array(z.string()), persona: required('Project → persona') }),
   developer: z.object({ profile: z.string() }),
