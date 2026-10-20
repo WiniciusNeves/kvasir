@@ -24,7 +24,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js >= 18 |
+| Runtime | Node.js >= 22.13 (commander 15 and @inquirer/prompts 8 are ESM-only, loaded through `require(esm)`) |
 | Language | TypeScript (strict, `noUnusedLocals`, `noImplicitReturns`) |
 | CLI | commander |
 | Prompts | @inquirer/prompts (wrapped in `@utils/prompt`) |

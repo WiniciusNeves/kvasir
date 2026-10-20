@@ -89,7 +89,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 
 **Requisitos**
 
-- Node.js >= 18
+- Node.js >= 22.13
 - Git
 - [Ollama](https://ollama.com) rodando em `http://localhost:11434`
 - VS Code (o `kvasir fix` abre o diff com o comando `code`)

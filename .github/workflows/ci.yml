@@ -22,9 +22,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node: [22]
         include:
-          # package.json promises "node": ">=18"
+          # the oldest Node that package.json "engines" accepts (commander 15 and @inquirer/prompts 8 need require(esm))
           - os: ubuntu-latest
-            node: 18
+            node: "22.13"
     steps:
       - uses: actions/checkout@v4
 
