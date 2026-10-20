@@ -23,7 +23,7 @@ export interface GraphData {
 
 const EXCERPT_CHARS = 700;
 // tags every note gets automatically: they would connect everything to everything
-const GENERIC_TAGS = new Set(['kvasir', 'libs', 'patterns', 'decisions', 'tasks', 'commits', 'errors', 'agents']);
+const GENERIC_TAGS = new Set(['kvasir', 'libs', 'patterns', 'decisions', 'tasks', 'commits', 'errors', 'agents', 'answers']);
 
 function linkTargets(body: string): string[] {
   return [...body.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)].map((match) => match[1].trim());
@@ -113,8 +113,8 @@ label { font-size: 13px; color: var(--muted); }
 <script>
 (function () {
   var data = JSON.parse(document.getElementById('kvasir-data').textContent);
-  var COLORS = { libs: '#7c9cff', patterns: '#4fd1c5', decisions: '#ecc94b', tasks: '#ed8936', commits: '#9f7aea', errors: '#f56565', agents: '#48bb78', tag: '#718096' };
-  var NAMES = { libs: 'bibliotecas', patterns: 'padrões', decisions: 'decisões', tasks: 'tasks', commits: 'commits', errors: 'erros', agents: 'agentes', tag: 'tag' };
+  var COLORS = { libs: '#7c9cff', patterns: '#4fd1c5', decisions: '#ecc94b', tasks: '#ed8936', commits: '#9f7aea', errors: '#f56565', agents: '#48bb78', answers: '#f687b3', tag: '#718096' };
+  var NAMES = { libs: 'bibliotecas', patterns: 'padrões', decisions: 'decisões', tasks: 'tasks', commits: 'commits', errors: 'erros', agents: 'agentes', answers: 'respostas', tag: 'tag' };
   var canvas = document.getElementById('graph'), ctx = canvas.getContext('2d');
   var styles = getComputedStyle(document.documentElement);
   var info = document.getElementById('info');

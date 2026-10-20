@@ -171,7 +171,7 @@ export function getDiff(): string {
 
 ## Global data (`~/.kvasir/`)
 
-`profile.md` · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents}/`)
+`profile.md` · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents,answers}/`) · `index/` (OmniContext indexes, regenerable)
 
 **Knowledge:** write notes only through `saveNote` (`@modules/knowledge/notes`) or the helpers in `@modules/knowledge/auto`; never `writeFile` into the vault directly.
 
@@ -218,7 +218,7 @@ Never use arrow functions for top-level exported functions.
 
 ## OmniContext (local RAG)
 
-`src/rag/` is isolated: modules use only `indexFolder` / `search` / `hasIndex` from `@rag/index`. Embeddings go through `@ai/embeddings` (Ollama, never the cloud). The default store is the built-in `FileStore`; another backend must implement `VectorStore`. Never index what the guard blocks (`listIndexableFiles` / `readWithoutSecrets`). The `ask` task is local only (`CLOUD_MAP.ask = []`).
+`src/rag/` is isolated: modules use only `indexFolder` / `search` / `hasIndex` from `@rag/index`. Embeddings go through `@ai/embeddings` (Ollama, never the cloud). The default store is the built-in `FileStore`; another backend must implement `VectorStore`. Never index what the guard blocks (`listIndexableFiles` / `readWithoutSecrets`). The `ask` task is local only (`CLOUD_MAP.ask = []`). Prompts that benefit from the rest of the code base get it through `relatedContext(query, { exclude, excludeFiles })` from `@modules/omnicontext/context` (returns `''` when unavailable; never make a module depend on it).
 
 ## Automatic fixes (kvasir watch)
 

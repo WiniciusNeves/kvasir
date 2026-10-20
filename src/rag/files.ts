@@ -12,7 +12,9 @@ const TEXT_EXTENSIONS = new Set([
   '.py', '.java', '.kt', '.swift', '.go', '.rs', '.rb', '.php', '.cs', '.dart', '.vue', '.svelte',
   '.css', '.scss', '.sql', '.prisma', '.graphql', '.sh', '.txt',
 ]);
-const IGNORED_DIRS = /(^|\/)(node_modules|dist|build|out|coverage|\.git|\.next|\.expo|\.turbo|\.cache|android\/app\/build|ios\/Pods)\//;
+// .kvasir: Kvasir's own data (backups, indexes) must never feed the index, wherever it is
+const IGNORED_DIRS = /(^|\/)(node_modules|dist|build|out|coverage|\.git|\.next|\.expo|\.turbo|\.cache|\.kvasir|android\/app\/build|ios\/Pods)\//;
+const IGNORED_FILES_EXTRA = /\.kvasir-original\./;
 const IGNORED_FILES = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$|\.min\.(js|css)$|\.map$/;
 const MAX_FILE_BYTES = 200_000;
 
@@ -35,12 +37,13 @@ function walk(root: string, dir: string = root, files: string[] = []): string[] 
   return files;
 }
 
-export function listIndexableFiles(root: string): string[] {
-  const all = gitFiles(root) ?? walk(root);
+// `exclude`: relative paths to leave out (the knowledge vault's generated index.md is only a list of links).
+export function listIndexableFiles(root: string, exclude: string[] = []): string[] {
+  const all = (gitFiles(root) ?? walk(root)).filter((file) => !exclude.includes(file));
   const blocked = new Set(checkStagedFiles(all).map((finding) => finding.filePath));
 
   return all.filter((file) => {
-    if (blocked.has(file) || IGNORED_DIRS.test(file) || IGNORED_FILES.test(file)) return false;
+    if (blocked.has(file) || IGNORED_DIRS.test(file) || IGNORED_FILES.test(file) || IGNORED_FILES_EXTRA.test(file)) return false;
     if (!TEXT_EXTENSIONS.has(path.extname(file).toLowerCase())) return false;
     try {
       const stat = fs.statSync(path.join(root, file));

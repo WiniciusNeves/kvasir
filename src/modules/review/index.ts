@@ -9,6 +9,7 @@ import { confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { markDiffReviewed } from '@modules/proactive/suggestions';
+import { relatedContext } from '@modules/omnicontext/context';
 import type { KvasirContext } from '@ktypes/context';
 
 const MAX_REVIEW_LINES = 150;
@@ -30,7 +31,7 @@ function selectReviewLines(diff: string): ReviewLine[] {
     .map((line, index) => ({ ...line, id: `L${index + 1}` }));
 }
 
-function buildReviewPrompt(context: KvasirContext, lines: ReviewLine[]): string {
+function buildReviewPrompt(context: KvasirContext, lines: ReviewLine[], projectContext = ''): string {
   const listing = lines.map((line) => `${line.id} ${line.filePath}:${line.lineNumber} | ${line.text}`).join('\n');
 
   return `Você é um revisor de código sênior em ${context.project.stack.join(', ') || 'TypeScript'}. Projeto: ${context.summary}
@@ -38,7 +39,7 @@ function buildReviewPrompt(context: KvasirContext, lines: ReviewLine[]): string 
 Abaixo estão as linhas ADICIONADAS num commit. Cada uma tem um identificador (L1, L2...), o arquivo e o número da linha.
 
 ${listing}
-
+${projectContext ? `\n${projectContext}\nUse esses trechos só para conferir assinaturas, tipos e nomes usados nas linhas adicionadas.\n` : ''}
 Analise cada linha, uma por uma. Para CADA identificador escreva exatamente uma linha de resposta:
 <id>: OK
 ou
@@ -99,7 +100,9 @@ export async function runReview(): Promise<void> {
     console.log(`(revisando ${lines.length} linhas; linhas vazias/só com chaves e o que passou de ${MAX_REVIEW_LINES} ficaram de fora)`);
   }
 
-  const response = await askFor('review', buildReviewPrompt(context, lines), {
+  const changedFiles = [...new Set(lines.map((line) => line.filePath))];
+  const projectContext = await relatedContext(lines.map((line) => line.text.trim()).join('\n').slice(0, 1500), { excludeFiles: changedFiles });
+  const response = await askFor('review', buildReviewPrompt(context, lines, projectContext), {
     temperature: 0.1,
     repeatPenalty: 1.1,
     maxTokens: Math.max(400, lines.length * TOKENS_PER_LINE),

@@ -7,7 +7,8 @@ import type { TscDiagnostic } from '@utils/typecheck';
 import { noteFixedError, knownFixesFor } from '@modules/knowledge/auto';
 import { ensureBackup, attachCallToBackup } from './backup';
 import type { FixBackup } from './backup';
-import { splitFile, applyDeterministicFix, buildLineFixPrompt, parseCorrectedLine, COMPLEX_CODES } from './line';
+import { splitFile, applyDeterministicFix, buildLineFixPrompt, lineFixContextQuery, parseCorrectedLine, COMPLEX_CODES } from './line';
+import { relatedContext } from '@modules/omnicontext/context';
 import type { LineFixContext } from './line';
 import { hidingReason, compareDiagnostics, runRelatedTests } from './validate';
 
@@ -66,7 +67,11 @@ export async function autoFixDiagnostic(
   const complex = COMPLEX_CODES.test(diagnostic.code) && !applyDeterministicFix(oldLine, diagnostic);
   if (complex) return { status: 'skipped', reason: 'erro complexo (a causa costuma estar fora da linha): rode "kvasir fix" para investigar', attempts: 0 };
 
-  const context: LineFixContext = { knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT) };
+  const { query, shown } = lineFixContextQuery(diagnostic, lines);
+  const context: LineFixContext = {
+    knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT),
+    projectContext: await relatedContext(query, { exclude: [shown] }),
+  };
   let lastReason = 'nenhuma tentativa';
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {

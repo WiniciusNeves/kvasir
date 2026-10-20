@@ -26,6 +26,8 @@ export interface UserConfig {
   daily?: { repos?: string[] };
   ai?: AiSettings;
   agents?: Record<string, AgentSettings>;
+  // OmniContext: context: false stops fix/review/test/watch from adding related project code to prompts
+  rag?: { context?: boolean };
   [key: string]: unknown;
 }
 

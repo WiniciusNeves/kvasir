@@ -70,12 +70,24 @@ export interface LineFixContext {
   knownFixes?: KnownFix[];
   // the previous attempt in this run and why it was rejected (kvasir watch self-correction)
   previousAttempt?: { line: string; reason: string };
+  // related code from the rest of the project (OmniContext), already formatted
+  projectContext?: string;
 }
 
 function describeKnownFixes(fixes: KnownFix[]): string {
   if (fixes.length === 0) return '';
   const examples = fixes.map((fix) => `- erro: ${fix.message}\n  antes:  ${fix.before}\n  depois: ${fix.after}`).join('\n');
   return `\nCorreções do mesmo erro que já deram certo neste projeto (use como referência, não copie se não servir):\n${examples}\n`;
+}
+
+const SNIPPET_RADIUS = 15;
+
+// The query for related code and the part of the file the prompt already shows.
+export function lineFixContextQuery(diagnostic: TscDiagnostic, lines: string[]): { query: string; shown: { file: string; startLine: number; endLine: number } } {
+  return {
+    query: `${diagnostic.code} ${diagnostic.message}\n${lines[diagnostic.lineIndex] ?? ''}`,
+    shown: { file: diagnostic.filePath, startLine: diagnostic.lineIndex + 1 - SNIPPET_RADIUS, endLine: diagnostic.lineIndex + 1 + SNIPPET_RADIUS },
+  };
 }
 
 export function buildLineFixPrompt(diagnostic: TscDiagnostic, lines: string[], context: LineFixContext = {}): string {
@@ -96,7 +108,7 @@ ${buildNumberedSnippet(lines, diagnostic.lineIndex)}
 
 Linha ${lineNumber} atual:
 ${lines[diagnostic.lineIndex]}
-${describeKnownFixes(context.knownFixes ?? [])}${previous}
+${describeKnownFixes(context.knownFixes ?? [])}${context.projectContext ? `\n${context.projectContext}` : ''}${previous}
 REGRAS:
 - Responda SOMENTE com a linha ${lineNumber} já corrigida, dentro de um bloco \`\`\`ts
 - Uma única linha. Não repita a linha atual, não explique, não mexa em outras linhas

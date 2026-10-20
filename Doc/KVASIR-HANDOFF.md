@@ -16,7 +16,7 @@
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
 | 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1 e E2 (PR #1), E3 (PR #2), ambos mergeados |
-| 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (2026-10-18, branch `feature/omnicontext`) |
+| 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 respostas no knowledge + os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (PR #3, mergeado) · F2 ✅ (2026-10-19, branch `feature/omnicontext-f2`) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -349,6 +349,25 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 - Erros de tipo continuam primeiro: projeto que não compila não tem erro de execução útil
 
 **Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
+
+## Onda F2, parte 2: fix, watch, review e test usando o contexto do projeto (2026-10-19)
+
+Arquivos: `src/modules/omnicontext/context.ts` (`relatedContext`), `lineFixContextQuery` + `projectContext` em `fix/line.ts`, injeção em `fix/index.ts`, `fix/auto.ts`, `fix/runtime.ts`, `review/index.ts`, `test/index.ts` + `test/prompt.ts`; `kvasir index --watch`; `rag.context` no `config.json`.
+- **`relatedContext(pergunta, { exclude, excludeFiles, limit })`**: busca no índice do projeto trechos de **código** (documentação fora) que o prompt ainda não mostra e devolve um bloco "Trechos de outros arquivos do projeto…", com uma linha "🧠 Contexto do projeto: …" no console. Sem índice, sem modelo de embeddings, Ollama fora ou `rag.context: false` → vazio, nunca erro
+- **Índice sempre atual sem watcher:** antes de buscar, reindexa só o que mudou, no máximo a cada 30 s. `kvasir index --watch` reindexa 3 s depois da última mudança (ignora .git, node_modules, dist…)
+- Onde entra: `fix` e `watch` (erro de tipo: erro + linha, sem repetir o trecho ±15 linhas já mostrado), `watch` de runtime (erro + linhas do stack, sem os arquivos já mostrados), `review` (linhas adicionadas, sem os arquivos do diff; "use só para conferir assinaturas, tipos e nomes"), `test` (exports + imports do arquivo testado, nos prompts de gerar e de corrigir)
+- Dados do próprio Kvasir (`.kvasir/`, backups `*.kvasir-original.*`) nunca entram no índice
+
+**Medido** (projeto descartável, só qwen2.5-coder local): `item.price` com a interface `CartItem { unitPriceCents… }` em outro arquivo (o erro TS2339 não dá pista). **Sem contexto**: errou nas 2 tentativas, validação desfez. **Com contexto**: o prompt trouxe `src/types/cart.ts` e corrigiu na 1ª (`item.unitPriceCents`), 1 → 0 erros. O teste pegou o índice puxando backups de `.kvasir/` (perfil de teste dentro do projeto): bloqueado. `index --watch`: arquivo novo e edição reindexados, node_modules ignorado. Não testado de ponta a ponta: `review` e `test` com contexto (só a injeção no prompt, que compila).
+
+## Onda F2, parte 1: respostas do `ask` viram conhecimento (2026-10-19)
+
+A pedido do autor ("isso passa para o nosso Obsidian e HTML?"). Antes: o knowledge era só fonte do `ask`; as respostas se perdiam.
+- Resposta que **ajudou** ("A resposta ajudou?" = sim) vira nota em `knowledge/answers/<pergunta>.md` (nova categoria "Perguntas respondidas"): pergunta, resposta, fontes `arquivo:linha` e `Relacionado: [[…]]` para as notas do knowledge que ela usou. Resposta que não ajudou não é salva (não ensinar o errado). Mesma pergunta de novo substitui a nota
+- O `ask` agora atualiza também o índice do knowledge (incremental), então respostas guardadas viram fonte das próximas perguntas; o `index.md` gerado do vault fica fora do índice
+- Grafo (`knowledge show`): cor própria para respostas, ligadas às notas usadas. `kvasir stats`: card "Perguntas ao código" (quantas, quantas ajudaram) e "Perguntas respondidas recentes"
+
+**Testado** (perfil temporário com a nota `libs/zod`, Ollama local): "para que o projeto usa o zod?" → resposta citando `knowledge/libs/zod.md` e `src/integrations/planner.ts` nas fontes, nota `answers/para-que-o-projeto-usa-o-zod.md` criada com `[[libs/zod]]`; grafo com a ligação; stats 1 pergunta / 1 ajudou. Pergunta parecida depois → a resposta guardada veio como 1ª fonte; com "não ajudou" nada foi salvo.
 
 ## Onda F1: OmniContext, busca local no código e nas anotações (2026-10-18)
 

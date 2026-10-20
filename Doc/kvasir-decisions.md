@@ -235,6 +235,14 @@
 
 ---
 
+## Contexto do projeto nos prompts: opcional e sem watcher obrigatório
+
+**Decisão:** `fix`, `watch`, `review` e `test` recebem trechos de código relacionados quando o projeto está indexado; sem índice, nada muda. O índice se atualiza sozinho (só o que mudou, no máximo a cada 30 s) na hora de buscar; `kvasir index --watch` é opcional. `rag.context: false` desliga.
+
+**Por quê:** Modelos pequenos inventam nomes quando não veem a definição (medido: sem contexto o qwen errou `item.price` duas vezes; com a interface do outro arquivo no prompt, acertou na 1ª). Um watcher sempre ligado pesa na máquina; reindexar o que mudou na hora de usar dá o mesmo resultado sem processo extra.
+
+---
+
 ## OmniContext: índice próprio em vez de LanceDB/Qdrant como padrão
 
 **Decisão:** Os vetores ficam num índice próprio (int8 num arquivo, busca por força bruta), atrás de uma interface `VectorStore`. Qdrant (servidor) entra depois como opção para índice compartilhado. O `kvasir ask` é só local.

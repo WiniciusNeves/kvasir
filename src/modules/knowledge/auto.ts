@@ -252,3 +252,30 @@ export async function knownFixesFor(code: string, limit: number): Promise<KnownF
   }
   return fixes.slice(-limit);
 }
+
+export interface AnswerNote {
+  question: string;
+  answer: string;
+  // "src/cart.ts:12-40" for code, "libs/zod" for knowledge notes used as sources
+  sources: string[];
+  knowledgeNotes: string[];
+}
+
+const MAX_TITLE_CHARS = 80;
+
+// answers/<question>.md: an answer the developer said helped (kvasir ask), so the next similar
+// question finds it instead of spending tokens again. Linked to the knowledge notes it used.
+export async function noteAnswer(note: AnswerNote): Promise<void> {
+  const title = note.question.replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_CHARS);
+  const links = note.knowledgeNotes.length > 0 ? `\n\nRelacionado: ${note.knowledgeNotes.map((name) => `[[${name}]]`).join(' ')}` : '';
+  const body = [
+    `**Pergunta:** ${note.question.trim()}`,
+    '',
+    note.answer.trim(),
+    '',
+    `**Fontes** (respondido em ${today()}):`,
+    ...note.sources.map((source) => `- \`${source}\``),
+  ].join('\n');
+
+  await trySave({ category: 'answers', title, body: `${body}${links}`, origin: 'kvasir ask', tags: ['resposta'] }, 'replace');
+}

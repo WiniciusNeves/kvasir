@@ -16,6 +16,7 @@ import { ensureBackup, attachCallToBackup } from './backup';
 import type { FixBackup, FixCall } from './backup';
 import { splitFile, buildNumberedSnippet, parseCorrectedLine } from './line';
 import { hidingReason, findNewErrors, describeNewErrors, runRelatedTests } from './validate';
+import { relatedContext } from '@modules/omnicontext/context';
 
 // A runtime error (exception, failed test) fixed by changing ONE line, chosen by the model among the
 // project files of the stack. Validation: no hiding, no new type errors, and the failing test passes
@@ -93,7 +94,7 @@ function describeContext(context: ContextFile): string {
   return `=== ${context.filePath}${role} ===\n${body}`;
 }
 
-function buildRuntimePrompt(error: RuntimeError, contexts: ContextFile[], previous?: RuntimeAttempt): string {
+function buildRuntimePrompt(error: RuntimeError, contexts: ContextFile[], previous?: RuntimeAttempt, projectContext = ''): string {
   const stack = error.frames.map((frame) => `- ${frame.filePath}:${frame.lineIndex + 1}${frame.fn ? ` (${frame.fn})` : ''}`).join('\n');
   const retry = previous ? `\nTentativa anterior (REJEITADA, não repita):\n${previous.line}\nMotivo: ${previous.reason}\n` : '';
 
@@ -109,7 +110,7 @@ ${truncateForPrompt(error.raw, MAX_RAW_CHARS)}
 
 Arquivos (linhas numeradas; >> marca a linha do stack):
 ${contexts.map(describeContext).join('\n\n')}
-${retry}
+${projectContext ? `\n${projectContext}` : ''}${retry}
 REGRAS:
 - Encontre a causa (dado que falta, nome errado, cálculo errado) e corrija na linha certa: pode não ser a primeira do stack
 - Só pode mudar arquivos que NÃO são de teste. O teste é a especificação: nunca mude o teste para ele passar
@@ -172,11 +173,19 @@ export async function autoFixRuntimeError(
   }
 
   const baseline = safeTypecheck();
+  // related code from files the stack does not show (a type, a helper the failing line calls)
+  const projectContext = await relatedContext(
+    `${error.type}: ${error.message}\n${contexts.map((context) => (context.focus !== null ? context.lines[context.focus] ?? '' : '')).join('\n')}`,
+    {
+      exclude: contexts.filter((context) => context.focus !== null).map((context) => ({ file: context.filePath, startLine: (context.focus ?? 0) - 14, endLine: (context.focus ?? 0) + 16 })),
+      excludeFiles: contexts.filter((context) => context.focus === null).map((context) => context.filePath),
+    }
+  );
   let previous = options.previousAttempt;
   let lastReason = 'nenhuma tentativa';
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const response = await askLocal('fix', buildRuntimePrompt(error, contexts, previous), { temperature: attempt === 1 ? 0 : 0.3, maxTokens: MAX_TOKENS });
+    const response = await askLocal('fix', buildRuntimePrompt(error, contexts, previous, projectContext), { temperature: attempt === 1 ? 0 : 0.3, maxTokens: MAX_TOKENS });
     const proposal = parseAnswer(response, contexts);
     if (proposal === 'unfixable') return { status: 'skipped', reason: 'o modelo disse que não dá para corrigir mudando uma linha: use "kvasir fix"', attempts: attempt };
     if (!proposal) {

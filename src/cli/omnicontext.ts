@@ -16,6 +16,7 @@ export function registerOmniContext(program: Command): void {
     .command('index')
     .description('Index the project, its docs and the knowledge vault for kvasir ask (local embeddings)')
     .option('--no-knowledge', 'Do not index ~/.kvasir/knowledge')
+    .option('--watch', 'Keep re-indexing the project while files change')
     .action(withErrorHandling(handleIndex));
 
   program
