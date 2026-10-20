@@ -315,6 +315,16 @@
 
 ---
 
+## Node.js mínimo: 22.13
+
+**Decisão:** (2026-10-20) `engines.node` passa de `>=18` para `>=22.13`. O projeto continua CommonJS; o commander 15 e o @inquirer/prompts 8, que só publicam ESM, são carregados pelo `require(esm)` do Node.
+
+**Por quê:** O Node 18 (abril de 2025) e o Node 20 (abril de 2026) já saíram de suporte; 22 e 24 são as LTS mantidas. A promessa `>=18` já não era verdadeira: o `clipboardy` 5 exige Node 20. O commander 15 exige 22.12 e o @inquirer/prompts 8 exige `^22.13.0`, daí o 22.13. Migrar o Kvasir para ESM não traria nada além disso e mexeria em todos os imports e no `tsc-alias`.
+
+**Impacto:** O CI testa o mínimo (`ubuntu-latest`, Node 22.13) além do Node 22 atual nos três sistemas. O `kvasir doctor` já compara a versão do Node com o `engines`.
+
+---
+
 ## Pendente: Electron ou Tauri
 
 O app desktop pode ser feito com **Tauri** (mais leve, ensina Rust) ou **Electron** (tudo em Node/TS). Decidir antes da fase do app desktop.
