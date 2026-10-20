@@ -235,6 +235,14 @@
 
 ---
 
+## Regras da `main`: valem para todos, sem aprovação obrigatória por enquanto
+
+**Decisão:** Ruleset `main` (2026-10-20): só por PR, as 4 checagens do CI obrigatórias, só merge commit, sem force push nem exclusão, lista de exceções vazia (vale também para o dono) e 0 aprovações. No GitHub Actions, o CI de PRs de quem contribui pela primeira vez espera a aprovação do mantenedor, e o token do CI só lê o repositório.
+
+**Por quê:** Com um único mantenedor, exigir aprovação travaria tudo (o GitHub não deixa aprovar o próprio PR); o CI obrigatório e o merge só pelo mantenedor já protegem a `main`. Merge commit preserva os IDs citados no handoff. A aprovação do primeiro CI de quem é de fora evita que alguém use o CI para rodar código malicioso. Quando houver outra pessoa com escrita: passar para 1 aprovação (o `CODEOWNERS` já pede a revisão do mantenedor).
+
+---
+
 ## `docs update`: o código diz o que mudou, o modelo só redige, por seção
 
 **Decisão:** O que ficou desatualizado (nome que sumiu, nome novo não citado, script novo) é calculado pelo código e entregue ao Documentador como lista de tarefas; ele responde com seções inteiras, nunca o documento todo; propostas que apagariam texto que ele não viu são recusadas; você aprova cada arquivo vendo o diff.

@@ -335,7 +335,8 @@ A pedido do autor ("como é open source, tem que configurar as regras"). Antes n
 - **CI** (`.github/workflows/ci.yml`): em todo PR e push na `main`, `npm ci` → `typecheck` → `build` → `kvasir --help` em Ubuntu, Windows e macOS (Node 22) e Ubuntu com Node 18 (o `package.json` promete `>=18`)
 - **Dependabot**: npm semanal (dev agrupadas), GitHub Actions mensal
 - `CONTRIBUTING.md` (como rodar, regras do `CLAUDE.md`, commits, PRs), `SECURITY.md` (reporte privado; o que é sensível no Kvasir: chaves, código do usuário, execução sem aprovação), `CODE_OF_CONDUCT.md` (adota o Contributor Covenant 2.1, com resumo em português), `.github/CODEOWNERS`, templates de issue (bug, ideia; issue em branco desligada; link para o reporte privado) e de PR (checklist)
-- **GitHub:** ruleset na `main` (só por PR, CI obrigatório, sem force push nem exclusão; sem exigir aprovação de outra pessoa, porque o mantenedor é um só) e reporte privado de vulnerabilidades ligado
+- **GitHub (feito e conferido pela API em 2026-10-20):** ruleset `main` ativo: `deletion`, `non_fast_forward`, `pull_request` (0 aprovações, só merge commit), `required_status_checks` (as 4 do CI); sem exceções. Reporte privado de vulnerabilidades ligado. Actions: CI de quem contribui pela 1ª vez espera aprovação; token do CI só lê. O GitHub pediu a senha do autor (modo sudo) para salvar o ruleset
+- `CONTRIBUTING.md` detalha as regras da `main` e o caminho de uma contribuição de fora (fork → PR → aprovação do 1º CI → checagens → revisão → merge pelo mantenedor) e os PRs do Dependabot
 
 ## Onda F3: `kvasir docs update` (2026-10-20)
 
