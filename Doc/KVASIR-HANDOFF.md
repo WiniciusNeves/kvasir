@@ -165,6 +165,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | | `kvasir setup` / instalador | ❌ | `doctor` | M |
 | | `~/.kvasir` sincronizado, servidor 24h + Tailscale | ❌ | — | B |
 | | LICENSE | ✅ MIT © WiniciusNeves (2026-10-20) | — | — |
+| | Projeto open source: CI, guia de contribuição, segurança, conduta, templates, regras da `main` | ✅ (2026-10-20) | — | — |
 | **14 Tarefas** | Task ativa ↔ branch ↔ contexto, `kvasir start` | ✅ | — | — |
 | | Microsoft Planner real (Graph API + OAuth) | 🟡 hoje é um GET genérico | conta Microsoft | M |
 | | Task manager próprio da empresa | ❌ | API da empresa | M |
@@ -327,6 +328,14 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 - Erros de tipo continuam primeiro: projeto que não compila não tem erro de execução útil
 
 **Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
+
+## Configuração de projeto open source (2026-10-20, branch `chore/open-source-setup`)
+
+A pedido do autor ("como é open source, tem que configurar as regras"). Antes não existia `.github/`: push direto na `main`, nada verificado, nenhum guia.
+- **CI** (`.github/workflows/ci.yml`): em todo PR e push na `main`, `npm ci` → `typecheck` → `build` → `kvasir --help` em Ubuntu, Windows e macOS (Node 22) e Ubuntu com Node 18 (o `package.json` promete `>=18`)
+- **Dependabot**: npm semanal (dev agrupadas), GitHub Actions mensal
+- `CONTRIBUTING.md` (como rodar, regras do `CLAUDE.md`, commits, PRs), `SECURITY.md` (reporte privado; o que é sensível no Kvasir: chaves, código do usuário, execução sem aprovação), `CODE_OF_CONDUCT.md` (adota o Contributor Covenant 2.1, com resumo em português), `.github/CODEOWNERS`, templates de issue (bug, ideia; issue em branco desligada; link para o reporte privado) e de PR (checklist)
+- **GitHub:** ruleset na `main` (só por PR, CI obrigatório, sem force push nem exclusão; sem exigir aprovação de outra pessoa, porque o mantenedor é um só) e reporte privado de vulnerabilidades ligado
 
 ## Onda F3: `kvasir docs update` (2026-10-20)
 

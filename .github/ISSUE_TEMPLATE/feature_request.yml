@@ -1,0 +1,22 @@
+name: Ideia
+description: Sugira um comando ou uma melhoria
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que problema isso resolve?
+      description: O que você faz hoje no dia a dia e por que é ruim.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Como você imagina
+      description: O comando, o fluxo ou o comportamento que gostaria de ver.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas que você considerou

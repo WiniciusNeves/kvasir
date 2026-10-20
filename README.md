@@ -169,6 +169,10 @@ Visão completa: [`Doc/kvasir-vision.md`](Doc/kvasir-vision.md)
 
 ---
 
+## Contribuindo
+
+Contribuições são bem-vindas: veja o [`CONTRIBUTING.md`](CONTRIBUTING.md) (como rodar, regras e padrão de commits) e o [Código de Conduta](CODE_OF_CONDUCT.md). Falha de segurança: [`SECURITY.md`](SECURITY.md) (reporte privado, nunca issue pública). Todo PR passa pelo CI (typecheck e build em Linux, Windows e macOS).
+
 ## Licença
 
 [MIT](LICENSE) © WiniciusNeves. Use, modifique e distribua à vontade, mantendo o aviso de copyright.
