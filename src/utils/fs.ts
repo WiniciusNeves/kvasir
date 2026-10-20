@@ -49,7 +49,7 @@ export async function isDirectory(targetPath: string): Promise<boolean> {
   return stats.isDirectory();
 }
 
-const DEFAULT_IGNORED_DIRS = ['node_modules', '.git', 'dist', 'build', '.next', '.turbo', 'coverage', 'DOC'];
+const DEFAULT_IGNORED_DIRS = ['node_modules', '.git', 'dist', 'build', '.next', '.turbo', 'coverage', 'DOC', 'Doc'];
 
 export interface ListFilesOptions {
   extensions?: string[];

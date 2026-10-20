@@ -1,3 +1,4 @@
+import { projectDocsDir } from './folder';
 import path from 'path';
 import { askLocal } from '@ai/router';
 import { queueJobs, clearQueuedJobs } from '@ai/jobs';
@@ -27,7 +28,7 @@ function toRelativePosixPath(relativeFilePath: string): string {
 function toDocOutputPath(relativeFilePath: string): string {
   const normalized = toRelativePosixPath(relativeFilePath);
   const withoutExt = normalized.replace(/\.[^./]+$/, '');
-  return `DOC/code/${withoutExt}.md`;
+  return `${projectDocsDir()}/code/${withoutExt}.md`;
 }
 
 const MAX_CODE_CHARS = 12_000;
@@ -116,45 +117,45 @@ async function processFilesWithProgress(files: string[], force: boolean): Promis
 async function documentSingleFile(relativeFilePath: string): Promise<void> {
   const outputPath = toDocOutputPath(relativeFilePath);
 
-  console.log(`\nThis will document ${relativeFilePath} → ${outputPath}`);
-  const approved = await confirm(`Document ${relativeFilePath}?`);
+  console.log(`\nVou documentar ${relativeFilePath} → ${outputPath}`);
+  const approved = await confirm(`Documentar ${relativeFilePath}?`);
   if (!approved) {
-    console.log('Skipped.');
+    console.log('Pulado.');
     return;
   }
 
   await documentFile(relativeFilePath);
-  console.log(`Saved: ${outputPath}`);
+  console.log(`Salvo: ${outputPath}`);
 }
 
 async function documentFolder(relativeDirPath: string): Promise<void> {
   const files = await listFilesRecursive(relativeDirPath, { extensions: CODE_EXTENSIONS });
 
   if (files.length === 0) {
-    console.log(`No source files found under ${relativeDirPath}`);
+    console.log(`Nenhum arquivo de código em ${relativeDirPath}`);
     return;
   }
 
-  console.log(`\nFound ${files.length} file(s) under ${relativeDirPath}:`);
+  console.log(`\nEncontrei ${files.length} arquivo(s) em ${relativeDirPath}:`);
   files.forEach((file) => console.log(`  - ${file}`));
 
   for (const file of files) {
     const relativeFilePath = toRelativePosixPath(path.join(relativeDirPath, file));
-    const approved = await confirm(`Document ${relativeFilePath}?`);
+    const approved = await confirm(`Documentar ${relativeFilePath}?`);
     if (!approved) {
-      console.log(`Skipped: ${relativeFilePath}`);
+      console.log(`Pulado: ${relativeFilePath}`);
       continue;
     }
 
     await documentFile(relativeFilePath);
-    console.log(`Saved: ${toDocOutputPath(relativeFilePath)}`);
+    console.log(`Salvo: ${toDocOutputPath(relativeFilePath)}`);
   }
 }
 
 async function documentTargetPath(target: string): Promise<void> {
   const exists = await pathExists(target);
   if (!exists) {
-    console.log(`Path not found: ${target}`);
+    console.log(`Caminho não encontrado: ${target}`);
     return;
   }
 
@@ -170,14 +171,14 @@ async function runDocAll(force: boolean): Promise<void> {
   const files = await listFilesRecursive('.', { extensions: CODE_EXTENSIONS });
 
   if (files.length === 0) {
-    console.log('No source files found in this project.');
+    console.log('Nenhum arquivo de código neste projeto.');
     return;
   }
 
-  console.log(`\nThis will document ${files.length} file(s) across the project.`);
-  const approved = await confirm('Continue?');
+  console.log(`\nVou documentar ${files.length} arquivo(s) do projeto inteiro.`);
+  const approved = await confirm('Continuar?');
   if (!approved) {
-    console.log('Cancelled.');
+    console.log('Cancelado.');
     return;
   }
 
@@ -188,7 +189,7 @@ async function selectFilesInFolder(folderName: string): Promise<void> {
   const files = await listFilesRecursive(folderName, { extensions: CODE_EXTENSIONS });
 
   if (files.length === 0) {
-    console.log(`No source files found under ${folderName}/`);
+    console.log(`Nenhum arquivo de código em ${folderName}/`);
     return;
   }
 
@@ -198,18 +199,18 @@ async function selectFilesInFolder(folderName: string): Promise<void> {
   );
 
   if (selected.length === 0) {
-    console.log('No files selected.');
+    console.log('Nenhum arquivo selecionado.');
     return;
   }
 
   const relativeSelected = selected.map((file) => toRelativePosixPath(path.join(folderName, file)));
 
-  console.log('\nSelected files:');
+  console.log('\nArquivos selecionados:');
   relativeSelected.forEach((file) => console.log(`  - ${file}`));
 
-  const approved = await confirm(`Document these ${relativeSelected.length} file(s)?`);
+  const approved = await confirm(`Documentar estes ${relativeSelected.length} arquivo(s)?`);
   if (!approved) {
-    console.log('Cancelled.');
+    console.log('Cancelado.');
     return;
   }
 
@@ -217,21 +218,21 @@ async function selectFilesInFolder(folderName: string): Promise<void> {
 }
 
 async function selectFilesAtRoot(files: string[]): Promise<void> {
-  console.log(`\nFound ${files.length} source file(s) at the project root.`);
+  console.log(`\nEncontrei ${files.length} arquivo(s) de código na raiz do projeto.`);
 
   const selected = await checkbox<string>(
-    'Select files to document:',
+    'Selecione os arquivos para documentar:',
     files.map((file) => ({ name: file, value: file }))
   );
 
   if (selected.length === 0) {
-    console.log('No files selected.');
+    console.log('Nenhum arquivo selecionado.');
     return;
   }
 
-  const approved = await confirm(`Document these ${selected.length} file(s)?`);
+  const approved = await confirm(`Documentar estes ${selected.length} arquivo(s)?`);
   if (!approved) {
-    console.log('Cancelled.');
+    console.log('Cancelado.');
     return;
   }
 
@@ -242,7 +243,7 @@ async function runInteractiveSelection(): Promise<void> {
   const files = await listFilesRecursive('.', { extensions: CODE_EXTENSIONS });
 
   if (files.length === 0) {
-    console.log('No source files found in this project.');
+    console.log('Nenhum arquivo de código neste projeto.');
     return;
   }
 

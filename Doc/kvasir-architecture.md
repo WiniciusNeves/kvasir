@@ -137,21 +137,18 @@ Cada `AiTask` tem um único dono (`TASK_OWNER`, um `Record`: tarefa nova sem don
 ```
 askFor('fix', prompt)
    │
-   ├─ 1. lê kvasir.context.md (arquitetura do projeto)
+   ├─ 1. ordena os candidatos pelo desempenho medido (performance.ts): nuvem permitida + MODEL_MAP
+   │     (sem ida ao Claude para escolher: até 2026-10-19 havia um passo "ORQUESTRADOR" aqui)
    │
-   ├─ 2. ORQUESTRADOR: promptAI() copia para o clipboard um prompt pedindo
-   │     "MODELO: <nome>". Você cola no Claude, copia a resposta e aperta Enter
-   │     (o kvasir lê a resposta do clipboard: funciona com várias linhas).
-   │
-   ├─ 3. ordena os modelos: [escolhido, ...resto de MODEL_MAP[task]]
-   │
-   ├─ 4. EXECUTOR: candidato escolhido (nuvem: timeout 60s · Ollama: 120s), depois os outros
+   ├─ 2. EXECUTOR: candidato escolhido (nuvem: timeout 60s · Ollama: 120s), depois os outros
    │     (os modelos vêm de MODEL_MAP filtrados pelos instalados: "qwen2.5-coder"
    │      casa com "qwen2.5-coder:7b"; Ollama fora do ar → erro com dica)
    │     se falhar → tenta o próximo modelo da lista
    │
-   └─ 5. VALIDADOR: promptAI() manda o resultado ao Claude para validar
-         ou corrigir. A resposta colada é o retorno final.
+   └─ 3. VALIDADOR (ai.claudeValidation = auto): só se o modelo que respondeu ainda não provou que
+         acerta nesta tarefa (5+ avaliações com 80%+ de aprovação). Aí promptAI() manda o resultado ao
+         Claude (clipboard: você cola no Claude, copia a resposta e aperta Enter) e a resposta colada é
+         o retorno final. Modelo confiável → o resultado volta direto. "always" / "never" forçam.
 ```
 
 `MODEL_MAP` (em `router.ts`):
@@ -165,7 +162,7 @@ askFor('fix', prompt)
 | `doc` | llama3.2 → qwen2.5-coder |
 | `architect` | deepseek-r1 → llama3.2 |
 
-> ⚠️ Cada `askFor` exige **duas** idas e vindas pelo clipboard (escolher o modelo e validar). Ver "Problemas conhecidos" em `kvasir-current.md`.
+> Um `askFor` custa no máximo **uma** ida ao clipboard (a validação), e nenhuma quando o modelo já provou que acerta.
 
 ---
 

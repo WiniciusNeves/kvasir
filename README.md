@@ -168,6 +168,10 @@ Visão completa: [`Doc/kvasir-vision.md`](Doc/kvasir-vision.md)
 
 ---
 
+## Licença
+
+[MIT](LICENSE) © WiniciusNeves. Use, modifique e distribua à vontade, mantendo o aviso de copyright.
+
 ## Documentação
 
 | Arquivo | Conteúdo |

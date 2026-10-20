@@ -1,4 +1,5 @@
 import { writeFile, readFile } from '@utils/fs';
+import { z } from 'zod';
 import type { KvasirContext, ActiveTaskInfo } from '@ktypes/context';
 
 const CONTEXT_FILE = 'kvasir.context.md';
@@ -60,6 +61,34 @@ function extractListItem(markdown: string, section: string): string {
   return itemMatch ? itemMatch[1].trim() : '';
 }
 
+// The file is markdown and people edit it by hand: a field lost in an edit used to become "" silently
+// (a branch without prefix, a commit in the wrong language). Now it fails with what is missing.
+const required = (field: string) => z.string().min(1, { message: field });
+const ContextSchema = z.object({
+  project: z.object({ name: required('Project → name'), type: z.string(), stack: z.array(z.string()), persona: required('Project → persona') }),
+  developer: z.object({ profile: z.string() }),
+  branchRules: z.object({
+    pattern: required('Branch rules → pattern'),
+    prefix: required('Branch rules → prefix'),
+    language: required('Branch rules → language'),
+  }),
+  commitRules: z.object({
+    convention: required('Commit rules → convention'),
+    language: required('Commit rules → language'),
+    format: required('Commit rules → format'),
+  }),
+  activeModules: z.array(z.string()),
+  activeTask: z.object({ id: z.string(), title: z.string(), linkedBranch: z.string() }).nullable(),
+  summary: z.string(),
+});
+
+function validateContext(context: KvasirContext): KvasirContext {
+  const result = ContextSchema.safeParse(context);
+  if (result.success) return context;
+  const missing = [...new Set(result.error.issues.map((issue) => issue.message))].join(', ');
+  throw new Error(`${CONTEXT_FILE} incompleto ou editado fora do formato: falta ${missing}. Rode "kvasir init" de novo (a task ativa é mantida).`);
+}
+
 function parseContextMarkdown(markdown: string): KvasirContext {
   const activeTaskId = extractField(markdown, 'Active task', 'id');
 
@@ -111,7 +140,7 @@ export async function readContext(): Promise<KvasirContext> {
   if (!markdown) {
     throw new Error(`${CONTEXT_FILE} não encontrado. Rode "kvasir init" primeiro.`);
   }
-  return parseContextMarkdown(markdown);
+  return validateContext(parseContextMarkdown(markdown));
 }
 
 function buildActiveTaskSection(task: ActiveTaskInfo): string {
