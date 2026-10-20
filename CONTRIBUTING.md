@@ -12,7 +12,7 @@ Obrigado pelo interesse! O Kvasir é uma CLI em Node.js + TypeScript que automat
 
 ## Rodando localmente
 
-Requisitos: Node.js 18+, Git e, para os comandos com IA, o [Ollama](https://ollama.com) rodando em `http://localhost:11434`.
+Requisitos: Node.js 22.13+, Git e, para os comandos com IA, o [Ollama](https://ollama.com) rodando em `http://localhost:11434`.
 
 ```bash
 npm install

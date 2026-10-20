@@ -42,7 +42,7 @@
 
 ## Infraestrutura
 
-- Node.js >= 18 + TypeScript strict, compilado com `tsc` + `tsc-alias`
+- Node.js >= 22.13 + TypeScript strict, compilado com `tsc` + `tsc-alias`
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
 - Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
@@ -50,7 +50,8 @@
 - Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
 - `profile.md` injetado nos prompts de commit, branch, review e doc
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
-- Dependências: commander, @inquirer/prompts, axios, clipboardy, fs-extra, cosmiconfig, zod (usado no planner)
+- Dependências: commander 15 e @inquirer/prompts 8 (só ESM, carregados por `require(esm)`), axios, clipboardy, fs-extra, cosmiconfig, zod (planner, `kvasir.context.md`, personas)
+- Argumento a mais vira erro (commander 13+): `kvasir commit extra` para com "too many arguments" em vez de ignorar. Por isso o `knowledge search` aceita várias palavras (`kvasir knowledge search react hooks` busca a frase; antes buscava só "react")
 
 ---
 
