@@ -28,6 +28,7 @@ import { registerStats } from './stats';
 import { registerProactive } from './proactive';
 import { registerWatch } from './watch';
 import { registerOmniContext } from './omnicontext';
+import { registerDocs } from './docs';
 import { resolveCommandLine } from '@modules/menu';
 import { printCliError } from '@utils/errors';
 
@@ -72,6 +73,7 @@ registerStats(program);
 registerProactive(program);
 registerWatch(program);
 registerOmniContext(program);
+registerDocs(program);
 
 program.addHelpText(
   'after',

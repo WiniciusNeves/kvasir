@@ -78,3 +78,58 @@ export function parseAddedDependencies(diff: string): string[] {
 
   return [...added].filter((name) => !removed.has(name));
 }
+
+export interface DiffLine {
+  type: ' ' | '-' | '+';
+  text: string;
+}
+
+// Line diff (longest common subsequence) for showing a proposed change to a text file. Quadratic:
+// meant for files of a few hundred lines, not for big generated files.
+export function lineDiff(before: string[], after: string[]): DiffLine[] {
+  const n = before.length;
+  const m = after.length;
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = m - 1; j >= 0; j -= 1) {
+      lcs[i][j] = before[i] === after[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+    }
+  }
+  const out: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (before[i] === after[j]) {
+      out.push({ type: ' ', text: before[i] });
+      i += 1;
+      j += 1;
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+      out.push({ type: '-', text: before[i] });
+      i += 1;
+    } else {
+      out.push({ type: '+', text: after[j] });
+      j += 1;
+    }
+  }
+  while (i < n) out.push({ type: '-', text: before[i++] });
+  while (j < m) out.push({ type: '+', text: after[j++] });
+  return out;
+}
+
+// Only the changed lines with `context` unchanged lines around them ("…" between distant hunks).
+export function formatDiff(diff: DiffLine[], context = 2): string {
+  const keep = new Set<number>();
+  diff.forEach((line, index) => {
+    if (line.type === ' ') return;
+    for (let k = Math.max(0, index - context); k <= Math.min(diff.length - 1, index + context); k += 1) keep.add(k);
+  });
+  const out: string[] = [];
+  let last = -1;
+  [...keep].sort((a, b) => a - b).forEach((index) => {
+    if (last >= 0 && index > last + 1) out.push('   …');
+    const line = diff[index];
+    out.push(`${line.type === '+' ? '\x1b[32m+' : line.type === '-' ? '\x1b[31m-' : ' '} ${line.text}\x1b[0m`);
+    last = index;
+  });
+  return out.join('\n');
+}

@@ -16,7 +16,7 @@
 | 4.C | Onda C (Fase 5): Gemini + Groq + fallback Ollama, escolha por desempenho, time de agentes formal | ✅ concluída (2026-10-18): Gemini + Groq + fallback ✅ (`45624ea`); escolha por desempenho ✅ (2026-10-18); time de agentes formal ✅ (2026-10-18). **Onda C concluída** |
 | 4.D | Onda D: `kvasir stats` + Agent Board + grafo do knowledge | ✅ concluída (2026-10-18) |
 | 4.E | Onda E: E1 perguntas proativas com autonomia por confiança · E2 `kvasir watch` que corrige e valida sozinho · E3 erros de runtime | ✅ concluída (2026-10-18): E1 e E2 (PR #1), E3 (PR #2), ambos mergeados |
-| 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 respostas no knowledge + os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (PR #3, mergeado) · F2 ✅ (2026-10-19, branch `feature/omnicontext-f2`) |
+| 4.F | Onda F: F1 OmniContext (`index` + `ask`) · F2 respostas no knowledge + os outros comandos usando o contexto + reindexação automática · F3 `docs update` · F4 `deploy` | 🔧 F1 ✅ (PR #3, mergeado) · F2 ✅ (PR #4) · F3 ✅ (2026-10-20, branch `feature/docs-update`) |
 | 5 | Gemini Flash + Groq no router, com fallback para Ollama | ⏳ |
 
 ---
@@ -168,7 +168,7 @@ Legenda: ✅ existe · 🟡 parcial · ❌ falta · Esforço: B (baixo) · M (m�
 | **14 Tarefas** | Task ativa ↔ branch ↔ contexto, `kvasir start` | ✅ | — | — |
 | | Microsoft Planner real (Graph API + OAuth) | 🟡 hoje é um GET genérico | conta Microsoft | M |
 | | Task manager próprio da empresa | ❌ | API da empresa | M |
-| | `kvasir docs update` | ❌ F3 | OmniContext ✅ | M |
+| | `kvasir docs update` | ✅ F3 (2026-10-20) | — | — |
 
 ### Ordem sugerida (ondas)
 | Onda | Conteúdo | Por quê |
@@ -327,6 +327,17 @@ Branch `feature/watch-runtime-errors`. Arquivos: `src/utils/runtimeErrors.ts` (p
 - Erros de tipo continuam primeiro: projeto que não compila não tem erro de execução útil
 
 **Testado** (projeto descartável, Node 24 rodando .ts direto, Groq real): teste falhando por bug de cálculo → o modelo achou o bug no `cart.ts` importado pelo teste (não no teste), o teste rodou de novo e passou (confirmada); app quebrando (`cart.items.length` com `items` ausente) rodado a cada 4 s → `cart.items?.length ?? 0` provisória e o erro não voltou em 5 rodadas; respostas simuladas: correção na linha errada → o erro voltou na rodada seguinte, foi desfeita, e a 2ª tentativa (com o motivo no prompt) acertou; mudar o teste → recusado; `catch {}` → recusado; parser com 8 formatos (Node, file://, Next, Vitest, Jest, Metro, só bundle → ignorado, repetido → 1). Não testado: Next/Expo de verdade e o Vitest/Jest reais (usei um runner que imita a saída do Vitest).
+
+## Onda F3: `kvasir docs update` (2026-10-20)
+
+Arquivos: `src/modules/docs/{facts,sections,prompt,index}.ts`, `src/cli/docs.ts`; tarefa `docs` (dono: Documentador; nuvem: Gemini, local: qwen2.5-coder → llama3.2); git: `lastCommitTouching`, `getChangedFilesSince`, `getFileDiffSince`, `getFileAtRef`; `lineDiff`/`formatDiff` em `utils/diff.ts`.
+- **Fatos pelo código:** ponto de partida = último commit que mexeu na documentação (README + pasta de docs) ou `--since <ref>`; arquivos de código mudados desde então (commitados ou não), diff de cada um, exports, exports que sumiram (comparando com a versão do ponto de partida), scripts novos/removidos do `package.json`. Por documento: o que ele **cita e não existe mais** e o que é **novo e ele não cita**
+- Candidatos: README + `.md` da pasta de docs (fora os gerados `code/`, `libs/`, `CHANGELOG`) que citam algo que mudou (caminho, arquivo, export com cara de código, `npm run x`); você escolhe todos ou alguns
+- **O Documentador só redige:** recebe os fatos, o documento (inteiro até 250 linhas; senão o índice + até 6 seções relevantes) e a lista "O QUE MUDAR NESTE DOCUMENTO", com exemplo do formato; responde por seção (`SEÇÃO: ## Título` + conteúdo). Parser linha a linha (blocos de código dentro da seção, bloco externo `ts`, `**SEÇÃO:**`, seção sem bloco)
+- **Proteções do resultado:** título inexistente, seção maior do que o modelo viu ou proposta que apagaria subseções são ignorados com aviso; espaçamento e quebra de linha final preservados; histórico só ganha linha nova (com a data de hoje)
+- Cada arquivo: diff colorido → aplicar / ver lado a lado no VS Code / pular; backup em `~/.kvasir/backups/docs`; o veredito vira métrica (`docs`). Agent Board mostra os documentos como jobs do Documentador
+
+**Testado** (repositório descartável: `calcTotal` → `cartTotal`, `applyCoupon` novo, script `lint` novo): 1ª versão do prompt → o qwen local respondeu "NADA" nos dois documentos, apesar do diff; com os fatos por documento + lista de tarefas no fim + exemplo → README com o uso trocado para `cartTotal`/`applyCoupon` e `npm run lint` na tabela, `docs/api.md` com as duas funções e uma linha nova no histórico; seção inventada pelo modelo ("Scripts do package.json") barrada. O teste pegou 3 defeitos meus, corrigidos: bloco ```ts externo perdido, linha em branco após o título e quebra de linha final; e uma data inventada (agora vai a data de hoje). Com a documentação commitada, a 2ª execução diz "está em dia". Gemini estava com 503/timeout: o fallback local respondeu.
 
 ## Problemas conhecidos resolvidos (2026-10-20, branch `fix/known-issues`, saiu da `feature/omnicontext-f2`)
 

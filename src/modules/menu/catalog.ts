@@ -65,6 +65,7 @@ export const MAIN_MENU: CatalogGroup[] = [
       { argv: ['doc', '--code'], label: 'Documentar o código do projeto' },
       { argv: ['ask'], label: 'Perguntar sobre o código e as suas anotações (responde citando arquivo:linha)', usage: 'ask <pergunta>', ask: { message: 'Sua pergunta:', required: true } },
       { argv: ['index'], label: 'Indexar o projeto para o kvasir ask (busca local)' },
+      { argv: ['docs', 'update'], label: 'Atualizar o README e a documentação conforme o código mudou' },
       { argv: ['knowledge'], label: 'Base de conhecimento (buscar, adicionar, ligar, ver)', submenu: 'knowledge' },
       { argv: ['learn'], label: 'Aprender com o seu feedback (atualiza o perfil)' },
     ],
