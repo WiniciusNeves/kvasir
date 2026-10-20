@@ -15,7 +15,7 @@ import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs';
 
 // Local fallback chain (Ollama). Always the last resort: offline, private, no rate limit.
 export const MODEL_MAP: Record<AiTask, string[]> = {
@@ -32,6 +32,8 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   test: ['qwen2.5-coder', 'deepseek-r1'],
   intent: ['qwen2.5-coder', 'llama3.2'],
   ask: ['qwen2.5-coder', 'llama3.2'],
+  // edits must keep the markdown exact: qwen follows the section format better than llama3.2
+  docs: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // Cloud providers tried BEFORE Ollama when the user allowed the cloud (roadmap phase 2):
@@ -47,6 +49,7 @@ export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
   intent: ['groq'],
   // kvasir ask sends pieces of the code base: local only
   ask: [],
+  docs: ['gemini'],
   doc: ['gemini'],
   daily: ['gemini'],
   release: ['gemini'],

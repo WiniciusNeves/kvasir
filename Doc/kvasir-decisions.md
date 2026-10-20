@@ -235,6 +235,14 @@
 
 ---
 
+## `docs update`: o código diz o que mudou, o modelo só redige, por seção
+
+**Decisão:** O que ficou desatualizado (nome que sumiu, nome novo não citado, script novo) é calculado pelo código e entregue ao Documentador como lista de tarefas; ele responde com seções inteiras, nunca o documento todo; propostas que apagariam texto que ele não viu são recusadas; você aprova cada arquivo vendo o diff.
+
+**Por quê:** Medido: só com o diff, o qwen local respondeu "NADA" para documentos que citavam uma função que não existe mais. Com os fatos por documento e um exemplo do formato, acertou. Reescrever o documento inteiro não cabe no contexto de um modelo pequeno e perde texto em silêncio.
+
+---
+
 ## Claude valida só até o modelo provar que acerta
 
 **Decisão:** O `askFor` não pergunta mais ao Claude qual modelo usar (o ranking de desempenho decide) e só pede a validação do Claude enquanto o modelo que respondeu não tem 5+ avaliações com 80%+ de aprovação naquela tarefa. `ai.claudeValidation`: `auto` (padrão), `always`, `never`.

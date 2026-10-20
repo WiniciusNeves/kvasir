@@ -391,3 +391,42 @@ export function countUnmergedCommits(branch: string, base: string): number {
   if (result.error || result.status !== 0) return -1;
   return Number((result.stdout ?? '').trim()) || 0;
 }
+
+// Last commit that touched any of `paths` (null when none did, or outside a repo).
+export function lastCommitTouching(paths: string[]): string | null {
+  const { ok, stdout } = gitOutput(['log', '-1', '--format=%H', '--', ...paths]);
+  return ok && stdout ? stdout : null;
+}
+
+export interface ChangedFile {
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  path: string;
+  // renamed: where it came from
+  from?: string;
+}
+
+// Files changed since `ref`, committed or not (the working tree is compared with `ref`).
+export function getChangedFilesSince(ref: string): ChangedFile[] {
+  const { stdout } = gitOutput(['diff', '--name-status', '-M', ref]);
+  const tracked = stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line): ChangedFile => {
+      const [code, first, second] = line.split('\t');
+      if (code.startsWith('R')) return { status: 'renamed', path: second, from: first };
+      return { status: code === 'A' ? 'added' : code === 'D' ? 'deleted' : 'modified', path: first };
+    });
+  const untracked = gitOutput(['ls-files', '--others', '--exclude-standard']).stdout.split('\n').filter(Boolean);
+  return [...tracked, ...untracked.map((path): ChangedFile => ({ status: 'added', path }))];
+}
+
+// The diff of one file since `ref` (working tree included).
+export function getFileDiffSince(ref: string, file: string): string {
+  return gitOutput(['diff', ref, '--', file]).stdout;
+}
+
+// A file as it was at `ref` (null when it did not exist there).
+export function getFileAtRef(ref: string, file: string): string | null {
+  const { ok, stdout } = gitOutput(['show', `${ref}:${file.split('\\').join('/')}`]);
+  return ok ? stdout : null;
+}
