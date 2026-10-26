@@ -14,7 +14,7 @@ import { detectTestSetup } from '@modules/test/framework';
 import { noteFixedError } from '@modules/knowledge/auto';
 import { ensureBackup, attachCallToBackup } from './backup';
 import type { FixBackup, FixCall } from './backup';
-import { splitFile, buildNumberedSnippet, parseCorrectedLine } from './line';
+import { splitFile, buildNumberedSnippet, parseCorrectedLine, parseCorrectedBlock } from './line';
 import { hidingReason, findNewErrors, describeNewErrors, runRelatedTests } from './validate';
 import { relatedContext } from '@modules/omnicontext/context';
 
@@ -27,7 +27,8 @@ const MAX_ATTEMPTS = 2;
 const MAX_CONTEXT_FILES = 4;
 const HEAD_LINES = 80;
 const MAX_RAW_CHARS = 1500;
-const MAX_TOKENS = 300;
+const MAX_TOKENS = 400;
+const MAX_BLOCK_LINES = 6;
 
 export interface RuntimeAttempt {
   line: string;
@@ -115,32 +116,70 @@ REGRAS:
 - Encontre a causa (dado que falta, nome errado, cálculo errado) e corrija na linha certa: pode não ser a primeira do stack
 - Só pode mudar arquivos que NÃO são de teste. O teste é a especificação: nunca mude o teste para ele passar
 - Não esconda o erro: nada de try/catch vazio, any, @ts-ignore, comentar ou apagar a linha. Use ?. ou valor padrão só se o dado puder mesmo faltar
-- Se não der para corrigir mudando uma linha, responda só: NAO_DA
+- Se a instrução a corrigir ocupa várias linhas seguidas (ex.: uma cadeia .split().reduce()), troque o trecho inteiro com LINHAS: <início>-<fim> (no máximo ${MAX_BLOCK_LINES} linhas)
+- Se não der para corrigir assim, responda só: NAO_DA
 
-Formato exato da resposta:
+Formato exato da resposta (uma linha):
 ARQUIVO: <caminho como na lista>
 LINHA: <número>
 \`\`\`ts
 <a linha corrigida, inteira>
+\`\`\`
+
+ou (trecho de linhas seguidas):
+ARQUIVO: <caminho como na lista>
+LINHAS: <início>-<fim>
+\`\`\`ts
+<as linhas corrigidas que substituem esse trecho>
 \`\`\``;
 }
 
 interface ProposedChange {
   context: ContextFile;
-  lineIndex: number;
-  newLine: string;
+  // inclusive range of the lines replaced
+  startIndex: number;
+  endIndex: number;
+  newLines: string[];
+}
+
+// "LINHA: 26" with a whole multi-line statement in the block: the block's unchanged lines say where it
+// sits (the window around that line where most lines are identical), and it replaces that window.
+function alignBlock(fence: string, lines: string[], lineIndex: number): Omit<ProposedChange, 'context'> | null {
+  const block = fence.match(/```[\w-]*\r?\n([\s\S]*?)```/)?.[1].split(/\r?\n/).filter((item) => item.trim()) ?? [];
+  if (block.length < 2 || block.length > MAX_BLOCK_LINES) return null;
+
+  let best: { start: number; same: number } | null = null;
+  for (let start = Math.max(0, lineIndex - block.length + 1); start <= lineIndex && start + block.length <= lines.length; start += 1) {
+    const same = block.filter((item, offset) => item.trim() === lines[start + offset].trim()).length;
+    if (same > 0 && same < block.length && (!best || same > best.same)) best = { start, same };
+  }
+  if (!best) return null;
+  const end = best.start + block.length - 1;
+  const newLines = parseCorrectedBlock(fence, lines.slice(best.start, end + 1));
+  return newLines ? { startIndex: best.start, endIndex: end, newLines } : null;
 }
 
 function parseAnswer(response: string, contexts: ContextFile[]): ProposedChange | 'unfixable' | null {
   if (/\bNAO_DA\b|\bNÃO_DÁ\b/i.test(response)) return 'unfixable';
   const file = response.match(/ARQUIVO:\s*`?([^\s`]+)`?/i)?.[1]?.replace(/^\.\//, '');
-  const line = Number(response.match(/LINHA:\s*(\d+)/i)?.[1]);
   const context = contexts.find((item) => item.filePath === file);
-  if (!context || !Number.isInteger(line) || line < 1 || line > context.lines.length) return null;
-
+  if (!context) return null;
   const fence = response.slice(response.search(/```/));
+
+  const range = response.match(/LINHAS:\s*(\d+)\s*[-–a]\s*(\d+)/i);
+  if (range) {
+    const [start, end] = [Number(range[1]), Number(range[2])];
+    if (start < 1 || end < start || end > context.lines.length || end - start + 1 > MAX_BLOCK_LINES) return null;
+    const newLines = parseCorrectedBlock(fence, context.lines.slice(start - 1, end));
+    return newLines ? { context, startIndex: start - 1, endIndex: end - 1, newLines } : null;
+  }
+
+  const line = Number(response.match(/LINHA:\s*(\d+)/i)?.[1]);
+  if (!Number.isInteger(line) || line < 1 || line > context.lines.length) return null;
+  const aligned = alignBlock(fence, context.lines, line - 1);
+  if (aligned) return { context, ...aligned };
   const newLine = parseCorrectedLine(fence, context.lines[line - 1]);
-  return newLine ? { context, lineIndex: line - 1, newLine } : null;
+  return newLine ? { context, startIndex: line - 1, endIndex: line - 1, newLines: [newLine] } : null;
 }
 
 function safeTypecheck(): TscDiagnostic[] | null {
@@ -193,16 +232,19 @@ export async function autoFixRuntimeError(
       continue;
     }
 
-    const { context, lineIndex, newLine } = proposal;
-    const oldLine = context.lines[lineIndex];
-    const where = `${context.filePath}:${lineIndex + 1}`;
+    const { context, startIndex, endIndex, newLines } = proposal;
+    const lineIndex = startIndex;
+    const oldLine = context.lines.slice(startIndex, endIndex + 1).join('\n');
+    const newLine = newLines.join('\n');
+    const where = `${context.filePath}:${startIndex + 1}${endIndex > startIndex ? `-${endIndex + 1}` : ''}`;
+    const compact = newLines.map((line) => line.trim()).join(' ');
 
     // Layer 1: the test is the spec, and hiding the error is not fixing it.
     const refused = isTestFile(context.filePath) ? 'tentou mudar o teste em vez do código' : hidingReason(oldLine, newLine);
     if (refused) {
       lastReason = refused;
       await recordOutcome('fix', 'rejected');
-      previous = { line: `${where}: ${newLine.trim()}`, reason: refused };
+      previous = { line: `${where}: ${compact}`, reason: refused };
       continue;
     }
 
@@ -216,7 +258,7 @@ export async function autoFixRuntimeError(
 
     await ensureBackup(session, context.filePath);
     const fixedLines = [...context.lines];
-    fixedLines[lineIndex] = newLine;
+    fixedLines.splice(startIndex, endIndex - startIndex + 1, ...newLines);
     const fixedContent = fixedLines.join(context.eol);
     await writeFile(context.filePath, fixedContent);
     const executor = peekLastExecutorCall('fix');
@@ -226,7 +268,7 @@ export async function autoFixRuntimeError(
       await writeFile(context.filePath, context.original);
       lastReason = reason;
       await recordOutcome('fix', 'rejected');
-      previous = { line: `${where}: ${newLine.trim()}`, reason };
+      previous = { line: `${where}: ${compact}`, reason };
     };
 
     // Layer 2: no new type errors anywhere in the project.
@@ -276,7 +318,7 @@ export async function autoFixRuntimeError(
       original: context.original,
       fixedContent,
       call,
-      lastAttempt: { line: `${where}: ${newLine.trim()}`, reason: 'o erro voltou a acontecer depois desta correção' },
+      lastAttempt: { line: `${where}: ${compact}`, reason: 'o erro voltou a acontecer depois desta correção' },
     };
   }
 

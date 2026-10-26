@@ -57,8 +57,9 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The line is part of the key: the same mistake twice in a file gives two errors with the same message.
 function errorKey(diagnostic: TscDiagnostic): string {
-  return `${path.resolve(diagnostic.filePath).toLowerCase()}|${diagnostic.code}|${diagnostic.message}`;
+  return `${path.resolve(diagnostic.filePath).toLowerCase()}|${diagnostic.lineIndex}|${diagnostic.code}|${diagnostic.message}`;
 }
 
 // Only project source files: never node_modules, build output or anything outside the folder.
@@ -192,9 +193,16 @@ async function processRuntimeErrors(errors: RuntimeError[], session: WatchSessio
     console.log(`\n🔴 ${targets.length} erro(s) de execução. Corrigindo...`);
     queueJobs('fix', targets.map((error) => `${error.type} em ${error.frames[0].filePath}:${error.frames[0].lineIndex + 1}`));
 
+    // a confirmed fix reran the whole test file and it passed: its other failures are gone too
+    const passedTestFiles = new Set<string>();
     for (const error of targets) {
       const frame = error.frames.find((item) => !isTestFile(item.filePath)) ?? error.frames[0];
       const label = `${error.type} (${error.message.slice(0, 60)}) em ${frame.filePath}:${frame.lineIndex + 1}`;
+      const testFile = error.frames.find((item) => isTestFile(item.filePath))?.filePath;
+      if (testFile && passedTestFiles.has(testFile)) {
+        console.log(`✅ ${label}: resolvido pela correção anterior (${testFile} passou inteiro)`);
+        continue;
+      }
       session.attemptsByError.set(error.signature, (session.attemptsByError.get(error.signature) ?? 0) + 1);
 
       if (!(await waitUntilIdle(frame.filePath))) {
@@ -206,9 +214,11 @@ async function processRuntimeErrors(errors: RuntimeError[], session: WatchSessio
         confirmBeforeApply: session.confirmBeforeApply,
         previousAttempt: session.lastRuntimeAttempt.get(error.signature),
       });
-      const change = report.before !== undefined ? `\n   ${report.filePath}:${report.lineNumber}  ${report.before.trim()}  →  ${report.after?.trim()}` : '';
+      const compact = (text = ''): string => text.split('\n').map((line) => line.trim()).join(' ');
+      const change = report.before !== undefined ? `\n   ${report.filePath}:${report.lineNumber}  ${compact(report.before)}  →  ${compact(report.after)}` : '';
       if (report.status === 'fixed') {
         session.fixed += 1;
+        if (testFile) passedTestFiles.add(testFile);
         console.log(`✅ ${label}: corrigido e confirmado (${report.reason})${change}`);
       } else if (report.status === 'provisional') {
         session.fixed += 1;
