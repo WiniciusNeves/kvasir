@@ -144,3 +144,24 @@ export function parseCorrectedLine(response: string, oldLine: string): string | 
   const indentation = oldLine.match(/^\s*/)?.[0] ?? '';
   return `${indentation}${candidate.trim()}`;
 }
+
+// A statement split over several lines ("const x = a\n  .split()\n  .reduce()") is replaced as a whole:
+// the fenced block becomes the new lines, re-indented from the first original line (the model's own
+// relative indentation is kept). Null when the block is missing or identical to the original.
+export function parseCorrectedBlock(response: string, oldLines: string[]): string[] | null {
+  const fence = stripThinking(response).match(/```[\w-]*\r?\n([\s\S]*?)```/);
+  if (!fence) return null;
+
+  const lines = fence[1]
+    .split(/\r?\n/)
+    .map((line) => line.replace(SNIPPET_PREFIX, '').replace(/\s+$/, ''));
+  while (lines.length > 0 && !lines[0].trim()) lines.shift();
+  while (lines.length > 0 && !lines[lines.length - 1].trim()) lines.pop();
+  if (lines.length === 0) return null;
+
+  const modelIndent = Math.min(...lines.filter((line) => line.trim()).map((line) => line.match(/^\s*/)?.[0].length ?? 0));
+  const indentation = oldLines[0].match(/^\s*/)?.[0] ?? '';
+  const block = lines.map((line) => (line.trim() ? `${indentation}${line.slice(modelIndent)}` : ''));
+  const same = block.length === oldLines.length && block.every((line, index) => line.trim() === oldLines[index].trim());
+  return same ? null : block;
+}

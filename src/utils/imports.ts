@@ -9,13 +9,15 @@ interface TsconfigPaths {
   paths: Record<string, string[]>;
 }
 
-// tsconfig.json allows comments and trailing commas; JSON.parse doesn't.
+// tsconfig.json allows comments and trailing commas; JSON.parse doesn't. Strings are matched first and
+// kept as they are, because they hold the same characters ("@utils/*" is not the start of a comment).
+const JSON_STRING = '"(?:[^"\\\\]|\\\\.)*"';
+const JSON_COMMENTS = new RegExp(`(${JSON_STRING})|\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/`, 'g');
+const JSON_TRAILING_COMMAS = new RegExp(`(${JSON_STRING})|,(?=\\s*[}\\]])`, 'g');
+
 function readJsonWithComments(filePath: string): unknown {
   const raw = fs.readFileSync(filePath, 'utf-8');
-  const clean = raw
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:"'])\/\/.*$/gm, '$1')
-    .replace(/,(\s*[}\]])/g, '$1');
+  const clean = raw.replace(JSON_COMMENTS, (_match, text?: string) => text ?? '').replace(JSON_TRAILING_COMMAS, (_match, text?: string) => text ?? '');
   return JSON.parse(clean);
 }
 
