@@ -1,4 +1,4 @@
-import { input } from '@utils/prompt';
+import { input, select } from '@utils/prompt';
 import { recordAiCall } from '@ai/metrics';
 import type { AiRole } from '@ai/metrics';
 
@@ -27,38 +27,37 @@ export interface PromptAIMeta {
   role: AiRole;
 }
 
-const SKIP_WORDS = ['p', 'pular'];
+type ClipboardChoice = 'copied' | 'type' | 'skip';
 
 // The answer is read back from the clipboard: an inquirer `input` is single-line, so pasting a
 // multi-line answer kept only the first line and leaked the rest into the next prompts.
-// skippable: the caller already has an answer (the local model's), so the user may skip Claude
-// (returns null). Without it, a typed text is taken as Claude's (short) answer.
+// A menu (not typed commands) says what to do next. skippable: the caller already has an answer
+// (the local model's), so the user may skip Claude (returns null); otherwise a short answer can be typed.
 async function askThroughClipboard(prompt: string, meta: PromptAIMeta, skippable: boolean): Promise<string | null> {
   const clipboard = await loadClipboard();
   await clipboard.write(prompt);
   const startedAt = Date.now();
 
-  console.log(`\n--- ${skippable ? 'Validação pelo Claude' : 'Pergunta para o Claude'} (o prompt já está no seu clipboard) ---`);
-  console.log('  1. Cole no chat do Claude (claude.ai ou app) e envie.');
-  console.log('  2. Copie a resposta INTEIRA do Claude.');
-  console.log('  3. Volte aqui e pressione Enter.');
-  if (skippable) console.log('  Sem tempo ou sem o Claude aberto? Digite "p" e Enter para pular e usar a resposta do modelo local.');
+  console.log(`
+--- ${skippable ? 'Validação pelo Claude' : 'Pergunta para o Claude'} ---`);
+  console.log('O prompt já está no seu clipboard: cole no chat do Claude (claude.ai ou app), envie,');
+  console.log('copie a resposta INTEIRA dele e depois escolha abaixo.');
 
   let answer = '';
   for (;;) {
-    const typed = await input(
-      skippable ? 'Enter quando a resposta estiver copiada ("p" para pular):' : 'Enter quando a resposta estiver copiada (ou digite uma resposta curta):'
-    );
-    if (skippable && SKIP_WORDS.includes(typed.trim().toLowerCase())) {
+    const choice = await select<ClipboardChoice>('O que você quer fazer?', [
+      { name: 'Já copiei a resposta do Claude', value: 'copied' },
+      skippable
+        ? { name: 'Pular o Claude: usar a resposta do modelo local', value: 'skip' }
+        : { name: 'Digitar uma resposta curta', value: 'type' },
+    ]);
+    if (choice === 'skip') {
       console.log('⏭️  Validação pulada: vale a resposta do modelo local.');
       return null;
     }
-    if (typed.trim() && !skippable) {
-      answer = typed.trim();
-      break;
-    }
-    if (typed.trim()) {
-      console.log('⚠️  Aqui não dá para digitar a resposta: copie a resposta do Claude e pressione Enter, ou digite "p" para pular.');
+    if (choice === 'type') {
+      answer = (await input('Resposta:')).trim();
+      if (answer) break;
       continue;
     }
 
@@ -67,8 +66,7 @@ async function askThroughClipboard(prompt: string, meta: PromptAIMeta, skippable
       answer = pasted;
       break;
     }
-
-    console.log(`⚠️  O clipboard ainda contém o prompt (ou está vazio). Copie a resposta do Claude e tente de novo${skippable ? ', ou digite "p" para pular' : ''}.`);
+    console.log('⚠️  O clipboard ainda tem o prompt (ou está vazio): a resposta do Claude não foi copiada.');
   }
 
   // Claude via clipboard reports no tokens: chars and the human round-trip time show the cost.

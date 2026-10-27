@@ -45,7 +45,7 @@
 - Node.js >= 22.13 + TypeScript strict, compilado com `tsc` + `tsc-alias`
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
-- Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas). Na validação, a tela mostra os passos e "p" pula o Claude mantendo a resposta do modelo local (antes um texto digitado, como "não sei", virava a resposta do Claude e apagava a revisão)
+- Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas). Na validação, um menu oferece "Já copiei a resposta do Claude" ou "Pular o Claude" (mantém a resposta do modelo local) (antes um texto digitado, como "não sei", virava a resposta do Claude e apagava a revisão)
 - IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local; chaves salvas com `kvasir keys`
 - Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
 - `profile.md` injetado nos prompts de commit, branch, review e doc
