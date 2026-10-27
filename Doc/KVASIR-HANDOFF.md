@@ -347,6 +347,8 @@ O Dependabot abriu 7 PRs logo que foi ligado. O CI só compila e roda `--help`, 
 
 **Para o autor:** o ruleset da `main` exige o check `build (ubuntu-latest, node 18)`, que deixa de existir no PR do Node 22.13. Trocar no ruleset por `build (ubuntu-latest, node 22.13)` antes de mergear esse PR. Depois de mergear os PRs que substituem o #11, #12 e #14, fechar os três do Dependabot (ou ele fecha sozinho quando a versão chega na `main`).
 
+**2ª rodada (2026-10-27, branch `chore/dependabot-cleanup`):** o #10 foi fechado sem `ignore` e voltou como #23 (TypeScript 7 de novo, CI vermelho). O `dependabot.yml` agora ignora major de `typescript` (6 e 7 removem `moduleResolution: node` e `baseUrl`; migrar é trabalho próprio) e de `@types/node` (segue o Node mínimo, 22). O #24 (cosmiconfig 10, que exige Node `^22.18`) mostrou que o `cosmiconfig` nem era usado: nenhum import em `src/`; foi removido das dependências. O #25 (fs-extra 11.4.1, patch) pode mergear como está.
+
 ## Configuração de projeto open source (2026-10-20, branch `chore/open-source-setup`)
 
 A pedido do autor ("como é open source, tem que configurar as regras"). Antes não existia `.github/`: push direto na `main`, nada verificado, nenhum guia.

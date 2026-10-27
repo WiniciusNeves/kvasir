@@ -51,7 +51,7 @@
 - `profile.md` injetado nos prompts de commit, branch, review e doc
 - Exemplos do próprio desenvolvedor nos prompts de commit e branch (`@ai/examples`): os casos mais parecidos que ele aprovou ou editou, com mais peso para os recentes; o `init` e o `commit` aprendem com os commits que ele já fez (`git log`); o `kvasir stats` compara a aceitação com × sem exemplos (testado em 2026-10-27 num projeto real com 200 commits)
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
-- Dependências: commander 15 e @inquirer/prompts 8 (só ESM, carregados por `require(esm)`), axios, clipboardy, fs-extra, cosmiconfig, zod (planner, `kvasir.context.md`, personas)
+- Dependências: commander 15 e @inquirer/prompts 8 (só ESM, carregados por `require(esm)`), axios, clipboardy, fs-extra, zod (planner, `kvasir.context.md`, personas)
 - Argumento a mais vira erro (commander 13+): `kvasir commit extra` para com "too many arguments" em vez de ignorar. Por isso o `knowledge search` aceita várias palavras (`kvasir knowledge search react hooks` busca a frase; antes buscava só "react")
 
 ---
