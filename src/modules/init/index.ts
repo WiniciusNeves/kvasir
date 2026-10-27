@@ -5,6 +5,7 @@ import { loadPersona, listPersonas, getKvasirHome, findPersonaForPackage } from 
 import { writeContext, readContext } from './contextWriter';
 import { readJson } from '@utils/fs';
 import { confirm, select } from '@utils/prompt';
+import { learnFromCommitHistory, formatCommitStyle } from '@modules/learn/history';
 import { writeClaude } from '@adapters/claude';
 import { writeCopilot } from '@adapters/copilot';
 import { writeCursor } from '@adapters/cursor';
@@ -21,7 +22,10 @@ async function choosePersona(detected: string | null): Promise<string | null> {
   const ordered = [...personas].sort((a, b) => (a.name === detected ? -1 : b.name === detected ? 1 : a.name.localeCompare(b.name)));
 
   const choice = await select<string>(detected ? `Persona (detectada: ${detected}):` : 'Qual persona este projeto segue?', [
-    ...ordered.map((persona) => ({ name: `${persona.name} (${persona.source})`, value: persona.name })),
+    ...ordered.map((persona) => ({
+      name: `${persona.name} (${persona.source})${persona.name === detected ? ' ← recomendada: bate com o nome do projeto' : ''}`,
+      value: persona.name,
+    })),
     { name: 'Nenhuma por enquanto', value: NO_PERSONA },
   ]);
   return choice === NO_PERSONA ? null : choice;
@@ -94,4 +98,10 @@ export async function runInit(): Promise<void> {
   await writeCursor();
 
   console.log(`\n✅ Kvasir configurado com a persona "${persona.name}".`);
+
+  // From day one the AI follows how this developer already writes, not only the persona's rules.
+  const { learned, style } = await learnFromCommitHistory();
+  if (style) {
+    console.log(`📚 Li o seu histórico: ${formatCommitStyle(style)}.${learned > 0 ? ` ${learned} mensagem(ns) viraram exemplos para as próximas sugestões.` : ''}`);
+  }
 }

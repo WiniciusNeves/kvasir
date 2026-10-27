@@ -2,6 +2,7 @@ import {
   getDiff,
   getDiffStat,
   getHeadShortHash,
+  getStagedPaths,
   commitWithMessage,
   stageAll,
   getCurrentBranch,
@@ -11,6 +12,8 @@ import {
 import { printCliError } from '@utils/errors';
 import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
+import { recordExample } from '@ai/examples';
+import { describeCommitFiles, learnFromCommitHistory } from '@modules/learn/history';
 import { answerLines, pickLine, truncateForPrompt } from '@ai/parse';
 import { confirm, editor, select, input } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
@@ -161,7 +164,12 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
     return;
   }
 
-  const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat(), context.commitRules.language), { temperature: 0.2 });
+  // the developer's own commits are the style examples (incremental: only the new ones are read)
+  const { learned } = await learnFromCommitHistory();
+  if (learned > 0) console.log(`📚 Aprendi o seu estilo com ${learned} commit(s) seus deste projeto.`);
+  const about = describeCommitFiles(getStagedPaths());
+
+  const response = await askFor('commit', buildCommitPrompt(diff, getDiffStat(), context.commitRules.language), { temperature: 0.2, examplesFor: about });
   const message = parseCommitMessage(response);
 
   console.log('\n📝 Mensagem sugerida:');
@@ -181,6 +189,7 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
   if (action === 'no') {
     await recordFeedback('commits', 'rejected', message);
     await recordOutcome('commit', 'rejected');
+    await recordExample('commit', { input: about, output: message, decision: 'rejected' });
     console.log('❌ Commit cancelado.');
     return;
   }
@@ -200,6 +209,11 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
     console.log('Mensagem de commit vazia. Commit cancelado.');
     return;
   }
+  // what the developer kept is the lesson: the edited version (with the suggestion it replaced) or the approved one
+  await recordExample(
+    'commit',
+    finalMessage !== message ? { input: about, output: finalMessage, suggested: message, decision: 'edited' } : { input: about, output: message, decision: 'approved' }
+  );
 
   commitWithMessage(finalMessage);
   console.log('✅ Commit realizado com sucesso!');

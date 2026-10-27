@@ -45,10 +45,11 @@
 - Node.js >= 22.13 + TypeScript strict, compilado com `tsc` + `tsc-alias`
 - `npm link` deixa o comando `kvasir` global
 - Ollama em `http://localhost:11434` (`num_ctx` 8192, timeout 120s, nomes de modelo casados com as tags instaladas), com os modelos `codellama`, `qwen2.5-coder`, `llama3.2` e `deepseek-r1`
-- Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas)
+- Claude acessado via clipboard (`clipboardy`), sem API key; a resposta é lida de volta do clipboard (funciona com várias linhas). Na validação, a tela mostra os passos e "p" pula o Claude mantendo a resposta do modelo local (antes um texto digitado, como "não sei", virava a resposta do Claude e apagava a revisão)
 - IA na nuvem opcional: Gemini Flash (textos em português) e Groq (código), opt-in, com fallback para o Ollama; `guard` sempre local; chaves salvas com `kvasir keys`
 - Métricas de toda chamada de IA em `~/.kvasir/metrics/calls.jsonl` (tempo, tokens, aprovação)
 - `profile.md` injetado nos prompts de commit, branch, review e doc
+- Exemplos do próprio desenvolvedor nos prompts de commit e branch (`@ai/examples`): os casos mais parecidos que ele aprovou ou editou, com mais peso para os recentes; o `init` e o `commit` aprendem com os commits que ele já fez (`git log`); o `kvasir stats` compara a aceitação com × sem exemplos (testado em 2026-10-27 num projeto real com 200 commits)
 - Nenhum `shell: true`/`exec`/`execSync`: comandos `.cmd` no Windows passam por `runCommand` (`utils/process.ts`)
 - Dependências: commander 15 e @inquirer/prompts 8 (só ESM, carregados por `require(esm)`), axios, clipboardy, fs-extra, cosmiconfig, zod (planner, `kvasir.context.md`, personas)
 - Argumento a mais vira erro (commander 13+): `kvasir commit extra` para com "too many arguments" em vez de ignorar. Por isso o `knowledge search` aceita várias palavras (`kvasir knowledge search react hooks` busca a frase; antes buscava só "react")

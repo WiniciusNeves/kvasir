@@ -61,6 +61,13 @@ export interface AgentStats {
   board: { queued: BoardCard[]; running: BoardCard[]; done: BoardCard[]; failed: BoardCard[] };
 }
 
+// Did the developer's own examples in the prompt help? Verdicts of the calls that had them × those that did not.
+export interface ExamplesEffect {
+  task: string;
+  withExamples: { approved: number; rejected: number };
+  withoutExamples: { approved: number; rejected: number };
+}
+
 export interface StatsData {
   generatedAt: string;
   days: number;
@@ -69,6 +76,7 @@ export interface StatsData {
   daily: DayBar[];
   models: ModelPerformance[];
   agents: AgentStats[];
+  examplesEffect: ExamplesEffect[];
   learned: { preferences: string[]; notesByCategory: Record<string, number>; recentErrors: string[]; recentAnswers: string[]; totalNotes: number };
 }
 
@@ -177,6 +185,22 @@ async function learnedPreferences(): Promise<string[]> {
     .slice(0, 12);
 }
 
+// Only tasks that use examples (they appear once a call carried some); calls before the feature count as "without".
+export function examplesEffect(calls: AiCallRecord[], outcomes: AiOutcomeRecord[]): ExamplesEffect[] {
+  const byId = new Map(calls.map((call) => [call.id, call]));
+  const tasks = Array.from(new Set(calls.filter((call) => (call.examples ?? 0) > 0).map((call) => call.task)));
+  return tasks.map((task) => {
+    const effect: ExamplesEffect = { task, withExamples: { approved: 0, rejected: 0 }, withoutExamples: { approved: 0, rejected: 0 } };
+    for (const outcome of outcomes.filter((item) => item.task === task)) {
+      const call = byId.get(outcome.callId);
+      if (!call) continue;
+      const side = (call.examples ?? 0) > 0 ? effect.withExamples : effect.withoutExamples;
+      side[outcome.decision] += 1;
+    }
+    return effect;
+  });
+}
+
 export async function collectStats(days: number): Promise<StatsData> {
   const records = await readMetrics(days);
   const calls = records.filter(isCall);
@@ -223,6 +247,7 @@ export async function collectStats(days: number): Promise<StatsData> {
     daily,
     models: summary.models,
     agents: AGENT_NAMES.map((name) => agentStats(name, executor, outcomes, summary.models)),
+    examplesEffect: examplesEffect(executor, outcomes),
     learned: {
       preferences: await learnedPreferences(),
       notesByCategory,

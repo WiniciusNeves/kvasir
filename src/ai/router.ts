@@ -10,10 +10,11 @@ import { agentForTask } from '@ai/agents';
 import { startJob, switchJobModel, finishJob } from '@ai/jobs';
 import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
-import { promptAI } from '@ai/client';
+import { promptAIOrSkip } from '@ai/client';
 import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
+import { findExamples } from '@ai/examples';
 
 export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs';
 
@@ -68,6 +69,9 @@ export interface AskForOptions {
   temperature?: number;
   repeatPenalty?: number;
   timeoutMs?: number;
+  // what this case is about, in the shape the task records its examples (commit: the changed files;
+  // branch: the task): the developer's most similar past answers go into the prompt
+  examplesFor?: string;
 }
 
 export interface Candidate {
@@ -212,7 +216,8 @@ async function runWithFallback(
   candidates: Candidate[],
   prompt: string,
   options: AskForOptions,
-  onResult: (label: string, result: string) => Promise<string>
+  onResult: (label: string, result: string) => Promise<string>,
+  examples = 0
 ): Promise<string> {
   const failures: string[] = [];
   // Agent Board: the owner agent's job is "em andamento" while its models work on it.
@@ -240,7 +245,7 @@ async function runWithFallback(
     await recordAiCall({
       task, agent, title: job.title, provider: candidate.provider, model: candidate.model, role: 'executor', ok: true,
       durationMs: Date.now() - startedAt, promptChars: prompt.length, outputChars: result.text.length,
-      promptTokens: result.promptTokens, outputTokens: result.outputTokens,
+      promptTokens: result.promptTokens, outputTokens: result.outputTokens, examples,
     });
     finishJob(job);
     return onResult(candidate.label, result.text);
@@ -273,6 +278,8 @@ Valide se o resultado está correto e completo para a tarefa. Se estiver correto
 // matters. Not into fix/architect, where only correctness counts.
 const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily', 'release'];
 const MAX_PREFERENCES_CHARS = 1200;
+const EXAMPLES_IN_PROMPT = 3;
+const MAX_EXAMPLE_INPUT_CHARS = 300;
 
 function getProfilePath(): string {
   return path.join(os.homedir(), '.kvasir', 'profile.md');
@@ -292,10 +299,28 @@ ${preferences.slice(0, MAX_PREFERENCES_CHARS)}
 ${prompt}`;
 }
 
+// The developer's own answers in the most similar past cases: the style (length, language, scope)
+// is copied from real examples, which local models follow better than a description of it.
+async function withDeveloperExamples(task: AiTask, prompt: string, query: string | undefined): Promise<{ prompt: string; examples: number }> {
+  if (!query || !PREFERENCE_TASKS.includes(task)) return { prompt, examples: 0 };
+  const examples = await findExamples(task, query, EXAMPLES_IN_PROMPT);
+  if (examples.length === 0) return { prompt, examples: 0 };
+
+  const lines = examples.map((example) => `- Caso: ${example.input.split('\n').join(' · ').slice(0, MAX_EXAMPLE_INPUT_CHARS)}\n  Resposta dele: ${example.output}`);
+  return {
+    prompt: `Respostas reais deste desenvolvedor em casos parecidos (siga o estilo delas: tamanho, escopo, palavras; não copie o conteúdo). O formato e o idioma pedidos nas instruções abaixo valem mais que estes exemplos: se um exemplo foge do formato, use só o estilo dele dentro do formato pedido.
+${lines.join('\n')}
+
+${prompt}`,
+    examples: examples.length,
+  };
+}
+
 // Isolated context: the owner agent's role prompt, then (where taste matters) the developer's
-// preferences, then the task prompt. Nothing from other agents goes in.
-async function buildAgentPrompt(task: AiTask, basePrompt: string): Promise<string> {
-  return `${agentForTask(task).rolePrompt}\n\n${await withDeveloperPreferences(task, basePrompt)}`;
+// preferences and own past answers, then the task prompt. Nothing from other agents goes in.
+async function buildAgentPrompt(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<{ prompt: string; examples: number }> {
+  const withExamples = await withDeveloperExamples(task, basePrompt, options.examplesFor);
+  return { prompt: `${agentForTask(task).rolePrompt}\n\n${await withDeveloperPreferences(task, withExamples.prompt)}`, examples: withExamples.examples };
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +344,7 @@ function trustReason(stats: { approved: number; rejected: number }): string | nu
 
 export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const ranked = await resolveCandidates(task);
-  const prompt = await buildAgentPrompt(task, basePrompt);
+  const { prompt, examples } = await buildAgentPrompt(task, basePrompt, options);
   const mode: ClaudeValidationMode = (await readUserConfig()).ai?.claudeValidation ?? 'auto';
   const statsByLabel = new Map(ranked.map((item) => [item.candidate.label, item.stats]));
 
@@ -332,13 +357,13 @@ export async function askFor(task: AiTask, basePrompt: string, options: AskForOp
     }
     if (mode === 'always') console.log('🔎 Validação do Claude (ai.claudeValidation: always).');
     else console.log(`🔎 Validação do Claude: ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação).`);
-    return promptAI(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' });
-  });
+    return (await promptAIOrSkip(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' })) ?? result;
+  }, examples);
 }
 
 // No Claude round trips: cloud provider of the task (if allowed), then the local chain.
 export async function askLocal(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const candidates = (await resolveCandidates(task)).map((item) => item.candidate);
-  const prompt = await buildAgentPrompt(task, basePrompt);
-  return runWithFallback(task, candidates, prompt, options, async (_label, result) => result);
+  const { prompt, examples } = await buildAgentPrompt(task, basePrompt, options);
+  return runWithFallback(task, candidates, prompt, options, async (_label, result) => result, examples);
 }

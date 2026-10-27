@@ -336,3 +336,11 @@
 ## Pendente: Electron ou Tauri
 
 O app desktop pode ser feito com **Tauri** (mais leve, ensina Rust) ou **Electron** (tudo em Node/TS). Decidir antes da fase do app desktop.
+
+---
+
+## O gosto do desenvolvedor vem de exemplos dele, não de um resumo
+
+**Decisão:** Onde o gosto importa (commit, branch), o router coloca no prompt as respostas reais do desenvolvedor nos casos mais parecidos (`@ai/examples`): o que ele aprovou ou a versão que ele editou. No primeiro uso, os commits que ele já fez viram exemplos (`learnFromCommitHistory`, pelo `git log`). A busca é local (vetores do Ollama), com peso para os mais recentes. Cada chamada grava se levou exemplos, e o `kvasir stats` mostra a aceitação com × sem. As regras da persona continuam valendo antes dos exemplos: se o histórico contradiz a persona (ex.: commits fora do Conventional Commits), a regra ganha, e mudar a regra é decisão do desenvolvedor.
+
+**Por quê:** O `profile.md` resume o gosto em frases, só depois de muito feedback e de rodar `kvasir learn` à mão: na prática a IA começava sem saber nada, e um "recusou" sem o porquê ensinava pouco. Modelo local copia a forma de um exemplo muito melhor do que segue uma descrição (o `docs update` já tinha mostrado isso), e um exemplo carrega tamanho, tom, escopo e idioma de uma vez. Descartados: questionário no `init` (as pessoas respondem o que acham que fazem) e fine-tuning (precisa de GPU, é lento para atualizar e não acompanha o desenvolvedor em outra máquina).
