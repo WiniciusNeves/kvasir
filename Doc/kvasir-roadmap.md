@@ -1,95 +1,68 @@
-# Kvasir: roadmap
+# Kvasir: roadmap (lista do que falta)
 
-> O que falta, **em ordem**. Termine uma fase antes de começar a próxima.
-> Estado atual: `kvasir-current.md` · Visão: `kvasir-vision.md`
-
----
-
-## Fase 1: terminar o core ← **agora**
-
-- [x] `init`, `commit`, `branch`, `doc`, `doc --code`, `models`
-- [x] Seleção por pasta no `doc --code`
-- [x] Menu pós-commit em loop
-- [x] `kvasir undo`, `kvasir push`, `kvasir log` separados (com tabela ASCII)
-- [x] `kvasir fix` (2026-10-17)
-- [x] Testar `review`, `knowledge`, `learn`, `task`, `start` (2026-10-17)
-- [ ] Testar `push` contra remoto real, `format`, menu do `branch`
-- [ ] Corrigir os problemas conhecidos #7 a #11 de `kvasir-current.md` (#3 a #6 resolvidos)
+> **Atualizado em 2026-10-27.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
+> Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
 ---
 
-## Fase 1.5: novos módulos (depois do `fix`)
+## 1. Rápido (fechar primeiro)
 
-> Especificação completa: `Doc/ideas/novos-modulos.md`
+- [ ] Dependabot: mergear o #25 (fs-extra 11.4.1, revisado: pode mergear)
+- [ ] Dependabot: o #23 (dev-dependencies) e o #24 (cosmiconfig 10) **não** podem ser mergeados como estão; antes, um PR pequeno de correção (revisão feita numa sessão separada em 2026-10-27; refazer a análise se ela se perdeu)
+- [ ] Problema conhecido #12: encerrar o `kvasir watch` por fora deixa o servidor (ex.: Metro) rodando no Windows. Fechar a árvore de processos (`taskkill /PID <pid> /T`) em `@utils/process`
 
-1. [x] `kvasir guard`: bloqueia segredos e dados sensíveis antes do commit (integrado ao `commit`) (2026-10-17)
-2. [x] `kvasir pr`: título e descrição do Pull Request em português (2026-10-17)
-3. [ ] `kvasir review`: finalizar
-4. [x] `kvasir daily`: resumo dos commits para a daily (2026-10-17)
-5. [x] `kvasir release`: versão SemVer + CHANGELOG a partir dos Conventional Commits (2026-10-17)
-6. [x] `kvasir doctor`: diagnóstico do ambiente (Node, JDK, Android, Expo, Ollama) (2026-10-17)
-7. [x] `kvasir test`: gera testes para os arquivos alterados (2026-10-17)
+## 2. Testes de uso real (num projeto Expo real, só IA local)
 
----
+- [ ] `kvasir commit` interativo de ponta a ponta com os exemplos do desenvolvedor (aprovar, editar, rejeitar) e conferir o `kvasir stats` (com × sem exemplos)
+- [ ] `kvasir branch` interativo (com exemplos) e o menu do `branch`
+- [ ] `kvasir test` (gerar testes) com o contexto do projeto
+- [ ] `kvasir docs update` no projeto
+- [ ] Validação do Claude **sem pular** (colar no Claude, copiar a resposta, "Já copiei")
+- [ ] `push` contra remoto real, `undo`, `log`, `format` (nunca testados de verdade)
+- [ ] Review: no último teste o modelo local achou 2 de 3 bugs plantados (não citou um `console.log`; errou uma linha e chamou divisão por zero de "segurança"). Medir de novo depois do bloco 3
 
-## Fase 2: AI Router v2
+## 3. Melhorias do aprendizado
 
-Hoje: Claude (clipboard) escolhe o modelo → Ollama executa → Claude (clipboard) valida.
+- [ ] Review com veredito por achado (útil / ignorar), para aprender quais avisos o desenvolvedor ignora; hoje é só "útil? sim/não" para a revisão inteira
+- [ ] "Por quê?" opcional ao rejeitar uma sugestão (vira exemplo e feedback)
+- [ ] `learn` automático (sem rodar `kvasir learn` à mão)
+- [ ] Preferências por projeto (o estilo de um projeto não vaza para outro)
 
-- [ ] Escolha determinística do modelo por padrão (primeiro instalado do `MODEL_MAP`), sem clipboard (problema #1)
-- [ ] Validação pelo Claude opcional
-- [x] `src/ai/gemini.ts`: Gemini Flash (gratuito, melhor para português) (2026-10-17)
-- [x] `src/ai/groq.ts`: Groq (gratuito, rápido para código) (2026-10-17)
-- [ ] Fallback: nuvem gratuita → Ollama se estiver offline ou se o limite estourar
+## 4. `kvasir deploy` (explicar o plano antes de começar)
 
-| Tarefa | Preferido | Fallback |
-|---|---|---|
-| doc, texto, português | Gemini Flash | Ollama llama3.2 |
-| commit, branch, fix, review | Groq | Ollama (codellama / qwen2.5-coder) |
-| offline / privado | Ollama | — |
+- Mobile (Expo): EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, mensagem no estilo commit)
+- Web: build + deploy (Vercel ou outro)
+- Detecta o tipo de projeto sozinho; nada sobe sem confirmação
 
-**Requisitos:** chave no [aistudio.google.com](https://aistudio.google.com) e no [console.groq.com](https://console.groq.com) (ambos gratuitos).
+## 5. Produto e infra
 
----
+- [ ] `kvasir setup`: instalador que detecta Node, Git e Ollama, baixa os modelos que faltam e cria o `~/.kvasir`
+- [ ] README e guia de instalação para outras pessoas; publicar no npm
+- [ ] `~/.kvasir` sincronizado entre PCs (Windows ↔ Mac; primeiro por pasta sincronizada)
+- [ ] Servidor pessoal de IA 24h + Tailscale (acesso de qualquer lugar)
+- [ ] Extensão do VS Code
+- [ ] Integrações: task manager da empresa (API própria), GitHub Actions
+- [ ] Open source + B2B (personas por empresa), sync na nuvem pago
 
-## Fase 3: contexto e aprendizado
+## 6. Kvasir Desktop (detalhes em `ideas/backlog.md`, bloco 11)
 
-- [x] `task` grava a task ativa no `kvasir.context.md`; `branch` usa a task (2026-10-17)
-- [ ] Injetar `profile.md` e notas relevantes do `knowledge/` nos prompts
-- [ ] `kvasir stats`: dashboard HTML com gráfico radar (Chart.js): uso × aprovação por módulo, semana × mês
-- [ ] `kvasir docs update`: atualiza os docs do projeto automaticamente
+- Robozinho sempre no topo, arrastável, ativado por clique ou pela voz ("Kvasir")
+- **A posição dele define o que ele olha:** num canto fica quieto; arrastado para cima de uma janela, gruda nela e acompanha só aquela janela; arrastado para o topo da tela, cresce e olha a tela inteira
+- Só depois do CLI estável
 
----
+## 7. Auto-melhoria e plugins (`ideas/backlog.md`, bloco 12)
 
-## Fase 4: OmniContext (RAG local)
-
-> Especificação: `Doc/ideas/omnicontext.md`
-
-- [ ] `kvasir index` / `kvasir ask` com embeddings locais (Ollama + Qdrant), módulo isolado em `src/rag/`
-- [ ] `fix` e `review` consultam o RAG
-- [ ] Sincronizar Windows ↔ Mac (primeiro via arquivos fonte; P2P depois)
-
----
-
-## Fase 5: `kvasir deploy`
-
-- **Mobile (Expo):** EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, com mensagem no estilo commit)
-- **Web:** build + deploy (Vercel ou outro)
-- Detecta o tipo de projeto automaticamente
+- O Kvasir analisa o próprio uso e propõe patches no próprio código, sempre em branch `chore/self-improve-*`, com build, testes e rollback
+- `kvasir plugin install | create` em `~/.kvasir/plugins/`
 
 ---
 
-## Fase 6: linguagem natural e agentes
+## Já feito (resumo)
 
-- [ ] `src/ai/intent.ts`: português informal → módulo certo (ações destrutivas pedem confirmação)
-- [ ] Time de agentes (Arquiteto, Revisor, Documentador, Testador, Executor) com gerenciador de tarefas
-
----
-
-## Fase 7: produto
-
-- App desktop (Electron ou Tauri) com bandeja e voz (Whisper + Piper/Edge TTS)
-- Extensão VS Code
-- Plugins em `~/.kvasir/plugins/` e auto-melhoria
-- Sync na nuvem (pago) · personas B2B
-- Integrações: task manager próprio da empresa, GitHub Actions, servidor de IA centralizado
+- Core: `init`, `commit`, `branch`, `doc`, `doc --code`, `models`, `fix`, `review`, `knowledge`, `learn`, `task`, `start`, menu e linguagem natural
+- Módulos: `guard`, `pr`, `daily`, `release`, `doctor`, `test`, `watch`, `stats`, `docs update`, `proactive`, `agents` (time de agentes + Agent Board)
+- AI Router v2: ranking por desempenho medido, fallback nuvem → Ollama, Gemini e Groq opcionais, validação do Claude só enquanto o modelo não provou que acerta (pode pular)
+- OmniContext (RAG local) com `index` / `ask`, usado pelos prompts que se beneficiam
+- Aprendizado pelos exemplos do próprio desenvolvedor (commits do git, aprovações e edições), medido no `stats`
+- `watch` validado num projeto Expo real (erros de tipo, testes falhando, build do Metro, modo clipboard)
