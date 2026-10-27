@@ -12,7 +12,7 @@ import type { RuntimeAttempt } from '@modules/fix/runtime';
 import type { FixCall } from '@modules/fix/backup';
 import { recordOutcomeForCall } from '@ai/metrics';
 import { readFile, writeFile } from '@utils/fs';
-import { parseRuntimeErrors, isTestFile } from '@utils/runtimeErrors';
+import { parseRuntimeErrors, isTestFile, stripAnsi } from '@utils/runtimeErrors';
 import type { RuntimeError } from '@utils/runtimeErrors';
 import type { FixBackup } from '@modules/fix/backup';
 
@@ -30,6 +30,8 @@ const MAX_ATTEMPTS_PER_ERROR = 3;
 const MAX_BUFFER_CHARS = 200_000;
 // fix → recheck → fix what is left; a cap so a stubborn project cannot loop forever
 const MAX_ROUNDS = 5;
+// how bundlers announce a failed build (Metro, webpack/Next, Vite, esbuild)
+const BUILD_FAILED = /Bundling failed|Unable to resolve (module )?["'.]|Module not found|Failed to compile|Build failed|\[vite\].*error/i;
 
 // A runtime fix with no test to rerun: kept, and undone if the same error shows up again.
 interface PendingRuntimeFix {
@@ -113,7 +115,11 @@ async function processErrors(found: TscDiagnostic[], session: WatchSession): Pro
       const pool = round === 0 && stillThere.length > 0 ? stillThere : baseline;
       const targets = pickTargets(pool.filter((diagnostic) => !triedNow.has(errorKey(diagnostic))), session);
       if (targets.length === 0) {
-        console.log(baseline.length === 0 ? '✅ O typecheck não tem mais erros.' : `Sobraram ${baseline.length} erro(s) que não consigo corrigir sozinho.`);
+        if (round === 0 && baseline.length === 0 && found.length === 0) {
+          console.log('⏭️  O typecheck não vê erro: esse erro do build eu não sei corrigir sozinho. Copie a mensagem para o "kvasir fix".');
+        } else {
+          console.log(baseline.length === 0 ? '✅ O typecheck não tem mais erros.' : `Sobraram ${baseline.length} erro(s) que não consigo corrigir sozinho.`);
+        }
         break;
       }
 
@@ -254,7 +260,16 @@ async function handleText(text: string, session: WatchSession): Promise<void> {
     return;
   }
   const runtime = parseRuntimeErrors(text);
-  if (runtime.length > 0) await processRuntimeErrors(runtime, session);
+  if (runtime.length > 0) {
+    await processRuntimeErrors(runtime, session);
+    return;
+  }
+  // A bundler's build error (Metro, webpack, Next) has its own format, but a missing module or a
+  // broken import is also a type error: the project's typecheck finds it in a format we fix.
+  if (BUILD_FAILED.test(stripAnsi(text)) && !session.busy) {
+    console.log('\n🔎 O build falhou. Conferindo o typecheck do projeto...');
+    await processErrors([], session);
+  }
 }
 
 async function watchClipboard(session: WatchSession): Promise<void> {

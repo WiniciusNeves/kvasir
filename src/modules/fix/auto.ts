@@ -9,6 +9,7 @@ import { ensureBackup, attachCallToBackup } from './backup';
 import type { FixBackup } from './backup';
 import { splitFile, applyDeterministicFix, buildLineFixPrompt, lineFixContextQuery, parseCorrectedLine, COMPLEX_CODES } from './line';
 import { relatedContext } from '@modules/omnicontext/context';
+import { listSiblingImports } from '@utils/imports';
 import type { LineFixContext } from './line';
 import { hidingReason, compareDiagnostics, runRelatedTests } from './validate';
 
@@ -46,6 +47,14 @@ async function proposeLine(diagnostic: TscDiagnostic, lines: string[], attempt: 
   return { line: parseCorrectedLine(response, lines[diagnostic.lineIndex]), source: 'IA' };
 }
 
+// TS2307 "Cannot find module '@utils/x'" on the line that imports it, for a module of this project.
+function projectImportsFor(diagnostic: TscDiagnostic, line: string): string[] {
+  if (diagnostic.code !== 'TS2307') return [];
+  const specifier = diagnostic.message.match(/'([^']+)'/)?.[1];
+  if (!specifier || !line.includes(specifier)) return [];
+  return listSiblingImports(specifier, diagnostic.filePath);
+}
+
 async function reject(source: string): Promise<void> {
   if (source === 'IA') await recordOutcome('fix', 'rejected');
 }
@@ -63,14 +72,17 @@ export async function autoFixDiagnostic(
   const oldLine = lines[diagnostic.lineIndex];
   if (oldLine === undefined) return { status: 'skipped', reason: `a linha ${diagnostic.lineIndex + 1} não existe mais`, attempts: 0 };
 
-  // Complex errors usually live outside the reported line: only proven rules touch them here.
-  const complex = COMPLEX_CODES.test(diagnostic.code) && !applyDeterministicFix(oldLine, diagnostic);
+  // Complex errors usually live outside the reported line: only proven rules touch them here. The
+  // exception is a project import that does not resolve, when the real ones next to it are known.
+  const existingImports = projectImportsFor(diagnostic, oldLine);
+  const complex = COMPLEX_CODES.test(diagnostic.code) && !applyDeterministicFix(oldLine, diagnostic) && existingImports.length === 0;
   if (complex) return { status: 'skipped', reason: 'erro complexo (a causa costuma estar fora da linha): rode "kvasir fix" para investigar', attempts: 0 };
 
   const { query, shown } = lineFixContextQuery(diagnostic, lines);
   const context: LineFixContext = {
     knownFixes: await knownFixesFor(diagnostic.code, KNOWN_FIXES_IN_PROMPT),
     projectContext: await relatedContext(query, { exclude: [shown] }),
+    existingImports,
   };
   let lastReason = 'nenhuma tentativa';
 

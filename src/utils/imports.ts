@@ -84,6 +84,7 @@ export function resolveLocalImports(filePath: string, content: string, root: str
 const SOURCE_EXTENSIONS = /\.(tsx?|jsx?|d\.ts)$/;
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.expo', 'coverage']);
 const MAX_SIMILAR = 5;
+const MAX_SIBLINGS = 60;
 
 function walkSourceFiles(dir: string, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -105,6 +106,42 @@ export function findFilesNamedLike(specifier: string, root: string = process.cwd
     .filter((file) => path.basename(file).replace(SOURCE_EXTENSIONS, '').replace(/\.d$/, '') === baseName)
     .slice(0, MAX_SIMILAR)
     .map((file) => path.relative(root, file).split(path.sep).join('/'));
+}
+
+// Where a local import would land (relative or tsconfig alias), whether the file exists or not.
+function intendedPath(specifier: string, fromFile: string, tsconfig: TsconfigPaths | null): string | null {
+  if (specifier.startsWith('.')) return path.resolve(path.dirname(fromFile), specifier);
+  for (const [alias, targets] of Object.entries(tsconfig?.paths ?? {})) {
+    if (!alias.endsWith('*') || !specifier.startsWith(alias.slice(0, -1))) continue;
+    const rest = specifier.slice(alias.length - 1);
+    for (const target of targets) {
+      const candidate = path.resolve(tsconfig?.baseUrl ?? '.', target.replace(/\*$/, '') + rest);
+      if (fs.pathExistsSync(path.dirname(candidate))) return candidate;
+    }
+  }
+  return null;
+}
+
+// For a local import that does not resolve: the imports that DO exist in the folder it points to,
+// written the same way ("@utils/dropdownOption" → "@utils/dropdownOptions", "@utils/apiErrors"…).
+export function listSiblingImports(specifier: string, fromFile: string, root: string = process.cwd()): string[] {
+  const intended = intendedPath(specifier, path.resolve(root, fromFile), readTsconfigPaths(root));
+  if (!intended) return [];
+  const folder = path.dirname(intended);
+  const prefix = specifier.slice(0, specifier.lastIndexOf('/') + 1);
+
+  const names = fs
+    .readdirSync(folder, { withFileTypes: true })
+    .filter((entry) =>
+      entry.isDirectory()
+        ? EXTENSIONS.some((extension) => extension.startsWith('/index') && fs.pathExistsSync(path.join(folder, entry.name + extension)))
+        : SOURCE_EXTENSIONS.test(entry.name) && !/\.(test|spec)\.|\.d\.ts$/.test(entry.name)
+    )
+    .map((entry) => entry.name.replace(SOURCE_EXTENSIONS, ''));
+  return Array.from(new Set(names))
+    .sort()
+    .slice(0, MAX_SIBLINGS)
+    .map((name) => `${prefix}${name}`);
 }
 
 export function isResolvableImport(specifier: string, fromFile: string, root: string = process.cwd()): boolean {

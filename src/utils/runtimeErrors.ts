@@ -26,6 +26,10 @@ export interface RuntimeError {
 }
 
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+export function stripAnsi(text: string): string {
+  return text.replace(ANSI, '');
+}
 const MAX_FRAMES = 5;
 const BLOCK_LINES = 40;
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)__tests__\//;
