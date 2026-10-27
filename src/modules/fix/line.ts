@@ -72,6 +72,8 @@ export interface LineFixContext {
   previousAttempt?: { line: string; reason: string };
   // related code from the rest of the project (OmniContext), already formatted
   projectContext?: string;
+  // TS2307 on a project import: the imports that exist in the folder it points to
+  existingImports?: string[];
 }
 
 function describeKnownFixes(fixes: KnownFix[]): string {
@@ -108,7 +110,9 @@ ${buildNumberedSnippet(lines, diagnostic.lineIndex)}
 
 Linha ${lineNumber} atual:
 ${lines[diagnostic.lineIndex]}
-${describeKnownFixes(context.knownFixes ?? [])}${context.projectContext ? `\n${context.projectContext}` : ''}${previous}
+${describeKnownFixes(context.knownFixes ?? [])}${context.projectContext ? `\n${context.projectContext}` : ''}${
+    context.existingImports?.length ? `\nImports que existem nessa pasta do projeto (use um destes, escrito exatamente assim):\n${context.existingImports.map((item) => `- '${item}'`).join('\n')}\n` : ''
+  }${previous}
 REGRAS:
 - Responda SOMENTE com a linha ${lineNumber} já corrigida, dentro de um bloco \`\`\`ts
 - Uma única linha. Não repita a linha atual, não explique, não mexa em outras linhas
