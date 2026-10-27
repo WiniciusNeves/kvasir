@@ -199,6 +199,43 @@ export function getHeadShortHash(): string {
   return (result.stdout ?? '').trim();
 }
 
+// Every staged path, deleted ones included (what the commit is about).
+export function getStagedPaths(): string[] {
+  const result = spawnSync('git', ['diff', '--cached', '--name-only'], { encoding: 'utf-8', cwd: process.cwd() });
+  if (result.error) throw result.error;
+  return (result.stdout ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+export interface CommitWithFiles {
+  hash: string;
+  // ISO date of the commit
+  date: string;
+  // the first line of the message (%s would join a title and a body not separated by a blank line)
+  title: string;
+  files: string[];
+}
+
+// The latest commits of `author` in this repository (no merges), each with the paths it touched.
+export function getOwnCommitsWithFiles(author: string, limit: number): CommitWithFiles[] {
+  const result = spawnSync('git', ['log', '--no-merges', `-n${limit}`, `--author=${author}`, '--name-only', '--format=%x1e%h%x1f%cI%x1f%B%x1d'], {
+    encoding: 'utf-8',
+    cwd: process.cwd(),
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) return [];
+
+  return (result.stdout ?? '')
+    .split('\x1e')
+    .filter((block) => block.trim())
+    .map((block) => {
+      const [header, fileList = ''] = block.split('\x1d');
+      const [hash, date, message = ''] = header.split('\x1f');
+      const title = message.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+      return { hash, date, title, files: fileList.split('\n').map((line) => line.trim()).filter(Boolean) };
+    });
+}
+
 export function getStagedFiles(): string[] {
   const result = spawnSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
     encoding: 'utf-8',

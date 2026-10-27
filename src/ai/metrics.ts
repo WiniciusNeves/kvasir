@@ -29,6 +29,8 @@ export interface AiCallRecord {
   outputChars: number;
   promptTokens?: number;
   outputTokens?: number;
+  // how many of the developer's past answers went into the prompt (@ai/examples); absent = none
+  examples?: number;
 }
 
 export interface AiOutcomeRecord {

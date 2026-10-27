@@ -276,6 +276,18 @@ ${options.focusBoard ? '<script>window.addEventListener("load", function () { do
     data.learned.preferences.forEach(function (line) { ul.appendChild(el('li', null, line)); });
     prefs.appendChild(ul);
   }
+  if (data.examplesEffect.length) {
+    prefs.appendChild(el('h2', { style: 'margin-top:14px' }, 'Seus exemplos nos prompts: aceitação'));
+    var rate = function (side) {
+      var total = side.approved + side.rejected;
+      return total ? Math.round((side.approved / total) * 100) + '% de ' + total : 'sem avaliações';
+    };
+    var effects = el('ul');
+    data.examplesEffect.forEach(function (effect) {
+      effects.appendChild(el('li', null, effect.task + ': com exemplos ' + rate(effect.withExamples) + ' · sem exemplos ' + rate(effect.withoutExamples)));
+    });
+    prefs.appendChild(effects);
+  }
 })();
 </script>
 </body>

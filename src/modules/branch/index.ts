@@ -1,5 +1,6 @@
 import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
+import { recordExample } from '@ai/examples';
 import { noteTaskBranch } from '@modules/knowledge/auto';
 import { answerLines, pickLine } from '@ai/parse';
 import { confirm, input, select } from '@utils/prompt';
@@ -109,7 +110,8 @@ export async function runBranch(): Promise<void> {
   );
 
   const conventions = await loadConventions(context);
-  const response = await askFor('branch', buildBranchPrompt(taskDescription, conventions), { temperature: 0.2 });
+  const about = `tarefa: ${taskDescription.trim()}`;
+  const response = await askFor('branch', buildBranchPrompt(taskDescription, conventions), { temperature: 0.2, examplesFor: about });
   const branchName = parseBranchName(response, conventions);
 
   console.log(`\nBranch atual: ${getCurrentBranch()}`);
@@ -124,6 +126,7 @@ export async function runBranch(): Promise<void> {
   await recordOutcome('branch', action === 'yes' ? 'approved' : 'rejected');
 
   if (action === 'no') {
+    await recordExample('branch', { input: about, output: branchName, decision: 'rejected' });
     console.log('❌ Criação de branch cancelada.');
     return;
   }
@@ -141,6 +144,12 @@ export async function runBranch(): Promise<void> {
 
   createBranch(finalBranchName);
   console.log(`✅ Branch criada: ${finalBranchName}`);
+  await recordExample(
+    'branch',
+    finalBranchName !== branchName
+      ? { input: about, output: finalBranchName, suggested: branchName, decision: 'edited' }
+      : { input: about, output: branchName, decision: 'approved' }
+  );
 
   if (activeTask && taskDescription.trim() === activeTask.title.trim()) {
     await setActiveTask({ ...activeTask, linkedBranch: finalBranchName });

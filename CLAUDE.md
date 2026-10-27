@@ -158,6 +158,7 @@ export function getDiff(): string {
 - **Never compensate a model's mistakes with fixed rules in code**: improve the prompt, the context or the data (backlog principle). Only 100% deterministic, proven fixes are allowed (see `DETERMINISTIC_FIXES` in `fix`, e.g. TS6137 from the tsc message).
 - Every model call is recorded in `~/.kvasir/metrics/calls.jsonl` automatically. Where the user approves/rejects AI output, also call `recordOutcome(task, decision)` from `@ai/metrics`: those verdicts reorder the candidates (`@ai/performance`, performance-based routing), so a module that skips it never improves its model choice.
 - The router injects the "Preferências aprendidas" section of `profile.md` into commit/branch/review/doc prompts. Don't read `profile.md` in modules.
+- **The developer's taste comes from their own examples** (`@ai/examples`): pass `examplesFor` (what the case is about, in the same shape the task records it: commit → `describeCommitFiles(paths)`, branch → `tarefa: …`) to `askFor`/`askLocal` and the router puts the most similar past answers (approved or edited, newest weigh more) into the prompt. Where the user approves, edits or rejects an AI output, call `recordExample(task, { input, output, suggested?, decision })` with what they **kept**. `learnFromCommitHistory()` (`@modules/learn/history`) seeds the commit examples from the git log (incremental). The calls record how many examples they carried, and `kvasir stats` compares acceptance with × without.
 
 ---
 
@@ -171,7 +172,7 @@ export function getDiff(): string {
 
 ## Global data (`~/.kvasir/`)
 
-`profile.md` · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents,answers}/`) · `index/` (OmniContext indexes, regenerable)
+`profile.md` · `examples/<task>.jsonl` (the developer's past answers with local vectors, via `@ai/examples`) · `config.json` (user config: `daily.repos`, `ai`, `agents`) · `reports/` (`stats.html`, `knowledge.html`: generated, offline, no CDN) · `metrics/board.json` (live Agent Board jobs via `@ai/jobs`; a batch calls `queueJobs` before and `clearQueuedJobs` in `finally`) · `personas/<name>.json` · `feedback/{commits,fixes,patterns}.md` (via `recordFeedback`) · `metrics/calls.jsonl` · `backups/fix/` · `knowledge/` (Obsidian vault: `index.md` generated, `{libs,patterns,decisions,tasks,commits,errors,agents,answers}/`) · `index/` (OmniContext indexes, regenerable)
 
 **Knowledge:** write notes only through `saveNote` (`@modules/knowledge/notes`) or the helpers in `@modules/knowledge/auto`; never `writeFile` into the vault directly.
 

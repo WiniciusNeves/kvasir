@@ -5,6 +5,7 @@ import { loadPersona, listPersonas, getKvasirHome, findPersonaForPackage } from 
 import { writeContext, readContext } from './contextWriter';
 import { readJson } from '@utils/fs';
 import { confirm, select } from '@utils/prompt';
+import { learnFromCommitHistory, formatCommitStyle } from '@modules/learn/history';
 import { writeClaude } from '@adapters/claude';
 import { writeCopilot } from '@adapters/copilot';
 import { writeCursor } from '@adapters/cursor';
@@ -94,4 +95,10 @@ export async function runInit(): Promise<void> {
   await writeCursor();
 
   console.log(`\n✅ Kvasir configurado com a persona "${persona.name}".`);
+
+  // From day one the AI follows how this developer already writes, not only the persona's rules.
+  const { learned, style } = await learnFromCommitHistory();
+  if (style) {
+    console.log(`📚 Li o seu histórico: ${formatCommitStyle(style)}.${learned > 0 ? ` ${learned} mensagem(ns) viraram exemplos para as próximas sugestões.` : ''}`);
+  }
 }

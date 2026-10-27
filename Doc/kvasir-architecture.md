@@ -114,7 +114,7 @@ Cada `AiTask` tem um único dono (`TASK_OWNER`, um `Record`: tarefa nova sem don
 | Testador | test | gera e revisa testes |
 | Executor | commit, branch, intent | tarefas curtas e exatas |
 
-- **Contexto isolado:** `buildAgentPrompt` = prompt de papel do dono + preferências do `profile.md` (onde se aplicam) + prompt da tarefa. Nada de outro agente entra.
+- **Contexto isolado:** `buildAgentPrompt` = prompt de papel do dono + preferências do `profile.md` (onde se aplicam) + exemplos do próprio desenvolvedor (quando o módulo passa `examplesFor`) + prompt da tarefa. Nada de outro agente entra.
 - **Dono único:** o router só usa os modelos do dono; no `askFor` o Claude é avisado de quem é a tarefa e escolhe entre os modelos desse agente.
 - **Substituível sem mexer em módulos:** `~/.kvasir/config.json` → `agents.<nome>.models` (cadeia local de todas as tarefas do agente) e `agents.<nome>.cloud: false`. `CLOUD_MAP` vazio (guard, architect) continua mandando: nenhuma configuração liga a nuvem ali. `kvasir agents set` edita isso.
 - Métricas: cada chamada grava `agent`. `kvasir agents` mostra o time, os modelos, a nuvem e chamadas/aprovação de 30 dias; `kvasir learn` escreve `knowledge/agents/<agente>.md`.
@@ -131,6 +131,7 @@ Cada `AiTask` tem um único dono (`TASK_OWNER`, um `Record`: tarefa nova sem don
 - Onde o usuário aprova ou rejeita um resultado (commit, branch, review, fix, doc), o módulo chama `recordOutcome(task, decision)`, que liga o veredito à última chamada executora daquela tarefa.
 - `kvasir models` mostra chamadas, falhas, tempo, tokens e aprovação por tarefa × modelo, mais o custo das idas ao Claude.
 - `withDeveloperPreferences`: o router coloca a seção "Preferências aprendidas" do `profile.md` no início do prompt de commit, branch, review e doc (nunca no fix/architect).
+- `withDeveloperExamples` (`ai/examples.ts`): com `examplesFor`, as 3 respostas do desenvolvedor mais parecidas com o caso (aprovadas ou editadas; do mesmo projeto quando há 3+; similaridade dos vetores do `nomic-embed-text` + peso para as mais novas, porque o estilo muda com o tempo; sem o modelo de embeddings, as mais recentes) entram como "Respostas reais deste desenvolvedor em casos parecidos". A chamada grava quantos exemplos levou (`examples` em `calls.jsonl`). Gravação: `recordExample` (o que ele manteve; editado guarda também a sugestão) e `recordExamples` (lote, sem repetir). O `commit` e o `init` chamam `learnFromCommitHistory` (`modules/learn/history.ts`): os últimos 200 commits do autor (`git log --author=<user.email>`, título = primeira linha da mensagem, com a data real e os arquivos) viram exemplos, de forma incremental, e `describeCommitStyle` resume o estilo dos últimos 50 (contado pelo código).
 
 ### Como o `askFor` funciona
 
@@ -184,6 +185,7 @@ askFor('fix', prompt)
 ```
 ~/.kvasir/
 ├── profile.md              # perfil do dev (atualizado pelo kvasir learn)
+├── examples/<tarefa>.jsonl # respostas do dev (sugerido → mantido), com vetores locais
 ├── backups/fix/            # backups do último kvasir fix + last-fix.json (usado pelo --undo)
 ├── personas/<nome>.json    # personas (as de empresa são pessoais; a default é salva aqui no 1º uso)
 ├── templates/<persona>-mobile.md / -web.md  # templates de CLAUDE.md da empresa (opcionais, pessoais)
@@ -375,7 +377,7 @@ Entrada: clipboard (a cada 1,5 s) ou `spawnCommand` do comando depois de `--` (s
 `collectDocsFacts` (facts.ts): base = `lastCommitTouching(README + pasta de docs)` ou `--since` → `getChangedFilesSince` (código), diff, `listExports` agora e na base (`getFileAtRef`), scripts antes × agora → termos (caminhos, arquivos, exports com cara de código, `npm run x`) → documentos candidatos com `stale` (citados e sumidos) e `undocumented` (novos e não citados). `buildDocsPrompt` (prompt.ts) → `askLocal('docs')` → `parseDocsAnswer` (seções) → `checkEdit` + `replaceSection`/`appendSection` (sections.ts) → `lineDiff` → aplicar / VS Code / pular, com backup.
 
 ### `kvasir stats` / `kvasir board`
-`collectStats(dias)` (`modules/stats/data.ts`) lê só o `~/.kvasir`: métricas, `board.json` (jobs ao vivo de `ai/jobs.ts`), notas do knowledge e `profile.md` → `renderStatsHtml` (`html.ts`, HTML único com SVG desenhado por um script pequeno, sem CDN) → `~/.kvasir/reports/stats.html` → abre com `openInDefaultApp` (sem shell). `--watch`/`board`: regrava a cada 3 s e a página se recarrega. Jobs: o router chama `startJob` antes do 1º candidato, `switchJobModel` a cada fallback e `finishJob` no fim; lotes chamam `queueJobs` antes e `clearQueuedJobs` no `finally`.
+`collectStats(dias)` (`modules/stats/data.ts`) lê só o `~/.kvasir`: métricas, `board.json` (jobs ao vivo de `ai/jobs.ts`), notas do knowledge e `profile.md` → `examplesEffect` (por tarefa que usa exemplos: aceitação das chamadas com exemplos × sem) → `renderStatsHtml` (`html.ts`, HTML único com SVG desenhado por um script pequeno, sem CDN) → `~/.kvasir/reports/stats.html` → abre com `openInDefaultApp` (sem shell). `--watch`/`board`: regrava a cada 3 s e a página se recarrega. Jobs: o router chama `startJob` antes do 1º candidato, `switchJobModel` a cada fallback e `finishJob` no fim; lotes chamam `queueJobs` antes e `clearQueuedJobs` no `finally`.
 
 ### `kvasir task` / `kvasir start`
 - `fetchMyTasks()` (`integrations/planner.ts`): lê `KVASIR_PLANNER_API_URL` / `_TOKEN` na hora da chamada, GET com timeout de 10s, valida a resposta com **zod** (lista de `{ id, title, status }`, `id` numérico vira string). Erros viram mensagens em português (token recusado, sem conexão, formato inesperado).
