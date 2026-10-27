@@ -308,7 +308,7 @@ async function withDeveloperExamples(task: AiTask, prompt: string, query: string
 
   const lines = examples.map((example) => `- Caso: ${example.input.split('\n').join(' · ').slice(0, MAX_EXAMPLE_INPUT_CHARS)}\n  Resposta dele: ${example.output}`);
   return {
-    prompt: `Respostas reais deste desenvolvedor em casos parecidos (siga o estilo delas: tamanho, idioma, escopo, palavras; não copie o conteúdo):
+    prompt: `Respostas reais deste desenvolvedor em casos parecidos (siga o estilo delas: tamanho, escopo, palavras; não copie o conteúdo). O formato e o idioma pedidos nas instruções abaixo valem mais que estes exemplos: se um exemplo foge do formato, use só o estilo dele dentro do formato pedido.
 ${lines.join('\n')}
 
 ${prompt}`,
