@@ -149,9 +149,9 @@ askFor('fix', prompt)
    │
    └─ 3. VALIDADOR (ai.claudeValidation = auto): só se o modelo que respondeu ainda não provou que
          acerta nesta tarefa (5+ avaliações com 80%+ de aprovação). Aí promptAIOrSkip() manda o resultado
-         ao Claude (clipboard: passos 1-2-3 na tela; você cola no Claude, copia a resposta e aperta Enter)
-         e a resposta colada é o retorno final. "p" pula: vale a resposta do modelo local (texto digitado
-         não conta como resposta do Claude aqui). Modelo confiável → o resultado volta direto. "always" / "never" forçam.
+         ao Claude (clipboard: você cola no Claude, copia a resposta e escolhe "Já copiei" num menu)
+         e a resposta colada é o retorno final. "Pular o Claude" no menu: vale a resposta do modelo
+         local (não dá para digitar a resposta do Claude aqui). Modelo confiável → o resultado volta direto. "always" / "never" forçam.
 ```
 
 `MODEL_MAP` (em `router.ts`):
