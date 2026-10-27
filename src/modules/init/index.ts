@@ -22,7 +22,10 @@ async function choosePersona(detected: string | null): Promise<string | null> {
   const ordered = [...personas].sort((a, b) => (a.name === detected ? -1 : b.name === detected ? 1 : a.name.localeCompare(b.name)));
 
   const choice = await select<string>(detected ? `Persona (detectada: ${detected}):` : 'Qual persona este projeto segue?', [
-    ...ordered.map((persona) => ({ name: `${persona.name} (${persona.source})`, value: persona.name })),
+    ...ordered.map((persona) => ({
+      name: `${persona.name} (${persona.source})${persona.name === detected ? ' ← recomendada: bate com o nome do projeto' : ''}`,
+      value: persona.name,
+    })),
     { name: 'Nenhuma por enquanto', value: NO_PERSONA },
   ]);
   return choice === NO_PERSONA ? null : choice;

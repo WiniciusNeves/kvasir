@@ -10,7 +10,7 @@ import { agentForTask } from '@ai/agents';
 import { startJob, switchJobModel, finishJob } from '@ai/jobs';
 import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
-import { promptAI } from '@ai/client';
+import { promptAIOrSkip } from '@ai/client';
 import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
@@ -357,7 +357,7 @@ export async function askFor(task: AiTask, basePrompt: string, options: AskForOp
     }
     if (mode === 'always') console.log('🔎 Validação do Claude (ai.claudeValidation: always).');
     else console.log(`🔎 Validação do Claude: ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação).`);
-    return promptAI(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' });
+    return (await promptAIOrSkip(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' })) ?? result;
   }, examples);
 }
 

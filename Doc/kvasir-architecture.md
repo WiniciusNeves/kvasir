@@ -87,6 +87,7 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 | `askLocal(task, prompt, opts?)` | `router.ts` | Sem as idas ao Claude: nuvem da tarefa (se permitida) e depois a cadeia local, com fallback |
 | `askOllama(prompt, opts?)` | `ollama.ts` | Chamada crua ao Ollama (usada pelo router; `num_ctx` 8192, remove `<think>`) |
 | `promptAI(prompt)` | `client.ts` | Só o Claude, via clipboard (usada no `learn`) |
+| `promptAIOrSkip(prompt)` | `client.ts` | Validação do Claude que o usuário pode pular (`null` → o router usa a resposta local) |
 
 ### Candidatos: nuvem (opcional) → Ollama
 `resolveCandidates(task)` monta a ordem: provedores de `CLOUD_MAP[task]` com chave no ambiente e consentimento → modelos de `MODEL_MAP[task]` instalados no Ollama. Ollama fora do ar só é fatal se não houver nuvem.
@@ -147,9 +148,10 @@ askFor('fix', prompt)
    │     se falhar → tenta o próximo modelo da lista
    │
    └─ 3. VALIDADOR (ai.claudeValidation = auto): só se o modelo que respondeu ainda não provou que
-         acerta nesta tarefa (5+ avaliações com 80%+ de aprovação). Aí promptAI() manda o resultado ao
-         Claude (clipboard: você cola no Claude, copia a resposta e aperta Enter) e a resposta colada é
-         o retorno final. Modelo confiável → o resultado volta direto. "always" / "never" forçam.
+         acerta nesta tarefa (5+ avaliações com 80%+ de aprovação). Aí promptAIOrSkip() manda o resultado
+         ao Claude (clipboard: passos 1-2-3 na tela; você cola no Claude, copia a resposta e aperta Enter)
+         e a resposta colada é o retorno final. "p" pula: vale a resposta do modelo local (texto digitado
+         não conta como resposta do Claude aqui). Modelo confiável → o resultado volta direto. "always" / "never" forçam.
 ```
 
 `MODEL_MAP` (em `router.ts`):
@@ -223,7 +225,7 @@ Módulo isolado (alias `@rag/*`), pode virar pacote próprio. `files.ts` escolhe
 Pré-requisitos encadeados: `loadContext()` (`modules/init/ensure.ts`) oferece o `init` quando falta o `kvasir.context.md`; `task` oferece o `branch`; `knowledge` vazio oferece o `add`; `models --cloud on` sem chave oferece o `keys set`.
 
 ### `kvasir init`
-1. Lê o `package.json`; `findPersonaForPackage` sugere a persona cujo `match` aparece no `name` (ela vem primeiro na lista).
+1. Lê o `package.json`; `findPersonaForPackage` sugere a persona cujo `match` aparece no `name` (ela vem primeiro na lista, marcada como "recomendada").
 2. Detecta a stack pelas deps: `next` → Next.js · `expo` → React Native + Expo · `express`/`fastify` → Node.js API · sempre TypeScript.
 3. O usuário escolhe a persona (`listPersonas`: embutidas + `~/.kvasir/personas/*.json`) ou "nenhuma" (para sem escrever nada). `loadPersona` valida o JSON com zod.
 4. Pede `confirm()` e então escreve `kvasir.context.md` (prefixos, idioma de branch e de commit vêm da persona; a task ativa existente é mantida) e roda os 3 adapters.
