@@ -124,6 +124,12 @@ Gerenciador de tarefas e dashboard para ver o que cada IA faz.
 ## 11. Kvasir Desktop: o widget no cantinho da tela
 
 - Quadradinho/robozinho sempre no topo, num canto, arrastável, sem barra de título, fora da taskbar; ícone no tray
+- **Dinâmico: a posição define o que ele olha** (ideia de 2026-10-27)
+  - Num canto: quieto, só esperando o clique ou a voz
+  - Arrastado para cima de uma janela (VS Code, terminal, emulador, navegador): gruda nela e passa a acompanhar só aquela janela; se ela mexe, ele vai junto; acha erros ali e oferece corrigir
+  - Arrastado para o topo da tela: cresce e olha a tela inteira (todas as janelas), para uma visão geral
+  - Arrastado de volta ao canto: para de olhar
+  - Privacidade: só captura o que você mandou ele olhar, com um indicador visível enquanto olha; captura e análise locais, nada vai para a nuvem sem permissão; janelas marcadas (ex.: senhas, banco) nunca
 - Ativa clicando OU falando "Kvasir"; abre mini painel e pergunta o que você quer; você fala ou digita
 - Estados do robô: parado, ouvindo, pensando, executando, concluído, erro
 - Entende fala informal (bloco 7) e executa os módulos do CLI por baixo; ações destrutivas pedem confirmação
