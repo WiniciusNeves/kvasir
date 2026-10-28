@@ -29,6 +29,17 @@ export interface PromptAIMeta {
 
 type ClipboardChoice = 'copied' | 'type' | 'skip';
 
+// The validation prompt asks Claude to wrap the final answer in this tag. Whatever happens to be in
+// the clipboard (a stray copy, "nao sei") would otherwise replace the local model's answer and be
+// recorded as the developer's example: without the tag it is not Claude's answer.
+export const ANSWER_TAG = 'resposta';
+const ANSWER_PATTERN = new RegExp(`<${ANSWER_TAG}>([\\s\\S]*?)</${ANSWER_TAG}>`);
+
+function extractTaggedAnswer(text: string): string | null {
+  const match = text.match(ANSWER_PATTERN);
+  return match ? match[1].trim() : null;
+}
+
 // The answer is read back from the clipboard: an inquirer `input` is single-line, so pasting a
 // multi-line answer kept only the first line and leaked the rest into the next prompts.
 // A menu (not typed commands) says what to do next. skippable: the caller already has an answer
@@ -62,11 +73,20 @@ async function askThroughClipboard(prompt: string, meta: PromptAIMeta, skippable
     }
 
     const pasted = (await clipboard.read()).trim();
-    if (pasted && pasted !== prompt.trim()) {
+    if (!pasted || pasted === prompt.trim()) {
+      console.log('⚠️  O clipboard ainda tem o prompt (ou está vazio): a resposta do Claude não foi copiada.');
+      continue;
+    }
+    if (!skippable) {
       answer = pasted;
       break;
     }
-    console.log('⚠️  O clipboard ainda tem o prompt (ou está vazio): a resposta do Claude não foi copiada.');
+    const tagged = extractTaggedAnswer(pasted);
+    if (tagged) {
+      answer = tagged;
+      break;
+    }
+    console.log(`⚠️  Isso não parece a resposta do Claude (falta o <${ANSWER_TAG}>…</${ANSWER_TAG}> que o prompt pede). Copie a resposta inteira dele ou pule.`);
   }
 
   // Claude via clipboard reports no tokens: chars and the human round-trip time show the cost.

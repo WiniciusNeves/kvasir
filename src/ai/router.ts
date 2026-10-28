@@ -10,7 +10,7 @@ import { agentForTask } from '@ai/agents';
 import { startJob, switchJobModel, finishJob } from '@ai/jobs';
 import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
-import { promptAIOrSkip } from '@ai/client';
+import { ANSWER_TAG, promptAIOrSkip } from '@ai/client';
 import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
@@ -271,7 +271,7 @@ ${prompt}
 Resultado retornado pelo modelo:
 ${result}
 
-Valide se o resultado está correto e completo para a tarefa. Se estiver correto, responda com o resultado final. Se houver problemas, corrija e responda apenas com o resultado final já corrigido. Responda APENAS com o resultado final, sem explicações sobre a validação.`;
+Valide se o resultado está correto e completo para a tarefa. Se estiver correto, responda com o resultado final. Se houver problemas, corrija e responda apenas com o resultado final já corrigido. Responda APENAS com o resultado final entre <${ANSWER_TAG}> e </${ANSWER_TAG}>, sem explicações sobre a validação. Exemplo: <${ANSWER_TAG}>resultado final aqui</${ANSWER_TAG}>`;
 }
 
 // profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
