@@ -4,7 +4,7 @@ import { readClipboard } from '@ai/client';
 import { queueJobs, clearQueuedJobs } from '@ai/jobs';
 import { parseTscDiagnostics, runTypecheck } from '@utils/typecheck';
 import type { TscDiagnostic } from '@utils/typecheck';
-import { spawnCommand } from '@utils/process';
+import { killProcessTree, killTreeWhenParentDies, spawnCommand } from '@utils/process';
 import { readUserConfig } from '@utils/userConfig';
 import { autoFixDiagnostic } from '@modules/fix/auto';
 import { autoFixRuntimeError } from '@modules/fix/runtime';
@@ -291,7 +291,11 @@ async function watchCommand(command: string[], session: WatchSession): Promise<v
   console.log(`👀 Rodando "${command.join(' ')}" e corrigindo os erros que aparecerem (TypeScript e de execução). Ctrl+C para parar.\n`);
 
   const child = spawnCommand(bin, args);
-  process.on('exit', () => child.kill());
+  const childPid = child.pid;
+  if (childPid) {
+    killTreeWhenParentDies(childPid);
+    process.on('exit', () => killProcessTree(childPid));
+  }
 
   let buffer = '';
   let timer: NodeJS.Timeout | null = null;

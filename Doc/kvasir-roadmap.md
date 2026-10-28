@@ -8,9 +8,8 @@
 
 ## 1. Rápido (fechar primeiro)
 
-- [ ] Dependabot: mergear o #25 (fs-extra 11.4.1, revisado: pode mergear)
-- [ ] Dependabot: o #23 (dev-dependencies) e o #24 (cosmiconfig 10) **não** podem ser mergeados como estão; antes, um PR pequeno de correção (revisão feita numa sessão separada em 2026-10-27; refazer a análise se ela se perdeu)
-- [ ] Problema conhecido #12: encerrar o `kvasir watch` por fora deixa o servidor (ex.: Metro) rodando no Windows. Fechar a árvore de processos (`taskkill /PID <pid> /T`) em `@utils/process`
+- [x] Dependabot (2026-10-28): revisados #23, #24 e #25; #27 removeu o `cosmiconfig` (não usado) e passou a ignorar major de TypeScript e `@types/node`; dev-dependencies atualizadas no #28
+- [x] Problema conhecido #12 (2026-10-28): encerrar o `kvasir watch` por fora deixa o servidor (ex.: Metro) rodando no Windows. Fechar a árvore de processos (`taskkill /PID <pid> /T`) em `@utils/process`
 
 ## 2. Testes de uso real (num projeto Expo real, só IA local)
 
