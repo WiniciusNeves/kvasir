@@ -73,7 +73,7 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 | 9 | ✅ resolvido (2026-10-20): o `doc` grava na pasta de documentação que o projeto já tem, com a grafia real (`Doc/`, `docs/`…; padrão `Doc/`) | `doc/folder.ts` | — |
 | 10 | ✅ resolvido (2026-10-20): o `kvasir.context.md` é validado com zod depois de lido; campo apagado à mão vira erro dizendo o que falta, em vez de "" silencioso | `contextWriter.ts` | — |
 | 11 | ✅ resolvido (2026-10-20): retestado em repositório descartável: criar branch, listar ("(nenhuma)" sem remoto), apagar mergeada, forçar não mergeada depois de perguntar, voltar para a anterior | `branch/index.ts` | — |
-| 12 | Se o `kvasir watch -- <comando>` for encerrado por fora (sem Ctrl+C no terminal), no Windows o servidor que ele abriu (ex.: Metro) continua rodando, porque `child.kill()` só fecha o `cmd.exe`. Com Ctrl+C no terminal o Windows encerra os dois | `watch/index.ts` | Encerrar a árvore do processo filho pelo PID (`taskkill /T`) ao sair |
+| 12 | ✅ resolvido (2026-10-28): encerrar o `kvasir watch -- <comando>` por fora deixava o servidor (ex.: Metro) rodando no Windows. O Node mata junto só o filho direto (`cmd.exe`, por um job do Windows), e o resto da árvore ficava órfão. Agora um vigia separado (`killTreeWhenParentDies`) encerra a árvore inteira, inclusive os órfãos, e a saída normal usa `taskkill /T` (`killProcessTree`). Testado com `node` → neto e `npm run dev` (5 níveis) | `utils/process.ts` | — |
 
 ---
 

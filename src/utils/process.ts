@@ -72,3 +72,63 @@ export function spawnCommand(bin: string, args: string[]): ChildProcess {
   const commandLine = [bin, ...args].map(quoteWindowsArg).join(' ');
   return spawn('cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], { ...options, windowsVerbatimArguments: true });
 }
+
+// On Windows child.kill() only ends cmd.exe and leaves what it started (npx → node → Metro) running:
+// taskkill /T ends the whole tree.
+export function killProcessTree(pid: number): void {
+  if (IS_WINDOWS) {
+    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 10_000 });
+    return;
+  }
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    // already gone
+  }
+}
+
+const GUARD_POLL_MS = 1000;
+// Runs as a separate node process: when the parent disappears without its exit handlers running
+// (killed from outside), it ends the child's tree; when the child ends first, it just exits.
+// On Windows Node keeps its direct child (cmd.exe) in a job that dies with the parent, so cmd.exe is
+// already gone and taskkill /T no longer reaches what it started (npx → node → Metro). Those orphans
+// still carry cmd.exe as their recorded parent: found from the process list, limited to processes
+// created after the guard started (a reused PID cannot match).
+const GUARD_SCRIPT = `
+const [parent, child, windows] = process.argv.slice(1).map(Number);
+const { spawnSync } = require('child_process');
+const since = Date.now() - 5000;
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+function treeOf(root) {
+  const listing = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    'Get-CimInstance Win32_Process | ForEach-Object { [string]$_.ProcessId + " " + $_.ParentProcessId + " " + $_.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd\\'T\\'HH:mm:ss.fff\\'Z\\'") }'],
+    { encoding: 'utf8', windowsHide: true }).stdout || '';
+  const rows = listing.split(/\\r?\\n/).map((line) => line.trim().split(' ')).filter((row) => row.length === 3)
+    .map(([pid, ppid, created]) => ({ pid: Number(pid), ppid: Number(ppid), created: Date.parse(created) }))
+    .filter((row) => row.created >= since);
+  const found = [];
+  const queue = [root];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const row of rows) if (row.ppid === current && !found.includes(row.pid)) { found.push(row.pid); queue.push(row.pid); }
+  }
+  return found;
+}
+setInterval(() => {
+  if (alive(parent)) { if (!alive(child)) process.exit(0); return; }
+  if (windows) for (const pid of [child, ...treeOf(child)]) spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  else { try { process.kill(child, 'SIGTERM'); } catch {} }
+  process.exit(0);
+}, ${GUARD_POLL_MS});
+`;
+
+// A process killed from outside (Task Manager, taskkill without /T, a closed tool) runs no exit
+// handler, so the cleanup has to live in another process.
+export function killTreeWhenParentDies(childPid: number): void {
+  const guard = spawn(process.execPath, ['-e', GUARD_SCRIPT, String(process.pid), String(childPid), IS_WINDOWS ? '1' : '0'], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  guard.unref();
+}
