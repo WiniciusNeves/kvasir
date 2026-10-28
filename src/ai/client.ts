@@ -1,5 +1,6 @@
 import { input, select } from '@utils/prompt';
 import { recordAiCall } from '@ai/metrics';
+import { ANSWER_TAG, extractTaggedAnswer } from '@ai/parse';
 import type { AiRole } from '@ai/metrics';
 
 interface ClipboardyModule {
@@ -28,17 +29,6 @@ export interface PromptAIMeta {
 }
 
 type ClipboardChoice = 'copied' | 'type' | 'skip';
-
-// The validation prompt asks Claude to wrap the final answer in this tag. Whatever happens to be in
-// the clipboard (a stray copy, "nao sei") would otherwise replace the local model's answer and be
-// recorded as the developer's example: without the tag it is not Claude's answer.
-export const ANSWER_TAG = 'resposta';
-const ANSWER_PATTERN = new RegExp(`<${ANSWER_TAG}>([\\s\\S]*?)</${ANSWER_TAG}>`);
-
-function extractTaggedAnswer(text: string): string | null {
-  const match = text.match(ANSWER_PATTERN);
-  return match ? match[1].trim() : null;
-}
 
 // The answer is read back from the clipboard: an inquirer `input` is single-line, so pasting a
 // multi-line answer kept only the first line and leaked the rest into the next prompts.
@@ -81,6 +71,8 @@ async function askThroughClipboard(prompt: string, meta: PromptAIMeta, skippable
       answer = pasted;
       break;
     }
+    // Whatever happens to be in the clipboard (a stray copy, "nao sei") would replace the local
+    // answer and be recorded as the developer's example: without the tag it is not Claude's answer.
     const tagged = extractTaggedAnswer(pasted);
     if (tagged) {
       answer = tagged;

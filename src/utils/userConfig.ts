@@ -12,7 +12,11 @@ export interface AiSettings {
   groqModel?: string;
   // kvasir watch: 1 = asks before applying a fix · 2 (default) = fixes, validates and undoes on its own
   autonomy?: 1 | 2;
-  // Claude (clipboard) validating askFor answers: auto = only until the model earns trust (default)
+  // when askFor answers are validated: auto = only until the model earns trust (default)
+  validation?: 'auto' | 'always' | 'never';
+  // who validates: local = a bigger Ollama model, automatic (default) · claude = Claude via clipboard (opt-in)
+  validator?: 'local' | 'claude';
+  // before 2026-10-28 the only validator was Claude: read as `validation` when that is unset
   claudeValidation?: 'auto' | 'always' | 'never';
 }
 

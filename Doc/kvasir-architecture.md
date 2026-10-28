@@ -87,7 +87,7 @@ Existem **três formas** de chamar IA, todas em `src/ai/`:
 | `askLocal(task, prompt, opts?)` | `router.ts` | Sem as idas ao Claude: nuvem da tarefa (se permitida) e depois a cadeia local, com fallback |
 | `askOllama(prompt, opts?)` | `ollama.ts` | Chamada crua ao Ollama (usada pelo router; `num_ctx` 8192, remove `<think>`) |
 | `promptAI(prompt)` | `client.ts` | Só o Claude, via clipboard (usada no `learn`) |
-| `promptAIOrSkip(prompt)` | `client.ts` | Validação do Claude que o usuário pode pular (`null` → o router usa a resposta local) |
+| `promptAIOrSkip(prompt)` | `client.ts` | Validação do Claude (opcional, `ai.validator: "claude"`) que o usuário pode pular (`null` → o router usa a resposta local) |
 
 ### Candidatos: nuvem (opcional) → Ollama
 `resolveCandidates(task)` monta a ordem: provedores de `CLOUD_MAP[task]` com chave no ambiente e consentimento → modelos de `MODEL_MAP[task]` instalados no Ollama. Ollama fora do ar só é fatal se não houver nuvem.
@@ -139,7 +139,8 @@ Cada `AiTask` tem um único dono (`TASK_OWNER`, um `Record`: tarefa nova sem don
 ```
 askFor('fix', prompt)
    │
-   ├─ 1. ordena os candidatos pelo desempenho medido (performance.ts): nuvem permitida + MODEL_MAP
+   ├─ 1. MODEL_MAP (Ollama) primeiro, nuvem permitida depois; o desempenho medido (performance.ts)
+   │     reordena dentro de cada grupo, nunca a nuvem antes do local (local é de graça)
    │     (sem ida ao Claude para escolher: até 2026-10-19 havia um passo "ORQUESTRADOR" aqui)
    │
    ├─ 2. EXECUTOR: candidato escolhido (nuvem: timeout 60s · Ollama: 120s), depois os outros
@@ -147,12 +148,14 @@ askFor('fix', prompt)
    │      casa com "qwen2.5-coder:7b"; Ollama fora do ar → erro com dica)
    │     se falhar → tenta o próximo modelo da lista
    │
-   └─ 3. VALIDADOR (ai.claudeValidation = auto): só se o modelo que respondeu ainda não provou que
-         acerta nesta tarefa (5+ avaliações com 80%+ de aprovação). Aí promptAIOrSkip() manda o resultado
-         ao Claude (clipboard: você cola no Claude, copia a resposta e escolhe "Já copiei" num menu)
-         e a resposta colada é o retorno final. O prompt pede a resposta entre <resposta>…</resposta>:
-         sem a tag, o clipboard não é aceito (um texto qualquer copiado não vira a resposta). "Pular o Claude" no menu: vale a resposta do modelo
-         local (não dá para digitar a resposta do Claude aqui). Modelo confiável → o resultado volta direto. "always" / "never" forçam.
+   └─ 3. VALIDADOR (ai.validation = auto): só se o modelo que respondeu ainda não provou que acerta
+         nesta tarefa (5+ avaliações com 80%+ de aprovação). Modelo confiável → o resultado volta direto.
+         ai.validator = local (padrão): outro modelo do Ollama confere sozinho (deepseek-r1 → qwen2.5-coder
+         → llama3.2, nunca o que respondeu) e devolve a resposta entre <resposta>…</resposta>; sem a tag
+         ou com erro, vale a resposta do executor. commit/branch/intent não passam por ele: são uma linha
+         que você aprova ou edita na hora (o deepseek-r1 sempre pensa: ~45-70s para conferir um commit).
+         ai.validator = claude (opcional): promptAIOrSkip() pelo clipboard; só aceita o texto com a tag,
+         e "Pular o Claude" mantém a resposta local. "always" / "never" forçam.
 ```
 
 `MODEL_MAP` (em `router.ts`):
@@ -166,7 +169,7 @@ askFor('fix', prompt)
 | `doc` | llama3.2 → qwen2.5-coder |
 | `architect` | deepseek-r1 → llama3.2 |
 
-> Um `askFor` custa no máximo **uma** ida ao clipboard (a validação), e nenhuma quando o modelo já provou que acerta.
+> Por padrão um `askFor` não usa o clipboard: a conferência é local. O clipboard só entra com `ai.validator: "claude"`.
 
 ---
 

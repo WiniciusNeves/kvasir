@@ -10,7 +10,8 @@ import { agentForTask } from '@ai/agents';
 import { startJob, switchJobModel, finishJob } from '@ai/jobs';
 import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
-import { ANSWER_TAG, promptAIOrSkip } from '@ai/client';
+import { promptAIOrSkip } from '@ai/client';
+import { ANSWER_TAG, cleanAnswer, extractTaggedAnswer } from '@ai/parse';
 import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
@@ -18,7 +19,7 @@ import { findExamples } from '@ai/examples';
 
 export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs';
 
-// Local fallback chain (Ollama). Always the last resort: offline, private, no rate limit.
+// Local chain (Ollama), always tried first: runs on the developer's own GPU/CPU, free, private, offline.
 export const MODEL_MAP: Record<AiTask, string[]> = {
   commit: ['qwen2.5-coder', 'codellama'],
   branch: ['qwen2.5-coder', 'codellama'],
@@ -37,8 +38,8 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   docs: ['qwen2.5-coder', 'llama3.2'],
 };
 
-// Cloud providers tried BEFORE Ollama when the user allowed the cloud (roadmap phase 2):
-// Portuguese text → Gemini Flash · code → Groq. guard never leaves the machine (its prompt holds
+// Cloud providers, a fallback AFTER the local chain when the user allowed the cloud (Ollama down,
+// a model missing or failing): Portuguese text → Gemini Flash · code → Groq. guard never leaves the machine (its prompt holds
 // secret candidates); architect stays on the local deepseek-r1 (backlog: "arquitetura → deepseek-r1").
 export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
   commit: ['groq'],
@@ -172,22 +173,29 @@ async function localCandidates(task: AiTask): Promise<{ candidates: Candidate[];
   };
 }
 
-// Default order: cloud first (when allowed), Ollama after. Ollama being down is only fatal when
-// there is no cloud. Then the measured performance reorders it (see performance.ts).
-async function defaultCandidates(task: AiTask): Promise<Candidate[]> {
-  const cloud = await cloudCandidates(task);
+// Default order: Ollama first, the cloud (when allowed) only after it. Ollama being down is only fatal
+// when there is no cloud.
+async function defaultCandidates(task: AiTask): Promise<{ local: Candidate[]; cloud: Candidate[] }> {
   const local = await localCandidates(task);
+  const cloud = await cloudCandidates(task);
   if (cloud.length === 0 && local.problem) throw new Error(local.problem);
-  return [...cloud, ...local.candidates];
+  return { local: local.candidates, cloud };
+}
+
+// The measured performance reorders each group (see performance.ts), never the groups: a cloud model
+// that scores better still waits for the local ones, which cost nothing.
+async function rankDefaults(task: AiTask): Promise<{ defaults: Candidate[]; ranked: RankedCandidate<Candidate>[] }> {
+  const { local, cloud } = await defaultCandidates(task);
+  const records = await readMetrics(PERFORMANCE_WINDOW_DAYS);
+  return { defaults: [...local, ...cloud], ranked: [...rankCandidates(task, local, records), ...rankCandidates(task, cloud, records)] };
 }
 
 export async function rankedCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
-  return rankCandidates(task, await defaultCandidates(task), await readMetrics(PERFORMANCE_WINDOW_DAYS));
+  return (await rankDefaults(task)).ranked;
 }
 
 async function resolveCandidates(task: AiTask): Promise<RankedCandidate<Candidate>[]> {
-  const defaults = await defaultCandidates(task);
-  const ranked = rankCandidates(task, defaults, await readMetrics(PERFORMANCE_WINDOW_DAYS));
+  const { defaults, ranked } = await rankDefaults(task);
   const first = ranked[0];
   // only worth saying when the measured performance changed who answers
   if (first && first.candidate !== defaults[0]) {
@@ -260,7 +268,7 @@ async function runWithFallback(
 // ---------------------------------------------------------------------------
 
 function buildValidationPrompt(task: AiTask, prompt: string, model: string, result: string): string {
-  return `Você é o orquestrador, validando o resultado de um modelo antes de retorná-lo.
+  return `Você é o validador, conferindo o resultado de outro modelo antes de retorná-lo.
 
 Tarefa: ${task}
 Modelo executor: ${model}
@@ -327,13 +335,62 @@ async function buildAgentPrompt(task: AiTask, basePrompt: string, options: AskFo
 // Public API
 // ---------------------------------------------------------------------------
 
-// Claude (clipboard) as the validator, only while the model that answered has not earned trust
-// in this task. The model is chosen by measured performance (no round trip): before, every askFor
-// cost two copy-and-paste trips (choose + validate), even for a commit message.
+// A second model checks the answer only while the model that answered has not earned trust in this
+// task. By default it is a bigger local model, automatic and free (nothing to copy); Claude via
+// clipboard is opt-in (ai.validator: "claude").
 const TRUST_MIN_VERDICTS = 5;
 const TRUST_MIN_APPROVAL = 0.8;
+// reasoning model first; never the model that answered (it would just approve itself)
+const LOCAL_VALIDATORS = ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'];
+// One-line answers the developer reads and approves or edits right away: that is the check. deepseek-r1
+// always thinks (it ignores think: false) and took ~45-70s to confirm one commit line.
+const SHORT_ANSWER_TASKS: AiTask[] = ['commit', 'branch', 'intent'];
 
-export type ClaudeValidationMode = 'auto' | 'always' | 'never';
+export type ValidationMode = 'auto' | 'always' | 'never';
+
+async function localValidator(answeredBy: string): Promise<string | null> {
+  try {
+    const installed = await listInstalledModels();
+    for (const model of LOCAL_VALIDATORS) {
+      const name = installed.find((item) => matchesModel(item, model));
+      if (name && name !== answeredBy) return name;
+    }
+  } catch {
+    // Ollama down: the answer came from the cloud, nothing local to validate with
+  }
+  return null;
+}
+
+// Validation must never break the command: any failure keeps the executor's answer.
+async function validateLocally(task: AiTask, validationPrompt: string, label: string, result: string): Promise<string> {
+  const model = await localValidator(label);
+  if (!model) {
+    console.log(`ℹ️  Sem outro modelo local para conferir (instale o deepseek-r1: "ollama pull deepseek-r1"). Vale a resposta do ${label}.`);
+    return result;
+  }
+
+  console.log(`🔎 ${model} está conferindo a resposta do ${label}...`);
+  const startedAt = Date.now();
+  try {
+    const answer = await askOllamaDetailed(validationPrompt, { model, temperature: 0.1, timeoutMs: REQUEST_TIMEOUT_MS });
+    await recordAiCall({
+      task, provider: 'ollama', model, role: 'validator', ok: true, durationMs: Date.now() - startedAt,
+      promptChars: validationPrompt.length, outputChars: answer.text.length, promptTokens: answer.promptTokens, outputTokens: answer.outputTokens,
+    });
+    const validated = extractTaggedAnswer(answer.text);
+    if (!validated) {
+      console.log(`⚠️  ${model} não respondeu no formato pedido: vale a resposta do ${label}.`);
+      return result;
+    }
+    console.log(validated === cleanAnswer(result) ? `✔ ${model} confirmou a resposta.` : `✏️  ${model} ajustou a resposta do ${label}.`);
+    return validated;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await recordAiCall({ task, provider: 'ollama', model, role: 'validator', ok: false, error: message, durationMs: Date.now() - startedAt, promptChars: validationPrompt.length, outputChars: 0 });
+    console.log(`⚠️  ${model} não conseguiu conferir (${message}): vale a resposta do ${label}.`);
+    return result;
+  }
+}
 
 function trustReason(stats: { approved: number; rejected: number }): string | null {
   const verdicts = stats.approved + stats.rejected;
@@ -345,23 +402,29 @@ function trustReason(stats: { approved: number; rejected: number }): string | nu
 export async function askFor(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const ranked = await resolveCandidates(task);
   const { prompt, examples } = await buildAgentPrompt(task, basePrompt, options);
-  const mode: ClaudeValidationMode = (await readUserConfig()).ai?.claudeValidation ?? 'auto';
+  const settings = (await readUserConfig()).ai ?? {};
+  const mode: ValidationMode = settings.validation ?? settings.claudeValidation ?? 'auto';
+  const validator = settings.validator ?? 'local';
   const statsByLabel = new Map(ranked.map((item) => [item.candidate.label, item.stats]));
 
   return runWithFallback(task, ranked.map((item) => item.candidate), prompt, options, async (label, result) => {
     const stats = statsByLabel.get(label);
     const trusted = stats ? trustReason(stats) : null;
     if (mode === 'never' || (mode === 'auto' && trusted)) {
-      if (mode === 'auto') console.log(`✔ ${label} já é confiável em "${task}" (${trusted}): sem validação do Claude.`);
+      if (mode === 'auto') console.log(`✔ ${label} já é confiável em "${task}" (${trusted}): sem conferência.`);
       return result;
     }
-    if (mode === 'always') console.log('🔎 Validação do Claude (ai.claudeValidation: always).');
-    else console.log(`🔎 Validação do Claude: ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação).`);
-    return (await promptAIOrSkip(buildValidationPrompt(task, prompt, label, result), { task, role: 'validator' })) ?? result;
+    if (mode === 'auto' && validator === 'local' && SHORT_ANSWER_TASKS.includes(task)) return result;
+    if (mode === 'auto') {
+      console.log(`ℹ️  ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação): outro modelo confere.`);
+    }
+    const validationPrompt = buildValidationPrompt(task, prompt, label, result);
+    if (validator === 'local') return validateLocally(task, validationPrompt, label, result);
+    return (await promptAIOrSkip(validationPrompt, { task, role: 'validator' })) ?? result;
   }, examples);
 }
 
-// No Claude round trips: cloud provider of the task (if allowed), then the local chain.
+// No validation: the local chain, then the cloud provider of the task (if allowed).
 export async function askLocal(task: AiTask, basePrompt: string, options: AskForOptions = {}): Promise<string> {
   const candidates = (await resolveCandidates(task)).map((item) => item.candidate);
   const { prompt, examples } = await buildAgentPrompt(task, basePrompt, options);

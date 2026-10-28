@@ -7,6 +7,18 @@ export function cleanAnswer(text: string): string {
   return stripThinking(text).replace(/\r/g, '').trim();
 }
 
+// The validator (local model or Claude) wraps its final answer in this tag. Without it the text is not
+// a validation answer: a stray clipboard copy or a model's explanation must not replace the result.
+export const ANSWER_TAG = 'resposta';
+const ANSWER_PATTERN = new RegExp(`<${ANSWER_TAG}>([\\s\\S]*?)</${ANSWER_TAG}>`, 'g');
+
+// The last tagged block wins: models sometimes repeat the prompt's example tag before the real answer.
+export function extractTaggedAnswer(text: string): string | null {
+  const matches = [...cleanAnswer(text).matchAll(ANSWER_PATTERN)];
+  const answer = matches.at(-1)?.[1].trim();
+  return answer ? answer : null;
+}
+
 export function answerLines(text: string): string[] {
   const clean = cleanAnswer(text);
   const fence = clean.match(/```[\w-]*\n([\s\S]*?)```/);

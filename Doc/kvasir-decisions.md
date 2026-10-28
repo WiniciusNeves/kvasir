@@ -213,7 +213,7 @@
 
 ## Nuvem opt-in, chaves só no ambiente, `guard` sempre local
 
-**Decisão:** (2026-10-17) Gemini Flash e Groq entram no router antes do Ollama só quando há chave em variável de ambiente **e** o usuário autorizou o envio (`ai.cloud`, perguntado uma vez). O `guard` nunca vai para a nuvem e o `architect` fica no deepseek-r1 local. Qualquer falha cai para o próximo candidato, terminando no Ollama.
+**Decisão:** (2026-10-17; ordem invertida em 2026-10-28, ver "Local primeiro") Gemini Flash e Groq entram no router só quando há chave em variável de ambiente **e** o usuário autorizou o envio (`ai.cloud`, perguntado uma vez). O `guard` nunca vai para a nuvem e o `architect` fica no deepseek-r1 local. Qualquer falha cai para o próximo candidato, terminando no Ollama.
 
 **Por quê:** Prompts levam código da empresa (fintech): sair da máquina precisa ser escolha explícita. Chave em variável de ambiente não vai para o repositório (o projeto é open source: cada pessoa usa a própria chave) nem para o `config.json`, que é fácil de sincronizar ou compartilhar sem querer. O fallback para o Ollama também cobre o fim do limite grátis (429) sem custo. Com isso, o `daily` (decisão anterior de usar `askLocal`) passa a ir para o Gemini quando a nuvem está permitida: continua sem idas ao Claude.
 
@@ -251,7 +251,15 @@
 
 ---
 
-## Claude valida só até o modelo provar que acerta
+## Local primeiro: Ollama antes da nuvem, validação local e automática
+
+**Decisão:** (2026-10-28) O router tenta sempre o `MODEL_MAP` (Ollama) antes da nuvem; o desempenho medido reordena dentro de cada grupo, nunca coloca a nuvem na frente. A validação padrão (`ai.validator: "local"`) é outro modelo do Ollama (deepseek-r1 → qwen2.5-coder → llama3.2, nunca o que respondeu), automática, com a resposta entre `<resposta>`; o Claude pelo clipboard virou opcional (`ai.validator: "claude"`). commit, branch e intent não passam pelo validador: o desenvolvedor aprova ou edita a linha na hora. `ai.claudeValidation` virou `ai.validation` (o antigo ainda é lido).
+
+**Por quê:** Modelo local roda na GPU/CPU do desenvolvedor e é de graça; nem todo mundo tem conta do Claude, e copiar e colar a cada comando confundiu no teste real (o usuário não sabia onde colar, e um texto qualquer do clipboard virou a mensagem de commit). Medido no teste: o deepseek-r1 instalado ignora `think: false` e levou 46-72s (1.700-2.400 tokens de raciocínio) para confirmar uma linha de commit; sem o validador, o commit sai em ~11s.
+
+---
+
+## Claude valida só até o modelo provar que acerta (substituída em 2026-10-28 por "Local primeiro")
 
 **Decisão:** O `askFor` não pergunta mais ao Claude qual modelo usar (o ranking de desempenho decide) e só pede a validação do Claude enquanto o modelo que respondeu não tem 5+ avaliações com 80%+ de aprovação naquela tarefa. `ai.claudeValidation`: `auto` (padrão), `always`, `never`.
 
