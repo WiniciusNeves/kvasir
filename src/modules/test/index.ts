@@ -6,8 +6,8 @@ import { getChangedPaths } from '@utils/git';
 import { runTestFile } from '@utils/testRunner';
 import { noteBugFoundByTest } from '@modules/knowledge/auto';
 import { relatedContext } from '@modules/omnicontext/context';
-import { listExports } from '@utils/imports';
-import { detectTestSetup, testFileFor, isTestableSource, installHint, runnerMissingHint } from './framework';
+import { listExports, importedDefinitions } from '@utils/imports';
+import { detectTestSetup, testFileFor, isTestableSource, installHint, runnerMissingHint, relatedTestCandidates } from './framework';
 import type { TestSetup } from './framework';
 import { buildGeneratePrompt, buildFixPrompt, parseTestAnswer } from './prompt';
 import type { TestTarget } from './prompt';
@@ -17,6 +17,7 @@ import type { TestTarget } from './prompt';
 const MAX_ATTEMPTS = 3;
 const AI_OPTIONS = { temperature: 0.2, timeoutMs: 180_000 };
 const OUTPUT_TAIL_LINES = 25;
+const MAX_EXISTING_CALLS = 6;
 
 type ExistingAction = 'overwrite' | 'skip';
 type GiveUpAction = 'keep' | 'delete';
@@ -52,16 +53,45 @@ async function giveUp(testFile: string): Promise<void> {
   }
 }
 
+// How the project's own tests already call a helper ("expect(isValidCPF('529.982.247-25')).toBe(true)"):
+// real, proven values, since a local model can't compute a check digit by itself.
+async function existingCalls(file: string, name: string): Promise<string[]> {
+  for (const candidate of await relatedTestCandidates(file)) {
+    const content = await readFile(candidate);
+    if (content === null) continue;
+    return content
+      .split(/\r?\n/)
+      .filter((line) => line.includes(`${name}(`) && !/^\s*(describe|it|test)\(/.test(line))
+      .map((line) => line.trim())
+      .slice(0, MAX_EXISTING_CALLS);
+  }
+  return [];
+}
+
+// The project functions the file under test calls, read from their files (a fact, always available).
+async function importedHelpers(target: TestTarget): Promise<string> {
+  const definitions = importedDefinitions(target.sourceFile, target.source);
+  if (definitions.length === 0) return '';
+  const blocks: string[] = [];
+  for (const definition of definitions) {
+    const calls = await existingCalls(definition.file, definition.name);
+    const proven = calls.length > 0 ? `\n// valores já testados no projeto:\n${calls.map((call) => `// ${call}`).join('\n')}` : '';
+    blocks.push(`// ${definition.file}\n${definition.code}${proven}`);
+  }
+  return `Funções do projeto que o arquivo testado usa (a implementação real; os dados do teste têm que passar nelas, prefira os valores já testados):\n\`\`\`ts\n${blocks.join('\n\n')}\n\`\`\`\n`;
+}
+
 // Related code the file under test uses (types, helpers from other files), for both prompts.
 async function testContext(target: TestTarget): Promise<string> {
   const imports = target.source
     .split('\n')
     .filter((line) => /^\s*import\b/.test(line))
     .join('\n');
-  return relatedContext(`${target.sourceFile}\n${listExports(target.source).join(' ')}\n${imports}`, {
+  const related = await relatedContext(`${target.sourceFile}\n${listExports(target.source).join(' ')}\n${imports}`, {
     excludeFiles: [target.sourceFile, target.testFile],
     limit: 3,
   });
+  return [await importedHelpers(target), related].filter(Boolean).join('\n');
 }
 
 async function generateAndRun(target: TestTarget, setup: TestSetup): Promise<void> {

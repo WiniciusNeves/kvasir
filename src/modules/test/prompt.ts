@@ -77,6 +77,7 @@ ${frameworkRules(setup, isComponent)}
 - Teste os exports reais acima: caso normal, casos de borda (lista vazia, zero, negativo) e erros que o código lança
 - Só passe valores que os tipos dos parâmetros aceitam: NUNCA null/undefined/NaN num parâmetro "number[]", "string" etc. (o TypeScript rejeitaria)
 - Os valores esperados têm que sair do que o código FAZ (leia a implementação); não invente comportamento
+- Dados "válidos" (CPF, e-mail, data, telefone) têm que passar de verdade nas funções de validação que o código usa: confira na implementação delas (dígito verificador, formato) antes de usar
 - Prefira poucos testes certos (3 a 8) a muitos duvidosos
 - Nada de rede, banco ou arquivo de verdade: use mocks se o código depender disso
 - Testes em português nas descrições (it("soma os preços", ...))
@@ -109,7 +110,8 @@ Decida a causa:
 - Erro de import, de sintaxe, de tipo do TypeScript (TSxxxx), "is not a function" ou "Cannot find module" é SEMPRE culpa do TESTE: corrija o teste. Nunca diga que o código deveria exportar de outro jeito.
 - Se a expectativa do teste não bate com o que o código faz e o código está certo, corrija a expectativa.
 - Remova casos que passam valores que o tipo do parâmetro não aceita (null/undefined/NaN num "number[]", por exemplo).
-- Só se uma asserção de comportamento falhou E o código faz algo claramente errado (ex.: média dividindo pelo número errado), é BUG REAL: NÃO mude a expectativa; comece a resposta com uma linha "BUG: <explicação curta>" e depois o teste.
+- Se o teste chama de "válido" um dado que as funções de validação do projeto rejeitam (CPF com dígito verificador errado, e-mail sem domínio), o erro é do TESTE: troque o dado por um que passe de verdade nelas.
+- Só se uma asserção de comportamento falhou E você consegue apontar a linha do código que está errada (ex.: média dividindo pelo número errado), é BUG REAL: NÃO mude a expectativa; comece a resposta com uma linha "BUG: <a linha errada e por quê>" e depois o teste. Sem apontar a linha, não é bug: corrija o teste.
 
 Responda com o arquivo de teste completo dentro de um bloco \`\`\`ts (com a linha BUG: antes, se for o caso).`;
 }

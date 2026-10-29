@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import type { TscDiagnostic } from '@utils/typecheck';
 import { hasLocalTestRunner, runTestFile } from '@utils/testRunner';
-import { detectTestSetup } from '@modules/test/framework';
+import { detectTestSetup, relatedTestCandidates } from '@modules/test/framework';
 
 // Validation layers of an automatic fix (kvasir watch). "The error is gone" is not enough: a fix
 // that hides the error, breaks something else or breaks a test is rejected and undone.
@@ -83,19 +83,8 @@ export interface RelatedTests {
   output?: string;
 }
 
-function candidateTestFiles(sourceFile: string): string[] {
-  const parsed = path.parse(sourceFile);
-  const extensions = ['.ts', '.tsx', '.js', '.jsx'];
-  return extensions.flatMap((extension) =>
-    ['test', 'spec'].flatMap((kind) => [
-      path.join(parsed.dir, `${parsed.name}.${kind}${extension}`),
-      path.join(parsed.dir, '__tests__', `${parsed.name}.${kind}${extension}`),
-    ])
-  );
-}
-
 export async function runRelatedTests(sourceFile: string): Promise<RelatedTests> {
-  const testFile = candidateTestFiles(sourceFile).find((file) => fs.pathExistsSync(file));
+  const testFile = (await relatedTestCandidates(sourceFile)).find((file) => fs.pathExistsSync(file));
   if (!testFile) return { status: 'none' };
 
   const setup = await detectTestSetup(sourceFile);
