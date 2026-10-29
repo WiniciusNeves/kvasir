@@ -10,7 +10,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 |---|---|
 | `Doc/kvasir-current.md` | What exists, module status, **known issues** |
 | `Doc/kvasir-architecture.md` | How the code works: layers, AI router, flow of each command |
-| `Doc/kvasir-roadmap.md` | **The to-do list**, in order (updated 2026-10-27): start here in a new conversation |
+| `Doc/kvasir-roadmap.md` | **The to-do list**, in order (updated 2026-10-28): start here in a new conversation |
 | `Doc/ideas/backlog.md` | **Source of truth for all ideas** (backlog v2, 14 blocks + principles). Wins over `novos-modulos.md` on conflict |
 | `Doc/ideas/novos-modulos.md` | Specs for upcoming modules (`guard`, `pr`, `daily`, `release`, `doctor`, `test`) |
 | `Doc/ideas/omnicontext.md` | Local RAG module (after AI Router v2) |
@@ -144,12 +144,12 @@ export function getDiff(): string {
 
 | Use | Function | Notes |
 |---|---|---|
-| **Default** | `askFor(task, prompt, opts?)` | Candidates ranked by measured performance (cloud if allowed, then `MODEL_MAP[task]`), fallback + timeouts; Claude validates via clipboard only while the answering model has not earned trust (5+ verdicts, 80%+; `ai.claudeValidation`). `opts`: `maxTokens`, `temperature` |
+| **Default** | `askFor(task, prompt, opts?)` | Local first: `MODEL_MAP[task]`, then the cloud if allowed (performance reorders within each group, never cloud before local), fallback + timeouts; while the answering model has not earned trust (5+ verdicts, 80%+; `ai.validation`) another local model checks it automatically (`ai.validator: "local"`, skipped for one-line tasks the user approves: commit/branch/intent); Claude via clipboard only with `ai.validator: "claude"`. `opts`: `maxTokens`, `temperature` |
 | Batch / fast, no orchestration | `askLocal(task, prompt, opts?)` | First installed model of `MODEL_MAP[task]` with fallback, no clipboard (`doc --code`, `fix` expansion) |
 | Raw | `askOllama(prompt, { model })` | Used by the router. Prefer `askLocal`; if you call it, pass `model` explicitly (default is `codellama`) |
 | Claude only | `promptAI(prompt)` | Prompt goes to the clipboard; the user copies Claude's answer and presses Enter (read back from the clipboard, multi-line safe) |
 
-- New task type? Add it to `AiTask`, give it an owner in `TASK_OWNER` (`ai/agents.ts`: Arquiteto, Revisor, Documentador, Testador or Executor; the owner's role prompt goes on top of every prompt), `MODEL_MAP` (local chain) and `CLOUD_MAP` (cloud providers tried first, or `[]` if the prompt must never leave the machine) in `router.ts`; `kvasir models` picks it up automatically.
+- New task type? Add it to `AiTask`, give it an owner in `TASK_OWNER` (`ai/agents.ts`: Arquiteto, Revisor, Documentador, Testador or Executor; the owner's role prompt goes on top of every prompt), `MODEL_MAP` (local chain) and `CLOUD_MAP` (cloud fallback after the local chain, or `[]` if the prompt must never leave the machine) in `router.ts`; `kvasir models` picks it up automatically.
 - **API keys never go in code or in `~/.kvasir/config.json`**: read them from environment variables. Never print them (use `describeHttpError` from `@ai/providers`).
 - **Never** import `axios`/Ollama/clipboardy directly in a module; go through `src/ai/`.
 - Prompts are written in Portuguese. When the output must be English (commits, branches), say it explicitly.

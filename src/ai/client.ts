@@ -1,5 +1,6 @@
 import { input, select } from '@utils/prompt';
 import { recordAiCall } from '@ai/metrics';
+import { ANSWER_TAG, extractTaggedAnswer } from '@ai/parse';
 import type { AiRole } from '@ai/metrics';
 
 interface ClipboardyModule {
@@ -62,11 +63,22 @@ async function askThroughClipboard(prompt: string, meta: PromptAIMeta, skippable
     }
 
     const pasted = (await clipboard.read()).trim();
-    if (pasted && pasted !== prompt.trim()) {
+    if (!pasted || pasted === prompt.trim()) {
+      console.log('⚠️  O clipboard ainda tem o prompt (ou está vazio): a resposta do Claude não foi copiada.');
+      continue;
+    }
+    if (!skippable) {
       answer = pasted;
       break;
     }
-    console.log('⚠️  O clipboard ainda tem o prompt (ou está vazio): a resposta do Claude não foi copiada.');
+    // Whatever happens to be in the clipboard (a stray copy, "nao sei") would replace the local
+    // answer and be recorded as the developer's example: without the tag it is not Claude's answer.
+    const tagged = extractTaggedAnswer(pasted);
+    if (tagged) {
+      answer = tagged;
+      break;
+    }
+    console.log(`⚠️  Isso não parece a resposta do Claude (falta o <${ANSWER_TAG}>…</${ANSWER_TAG}> que o prompt pede). Copie a resposta inteira dele ou pule.`);
   }
 
   // Claude via clipboard reports no tokens: chars and the human round-trip time show the cost.
