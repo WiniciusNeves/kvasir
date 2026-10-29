@@ -75,6 +75,7 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 | 11 | ✅ resolvido (2026-10-20): retestado em repositório descartável: criar branch, listar ("(nenhuma)" sem remoto), apagar mergeada, forçar não mergeada depois de perguntar, voltar para a anterior | `branch/index.ts` | — |
 | 12 | ✅ resolvido (2026-10-28): encerrar o `kvasir watch -- <comando>` por fora deixava o servidor (ex.: Metro) rodando no Windows. O Node mata junto só o filho direto (`cmd.exe`, por um job do Windows), e o resto da árvore ficava órfão. Agora um vigia separado (`killTreeWhenParentDies`) encerra a árvore inteira, inclusive os órfãos, e a saída normal usa `taskkill /T` (`killProcessTree`). Testado com `node` → neto e `npm run dev` (5 níveis) | `utils/process.ts` | — |
 | 13 | ✅ resolvido (2026-10-29): o `kvasir init` apagava parte de um `CLAUDE.md` que **cita** o marcador `<!-- kvasir:header:end -->` no texto (o do próprio Kvasir perdeu 165 linhas num teste; voltou pelo git). Agora o cabeçalho só conta se o arquivo começa com o marcador de início e o de fim está numa linha só dele; senão o arquivo inteiro é preservado | `adapters/claude.ts` | — |
+| 14 | ✅ resolvido (2026-10-29): no `commit` e no `branch`, "Editar" contava como rejeição para o modelo mesmo quando o texto ficava igual (o exemplo já dizia `approved`). Agora o veredito é gravado depois da edição: igual = aprovado, mudado = rejeitado | `commit/index.ts`, `branch/index.ts` | — |
 
 ---
 

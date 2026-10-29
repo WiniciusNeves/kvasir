@@ -198,12 +198,11 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
 
   if (action === 'edit') {
     finalMessage = (await editor('Editar a mensagem de commit', message)).trim();
-    await recordFeedback('commits', 'rejected', message);
-    await recordOutcome('commit', 'rejected');
-  } else {
-    await recordFeedback('commits', 'approved', message);
-    await recordOutcome('commit', 'approved');
   }
+  // "Editar" that keeps the suggested message is an approval, like the example below
+  const verdict = finalMessage === message ? 'approved' : 'rejected';
+  await recordFeedback('commits', verdict, message);
+  await recordOutcome('commit', verdict);
 
   if (!finalMessage) {
     console.log('Mensagem de commit vazia. Commit cancelado.');

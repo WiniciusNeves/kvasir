@@ -14,7 +14,7 @@
 ## 2. Testes de uso real (num projeto Expo real, só IA local)
 
 - [x] `kvasir commit` interativo de ponta a ponta (2026-10-28): 3 exemplos no prompt, "Editar" gravou o exemplo `edited` com a sugestão original, nota no knowledge, `log` e `undo` pelo menu pós-commit. O teste mostrou que copiar para o Claude confundia (virou "Local primeiro", PR #30). Falta: conferir o `kvasir stats` (com × sem exemplos) quando houver mais commits reais
-- [ ] `kvasir branch` interativo (com exemplos) e o menu do `branch`
+- [x] `kvasir branch` interativo (2026-10-29): tarefa em português virou `feature/test-login`, exemplo gravado. O teste achou 2 bugs: o `init` apagava parte de um `CLAUDE.md` que cita o marcador do cabeçalho, e "Editar" sem mudança contava como rejeição. Falta: o menu do `branch` (listar/deletar)
 - [ ] `kvasir test` (gerar testes) com o contexto do projeto
 - [ ] `kvasir docs update` no projeto
 - [ ] Validação local automática numa tarefa longa (review ou test: o deepseek-r1 confere sozinho) e, opcional, o Claude com `ai.validator: "claude"`

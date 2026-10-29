@@ -123,9 +123,8 @@ export async function runBranch(): Promise<void> {
     { name: 'Editar — modificar o nome', value: 'edit' },
   ]);
 
-  await recordOutcome('branch', action === 'yes' ? 'approved' : 'rejected');
-
   if (action === 'no') {
+    await recordOutcome('branch', 'rejected');
     await recordExample('branch', { input: about, output: branchName, decision: 'rejected' });
     console.log('❌ Criação de branch cancelada.');
     return;
@@ -144,6 +143,8 @@ export async function runBranch(): Promise<void> {
 
   createBranch(finalBranchName);
   console.log(`✅ Branch criada: ${finalBranchName}`);
+  // "Editar" that keeps the suggested name is an approval, like the example below
+  await recordOutcome('branch', finalBranchName === branchName ? 'approved' : 'rejected');
   await recordExample(
     'branch',
     finalBranchName !== branchName
