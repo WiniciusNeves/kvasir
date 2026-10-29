@@ -1,6 +1,6 @@
 # Kvasir: roadmap (lista do que falta)
 
-> **Atualizado em 2026-10-27.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> **Atualizado em 2026-10-28.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
 > Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
 > Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
@@ -13,12 +13,12 @@
 
 ## 2. Testes de uso real (num projeto Expo real, só IA local)
 
-- [ ] `kvasir commit` interativo de ponta a ponta com os exemplos do desenvolvedor (aprovar, editar, rejeitar) e conferir o `kvasir stats` (com × sem exemplos)
+- [x] `kvasir commit` interativo de ponta a ponta (2026-10-28): 3 exemplos no prompt, "Editar" gravou o exemplo `edited` com a sugestão original, nota no knowledge, `log` e `undo` pelo menu pós-commit. O teste mostrou que copiar para o Claude confundia (virou "Local primeiro", PR #30). Falta: conferir o `kvasir stats` (com × sem exemplos) quando houver mais commits reais
 - [ ] `kvasir branch` interativo (com exemplos) e o menu do `branch`
 - [ ] `kvasir test` (gerar testes) com o contexto do projeto
 - [ ] `kvasir docs update` no projeto
-- [ ] Validação do Claude **sem pular** (colar no Claude, copiar a resposta, "Já copiei")
-- [ ] `push` contra remoto real, `undo`, `log`, `format` (nunca testados de verdade)
+- [ ] Validação local automática numa tarefa longa (review ou test: o deepseek-r1 confere sozinho) e, opcional, o Claude com `ai.validator: "claude"`
+- [ ] `push` contra remoto real e `format` (`undo` e `log` testados em 2026-10-28 pelo menu do commit)
 - [ ] Review: no último teste o modelo local achou 2 de 3 bugs plantados (não citou um `console.log`; errou uma linha e chamou divisão por zero de "segurança"). Medir de novo depois do bloco 3
 
 ## 3. Melhorias do aprendizado
