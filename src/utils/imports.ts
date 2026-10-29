@@ -157,3 +157,50 @@ export function listExports(code: string): string[] {
   if (/^export\s+default\s+(?!async|function|class|const|let|var|interface|type|enum)/m.test(code)) names.push('default');
   return Array.from(new Set(names));
 }
+
+export interface ImportedDefinition {
+  file: string;
+  name: string;
+  code: string;
+}
+
+const NAMED_IMPORT = /import\s+(?!type\b)(?:[\w$]+\s*,\s*)?\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
+const MAX_DEFINITION_LINES = 40;
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The exported declaration of `name`: from its line up to the next top-level export.
+function extractDefinition(code: string, name: string): string | null {
+  const lines = code.split(/\r?\n/);
+  const declaration = new RegExp(`^export\\s+(?:async\\s+)?(?:function\\*?|const|let|var|class|enum)\\s+${escapeRegExp(name)}\\b`);
+  const start = lines.findIndex((line) => declaration.test(line));
+  if (start === -1) return null;
+  const next = lines.findIndex((line, index) => index > start && /^export\s/.test(line));
+  const end = Math.min(next === -1 ? lines.length : next, start + MAX_DEFINITION_LINES);
+  return lines.slice(start, end).join('\n').trimEnd();
+}
+
+// The real code of the project functions a file imports by name ("import { isValidCPF } from './utils'"),
+// so a model reads what they do instead of guessing (a CPF that fails the check digit is not a bug).
+export function importedDefinitions(filePath: string, content: string, root: string = process.cwd()): ImportedDefinition[] {
+  const tsconfig = readTsconfigPaths(root);
+  const absolute = path.resolve(root, filePath);
+  const definitions: ImportedDefinition[] = [];
+
+  for (const match of content.matchAll(NAMED_IMPORT)) {
+    const resolved = resolveSpecifier(match[2], absolute, tsconfig);
+    if (!resolved || resolved.includes(`${path.sep}node_modules${path.sep}`)) continue;
+    const code = fs.readFileSync(resolved, 'utf-8');
+    const names = match[1]
+      .split(',')
+      .map((part) => part.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0])
+      .filter(Boolean);
+    for (const name of names) {
+      const definition = extractDefinition(code, name);
+      if (definition) definitions.push({ file: path.relative(root, resolved).split(path.sep).join('/'), name, code: definition });
+    }
+  }
+  return definitions;
+}

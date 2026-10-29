@@ -1,6 +1,6 @@
 # CLAUDE.md: Kvasir CLI
 
-Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScript). It detects the project, applies a persona (a company's conventions), generates AI context files, and automates branch, commit, fix, review, doc and task workflows using **local AI (Ollama)** orchestrated by **Claude via clipboard**. Nothing runs without user approval.
+Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScript). It detects the project, applies a persona (a company's conventions), generates AI context files, and automates branch, commit, fix, review, doc and task workflows using **local AI (Ollama)** first, with an opt-in cloud fallback and Claude via clipboard only on request. Nothing runs without user approval.
 
 ---
 
@@ -31,7 +31,7 @@ Kvasir is a modular CLI productivity ecosystem for developers (Node.js + TypeScr
 | HTTP | axios |
 | FS | fs-extra (wrapped in `@utils/fs`) |
 | AI (executor) | Ollama at `http://localhost:11434`; optional cloud: Gemini Flash (`ai/gemini.ts`) and Groq (`ai/groq.ts`), opt-in, keys only from `GEMINI_API_KEY` / `GROQ_API_KEY` (saved by `kvasir keys` as user env vars via `@utils/userEnv`) |
-| AI (orchestrator) | Claude via clipboard (`clipboardy`), **no Anthropic SDK, no API key** |
+| AI (optional validator) | Claude via clipboard (`clipboardy`), only with `ai.validator: "claude"` or `promptAI`; **no Anthropic SDK, no API key** |
 | Validation | zod (used for external data: `integrations/planner.ts`) |
 | Build | `tsc` + `tsc-alias` |
 
