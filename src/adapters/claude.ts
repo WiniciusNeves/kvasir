@@ -186,15 +186,21 @@ async function buildFallbackBody(ctx: KvasirContext, pkg: PackageJson, persona: 
   return lines.join('\n');
 }
 
+// Kvasir's header is always the first thing in the file and its markers sit on lines of their own.
+// A marker quoted in the text ("only the block between `<!-- kvasir:header:start -->` and …") is not
+// the header: matching it anywhere dropped everything above the quote (165 lines of a real CLAUDE.md).
+const HEADER_END_LINE = new RegExp(`^[ \\t]*${HEADER_END}[ \\t]*\\r?$`, 'm');
+
 function extractPreservedBody(existingContent: string | null): string | null {
   if (!existingContent) return null;
 
-  const endIndex = existingContent.indexOf(HEADER_END);
-  if (endIndex === -1) {
-    return existingContent.replace(/^\s+/, '');
+  const content = existingContent.replace(/^﻿/, '');
+  const endMatch = content.trimStart().startsWith(HEADER_START) ? HEADER_END_LINE.exec(content) : null;
+  if (!endMatch) {
+    return content.replace(/^\s+/, '');
   }
 
-  return existingContent.slice(endIndex + HEADER_END.length).replace(/^\s+/, '');
+  return content.slice(endMatch.index + endMatch[0].length).replace(/^\s+/, '');
 }
 
 // The project's persona, loaded like everywhere else (never a hardcoded one).
