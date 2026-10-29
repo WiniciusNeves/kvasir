@@ -180,7 +180,7 @@ askFor('fix', prompt)
 | Arquivo | Gerado por | Conteúdo |
 |---|---|---|
 | `kvasir.context.md` | `contextWriter.ts` | **Fonte da verdade:** projeto, persona, regras de branch/commit, módulos e task ativa |
-| `CLAUDE.md` | `adapters/claude.ts` | Cabeçalho automático entre `<!-- kvasir:header:start/end -->` + corpo do template da stack. Nas próximas execuções **só o cabeçalho é atualizado** |
+| `CLAUDE.md` | `adapters/claude.ts` | Cabeçalho automático entre `<!-- kvasir:header:start/end -->` + corpo do template da stack. Nas próximas execuções **só o cabeçalho é atualizado** (ele só é reconhecido no topo do arquivo, com os marcadores em linhas próprias: um marcador citado no texto não conta) |
 | `.github/copilot-instructions.md` | `adapters/copilot.ts` | Regras resumidas para o Copilot |
 | `.cursor/rules` | `adapters/cursor.ts` | Regras resumidas para o Cursor |
 | `DOC/libs/<lib>.md` | `kvasir doc` | Resumo da lib em português |
