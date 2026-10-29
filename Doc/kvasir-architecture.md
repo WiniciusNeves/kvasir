@@ -276,7 +276,7 @@ Pré-requisitos encadeados: `loadContext()` (`modules/init/ensure.ts`) oferece o
 
 ### `kvasir test [arquivo]`
 1. Arquivos: o informado, ou os `.ts/.tsx` alterados (`git status`, inclusive dentro de pastas novas), sem testes/`.d.ts`/configs; checkbox se forem vários.
-2. `detectTestSetup` (`test/framework.ts`): vitest ou jest (`jest-expo` conta) pelo `package.json`, Testing Library (RN ou web), convenção (`__tests__/` ou `<nome>.test.ts` ao lado) e o teste existente mais próximo como exemplo de estilo. Sem framework → dica de instalação.
+2. `detectTestSetup` (`test/framework.ts`): vitest ou jest (`jest-expo` conta) pelo `package.json`, Testing Library (RN ou web), convenção (`__tests__/`, `<nome>.test.ts` ao lado ou uma pasta raiz que espelha o código, como `test/utils/x.test.ts` para `utils/x.ts`, detectada pelos testes que já existem: o `testMatch` do jest costuma olhar só essa pasta; o `watch` usa a mesma regra para achar os testes relacionados) e o teste existente mais próximo como exemplo de estilo. Sem framework → dica de instalação.
 3. `buildGeneratePrompt` (`test/prompt.ts`): código, exports (`listExports`), **linhas de import prontas** (`buildImportLines`: nomeado × default × `import type`), regras do framework, "só valores que os tipos aceitam", 3 a 8 testes.
 4. `askLocal('test')` (qwen2.5-coder → deepseek-r1) → mostra → confirmação → salva.
 5. `runTestFile` (`utils/testRunner.ts`): `node node_modules/jest/bin/jest.js <arq> --ci --colors=false` ou `node node_modules/vitest/vitest.mjs run <arq>` (sem shell, sem npx; `CI=1`, `NO_COLOR=1`).
