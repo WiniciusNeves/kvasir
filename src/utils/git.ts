@@ -257,10 +257,13 @@ export function unstageFiles(files: string[]): void {
   assertGitSuccess(result, 'restore --staged');
 }
 
-function gitOutput(args: string[]): { ok: boolean; stdout: string } {
+// `keepLeading`: "git status --porcelain" starts with a column that may be a space (" M file"); trimming
+// it shifted the first path by one character ("onstants/utils.ts").
+function gitOutput(args: string[], options: { keepLeading?: boolean } = {}): { ok: boolean; stdout: string } {
   const result = spawnSync('git', args, { encoding: 'utf-8', cwd: process.cwd() });
   if (result.error) throw result.error;
-  return { ok: result.status === 0, stdout: (result.stdout ?? '').trim() };
+  const stdout = result.stdout ?? '';
+  return { ok: result.status === 0, stdout: options.keepLeading ? stdout.trimEnd() : stdout.trim() };
 }
 
 export function refExists(ref: string): boolean {
@@ -289,6 +292,15 @@ export function getChangedFilesAgainst(base: string): string[] {
 export function getUpstream(): string | null {
   const { ok, stdout } = gitOutput(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
   return ok && stdout ? stdout : null;
+}
+
+export function hasRemote(name: string): boolean {
+  return gitOutput(['remote']).stdout.split('\n').includes(name);
+}
+
+// Commits of HEAD that no remote branch has yet ("abc1234 feat: x"), newest first: what a push sends.
+export function listUnpushedCommits(): string[] {
+  return gitOutput(['log', '--oneline', 'HEAD', '--not', '--remotes']).stdout.split('\n').filter(Boolean);
 }
 
 export function pushWithUpstream(branch: string): void {
@@ -395,7 +407,7 @@ export function pushBranchWithTags(branch: string): void {
 
 // Paths with any change (staged, unstaged or untracked), from `git status --porcelain`.
 export function getChangedPaths(): string[] {
-  const { stdout } = gitOutput(['status', '--porcelain', '--untracked-files=all']);
+  const { stdout } = gitOutput(['status', '--porcelain', '--untracked-files=all'], { keepLeading: true });
   return stdout
     .split('\n')
     .filter(Boolean)

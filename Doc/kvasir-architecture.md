@@ -393,10 +393,10 @@ Entrada: clipboard (a cada 1,5 s) ou `spawnCommand` do comando depois de `--` (s
 - `branch` usa a task ativa: a descrição já vem preenchida com o título e, se usada, a branch criada é gravada em `linked branch`.
 
 ### `kvasir push` / `undo` / `log` / `format`
-- `push`: normal, `--force-with-lease` ou cancelar
+- `push`: sem o remoto `origin` → erro claro. Mostra os commits que vão subir (`listUnpushedCommits`: `HEAD --not --remotes`); com upstream e nada novo → "Nada para enviar". Depois: normal, `--force-with-lease` ou cancelar. O primeiro push de uma branch usa `-u` (`pushWithUpstream`)
 - `undo`: `git reset HEAD~1 --soft` com confirmação
 - `log`: os últimos 10 commits numa tabela ASCII
-- `format`: `npm run format` se existir, senão `npx prettier --write .`, via `runCommand` (sem shell)
+- `format`: `npm run format` se existir (o script do projeto decide). Senão Prettier: com arquivos alterados pergunta "só os alterados (N)" (padrão, `--ignore-unknown`) ou o projeto inteiro; sem alterados, confirma o projeto inteiro. Via `runCommand` (sem shell)
 
 ---
 ## Regras transversais
