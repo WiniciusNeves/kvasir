@@ -63,6 +63,8 @@ export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
 // 30s was not enough for a cold model load or deepseek-r1 thinking: the chosen model timed out
 // and a weaker fallback answered silently instead.
 const REQUEST_TIMEOUT_MS = 120_000;
+// the validator redoes the task before comparing (only long tasks get one): a reasoning model needs more
+const VALIDATION_TIMEOUT_MS = 300_000;
 const CLOUD_TIMEOUT_MS = 60_000;
 
 export interface AskForOptions {
@@ -279,7 +281,12 @@ ${prompt}
 Resultado retornado pelo modelo:
 ${result}
 
-Valide se o resultado está correto e completo para a tarefa. Se estiver correto, responda com o resultado final. Se houver problemas, corrija e responda apenas com o resultado final já corrigido. Responda APENAS com o resultado final entre <${ANSWER_TAG}> e </${ANSWER_TAG}>, sem explicações sobre a validação. Exemplo: <${ANSWER_TAG}>resultado final aqui</${ANSWER_TAG}>`;
+Como conferir (não aprove por padrão: o resultado pode estar incompleto):
+1. Refaça a tarefa você mesmo a partir do prompt original, item por item (cada linha, cada caso, cada parte pedida), sem olhar o resultado.
+2. Compare com o resultado do modelo. Procure primeiro o que FALTOU (algo que o prompt pede e o resultado deixou passar, ou marcou como certo), depois o que está errado (fato, linha ou item trocado).
+3. Se o resultado estiver completo e correto, repita-o igual. Senão, escreva o resultado corrigido, no MESMO formato que o prompt original pede.
+
+Responda APENAS com o resultado final entre <${ANSWER_TAG}> e </${ANSWER_TAG}>, sem explicações sobre a validação. Exemplo: <${ANSWER_TAG}>resultado final aqui</${ANSWER_TAG}>`;
 }
 
 // profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
@@ -372,7 +379,7 @@ async function validateLocally(task: AiTask, validationPrompt: string, label: st
   console.log(`🔎 ${model} está conferindo a resposta do ${label}...`);
   const startedAt = Date.now();
   try {
-    const answer = await askOllamaDetailed(validationPrompt, { model, temperature: 0.1, timeoutMs: REQUEST_TIMEOUT_MS });
+    const answer = await askOllamaDetailed(validationPrompt, { model, temperature: 0.1, timeoutMs: VALIDATION_TIMEOUT_MS });
     await recordAiCall({
       task, provider: 'ollama', model, role: 'validator', ok: true, durationMs: Date.now() - startedAt,
       promptChars: validationPrompt.length, outputChars: answer.text.length, promptTokens: answer.promptTokens, outputTokens: answer.outputTokens,

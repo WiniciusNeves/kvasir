@@ -151,7 +151,8 @@ askFor('fix', prompt)
    └─ 3. VALIDADOR (ai.validation = auto): só se o modelo que respondeu ainda não provou que acerta
          nesta tarefa (5+ avaliações com 80%+ de aprovação). Modelo confiável → o resultado volta direto.
          ai.validator = local (padrão): outro modelo do Ollama confere sozinho (deepseek-r1 → qwen2.5-coder
-         → llama3.2, nunca o que respondeu) e devolve a resposta entre <resposta>…</resposta>; sem a tag
+         → llama3.2, nunca o que respondeu): refaz a tarefa item por item, procura primeiro o que faltou,
+         e devolve a resposta entre <resposta>…</resposta> (limite de 5 min, VALIDATION_TIMEOUT_MS); sem a tag
          ou com erro, vale a resposta do executor. commit/branch/intent não passam por ele: são uma linha
          que você aprova ou edita na hora (o deepseek-r1 sempre pensa: ~45-70s para conferir um commit).
          ai.validator = claude (opcional): promptAIOrSkip() pelo clipboard; só aceita o texto com a tag,
