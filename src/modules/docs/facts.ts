@@ -15,6 +15,8 @@ export interface CodeChange extends ChangedFile {
   exports: string[];
   // exported before (at the base) and gone now: renamed or removed
   removedExports: string[];
+  // exported now and not at the base (every export of a new file)
+  addedExports: string[];
   diff: string;
 }
 
@@ -86,6 +88,11 @@ function escapeRegex(text: string): string {
 // text, "agentForTask" only where the doc talks about that function.
 const CODE_LIKE = /[a-z][A-Z]|^[A-Z][a-z]+[A-Z]|^[A-Z0-9]+_[A-Z0-9_]+$|_/;
 
+// "styles.ts" or "index.ts" in a doc says nothing about which file it means.
+function isSpecificName(name: string): boolean {
+  return name.length >= MIN_TERM && !/^(index|types|utils|main|styles)\.\w+$/i.test(name);
+}
+
 // Names whose presence in a doc means the doc talks about what changed: paths, file names with
 // extension, code-like export names, and scripts as "npm run x".
 function termsFor(changes: CodeChange[], scripts: string[]): string[] {
@@ -98,7 +105,7 @@ function termsFor(changes: CodeChange[], scripts: string[]): string[] {
     [...change.exports, ...change.removedExports].filter((name) => CODE_LIKE.test(name)).forEach((name) => names.add(name));
   }
   scripts.forEach((name) => names.add(`npm run ${name}`));
-  return [...names].filter((name) => name.length >= MIN_TERM && !/^(index|types|utils|main)\.\w+$/i.test(name));
+  return [...names].filter(isSpecificName);
 }
 
 export function collectDocsFacts(root: string, since?: string): DocsFacts | null {
@@ -118,8 +125,10 @@ export function collectDocsFacts(root: string, since?: string): DocsFacts | null
       const diff = change.status === 'added' ? truncateForPrompt(content, MAX_DIFF_PER_FILE) : truncateForPrompt(getFileDiffSince(base, change.path), MAX_DIFF_PER_FILE);
       const exports = content ? listExports(content) : [];
       const before = change.status === 'added' ? null : getFileAtRef(base, change.from ?? change.path);
-      const removedExports = before ? listExports(before).filter((name) => !exports.includes(name)) : [];
-      return { ...change, exports, removedExports, diff };
+      const exportsBefore = before ? listExports(before) : [];
+      const removedExports = exportsBefore.filter((name) => !exports.includes(name));
+      const addedExports = exports.filter((name) => !exportsBefore.includes(name));
+      return { ...change, exports, removedExports, addedExports, diff };
     });
 
   const scripts = readJsonFile<{ scripts?: Record<string, string> }>(path.join(root, 'package.json'))?.scripts ?? {};
@@ -144,10 +153,18 @@ export function collectDocsFacts(root: string, since?: string): DocsFacts | null
       ...changes.filter((change) => change.status === 'deleted' || change.status === 'renamed').map((change) => change.from ?? change.path),
       ...removedScripts.map((name) => `npm run ${name}`),
     ];
-    const fresh = [...changes.flatMap((change) => (change.status === 'deleted' ? [] : change.exports.filter((name) => !change.removedExports.includes(name)))), ...addedScripts.map((name) => `npm run ${name}`)];
+    // A new export is only "missing" from a doc that already talks about its file (the path, the file
+    // name or another export of it): a decision log that cites one component is not where 400 new
+    // styled components of other files go. New scripts belong where the doc lists scripts.
+    const talksAbout = (change: CodeChange): boolean =>
+      [change.path, change.from ?? '', path.basename(change.path)].filter(isSpecificName).some(cites) ||
+      change.exports.filter((name) => CODE_LIKE.test(name) && !change.addedExports.includes(name)).some(cites);
+    const fresh = [
+      ...changes.filter((change) => change.status !== 'deleted' && talksAbout(change)).flatMap((change) => change.addedExports),
+      ...(/npm run /.test(content) ? addedScripts.map((name) => `npm run ${name}`) : []),
+    ];
     const stale = [...new Set(gone.filter(cites))];
-    // new names are only "missing" from docs that already talk about the code that changed
-    const undocumented = mentioned.length > 0 || stale.length > 0 ? [...new Set(fresh.filter((name) => !cites(name)))] : [];
+    const undocumented = [...new Set(fresh.filter((name) => !cites(name)))];
     return { file, content, sections, mentioned, stale, undocumented };
   });
 

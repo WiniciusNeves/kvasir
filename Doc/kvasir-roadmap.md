@@ -15,8 +15,8 @@
 
 - [x] `kvasir commit` interativo de ponta a ponta (2026-10-28): 3 exemplos no prompt, "Editar" gravou o exemplo `edited` com a sugestão original, nota no knowledge, `log` e `undo` pelo menu pós-commit. O teste mostrou que copiar para o Claude confundia (virou "Local primeiro", PR #30). Falta: conferir o `kvasir stats` (com × sem exemplos) quando houver mais commits reais
 - [x] `kvasir branch` interativo (2026-10-29): tarefa em português virou `feature/test-login`, exemplo gravado. O teste achou 2 bugs: o `init` apagava parte de um `CLAUDE.md` que cita o marcador do cabeçalho, e "Editar" sem mudança contava como rejeição. Falta: o menu do `branch` (listar/deletar)
-- [ ] `kvasir test` (gerar testes) com o contexto do projeto
-- [ ] `kvasir docs update` no projeto
+- [x] `kvasir test` (gerar testes) com o contexto do projeto (2026-10-29): achou 2 bugs. O teste ia para o lado do arquivo e não para a pasta `test/` que o jest olha. E a IA chamava de "bug no código" um CPF de exemplo inválido. Com o código dos helpers importados e os valores já testados no projeto, passou de primeira
+- [x] `kvasir docs update` no projeto (2026-10-29): mandava cada documento documentar todos os exports dos arquivos mudados (~470, até no log de decisões). A IA se perdia e copiava a seção "## Uso" do exemplo. Agora só os exports novos de verdade, no documento que já fala daquele arquivo; nos 3 documentos ela não propôs nada inventado
 - [ ] Validação local automática numa tarefa longa (review ou test: o deepseek-r1 confere sozinho) e, opcional, o Claude com `ai.validator: "claude"`
 - [ ] `push` contra remoto real e `format` (`undo` e `log` testados em 2026-10-28 pelo menu do commit)
 - [ ] Review: no último teste o modelo local achou 2 de 3 bugs plantados (não citou um `console.log`; errou uma linha e chamou divisão por zero de "segurança"). Medir de novo depois do bloco 3
