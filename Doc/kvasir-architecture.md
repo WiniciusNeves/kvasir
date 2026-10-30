@@ -303,7 +303,7 @@ Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, 
 1. Pergunta a descrição da tarefa → `loadConventions` (prefixos, descrições e idioma da persona do projeto) → `askFor('branch', temperature 0.2)` (resumo em inglês ou em português, conforme a persona) → `parseBranchName` acha `prefixo/…` com os prefixos da persona, remove rótulos e acentos, descarta prefixo desconhecido e usa o primeiro da persona como padrão.
 2. Sim / Não / Editar → `git checkout -b`.
 3. Menu em loop: deletar outra branch · listar · voltar para a anterior · sair.
-- `-l` lista locais e remotas · `-d` deleta (pergunta se força `-D` quando não está mergeada).
+- `-l` lista locais (atual com `*`, "não mergeada", "aberta em outro worktree") e remotas (sem o alias `origin/HEAD`). `-d` deleta: as abertas em algum worktree ficam fora do menu, e o `-D` só é oferecido para a não mergeada (`git branch --merged HEAD`, não pela mensagem do git). Tudo via `listLocalBranches` / `listRemoteBranches` (`git branch --format`: o `git branch` puro põe `*`/`+` no nome e lista o HEAD solto como branch).
 
 ### `kvasir fix`
 ```

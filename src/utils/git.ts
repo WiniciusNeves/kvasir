@@ -41,28 +41,33 @@ export function createBranch(name: string): void {
   assertGitSuccess(result, 'checkout -b');
 }
 
-export function listLocalBranches(): string[] {
-  const result = spawnSync('git', ['branch'], {
-    encoding: 'utf-8',
-    cwd: process.cwd(),
-  });
-
-  if (result.error) throw result.error;
-
-  return (result.stdout ?? '')
-    .split('\n')
-    .map((line) => line.replace('*', '').trim())
-    .filter((line) => line.length > 0);
+export interface LocalBranch {
+  name: string;
+  current: boolean;
+  // checked out in some worktree (this one or another): git refuses to delete it
+  inWorktree: boolean;
+  // fully merged into HEAD: "git branch -d" deletes it without -D
+  merged: boolean;
 }
 
-export function listAllBranches(): string {
-  const result = spawnSync('git', ['branch', '-a'], {
-    encoding: 'utf-8',
-    cwd: process.cwd(),
-  });
+// Plain names from --format: "git branch" prefixes "* " (current) and "+ " (another worktree) and
+// lists a detached HEAD as "(HEAD detached at abc123)", none of which is a branch name.
+export function listLocalBranches(): LocalBranch[] {
+  const merged = new Set(gitOutput(['branch', '--merged', 'HEAD', '--format=%(refname:short)']).stdout.split('\n'));
+  return gitOutput(['branch', '--format=%(HEAD)%09%(refname:short)%09%(worktreepath)'], { keepLeading: true })
+    .stdout.split('\n')
+    .map((line) => line.split('\t'))
+    .filter(([, name]) => Boolean(name) && !name.startsWith('('))
+    .map(([head, name, worktree]) => ({ name, current: head === '*', inWorktree: Boolean(worktree), merged: merged.has(name) }));
+}
 
-  if (result.error) throw result.error;
-  return result.stdout ?? '';
+// "origin/main", without the "origin/HEAD" alias.
+export function listRemoteBranches(): string[] {
+  return gitOutput(['branch', '-r', '--format=%(refname:short)%09%(symref)'])
+    .stdout.split('\n')
+    .map((line) => line.split('\t'))
+    .filter(([name, symref]) => Boolean(name) && !symref && name.includes('/'))
+    .map(([name]) => name);
 }
 
 export interface DeleteBranchResult {
