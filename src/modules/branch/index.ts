@@ -8,7 +8,7 @@ import {
   createBranch,
   getCurrentBranch,
   listLocalBranches,
-  listAllBranches,
+  listRemoteBranches,
   deleteBranch,
   checkoutPreviousBranch,
 } from '@utils/git';
@@ -17,6 +17,7 @@ import { loadContext } from '@modules/init/ensure';
 import { loadPersona } from '@modules/init/personaLoader';
 import type { KvasirContext } from '@ktypes/context';
 import type { PersonaBranchRule } from '@ktypes/persona';
+import type { LocalBranch } from '@utils/git';
 
 type BranchChoice = 'yes' | 'no' | 'edit';
 type PostBranchAction = 'none' | 'delete' | 'list' | 'previous';
@@ -162,59 +163,68 @@ export async function runBranch(): Promise<void> {
 }
 
 export async function runDeleteBranch(): Promise<void> {
-  const current = getCurrentBranch();
-  const branches = listLocalBranches().filter((branch) => branch !== current);
+  const local = listLocalBranches();
+  const branches = local.filter((branch) => !branch.inWorktree);
+  const inOtherWorktrees = local.filter((branch) => branch.inWorktree && !branch.current);
+  if (inOtherWorktrees.length > 0) {
+    console.log(`(abertas em outro worktree, não dá para deletar daqui: ${inOtherWorktrees.map((branch) => branch.name).join(', ')})`);
+  }
 
   if (branches.length === 0) {
     console.log('Nenhuma outra branch local para deletar.');
     return;
   }
 
-  const target = await select(
+  const targetName = await select(
     'Qual branch deseja deletar?',
-    branches.map((branch) => ({ name: branch, value: branch }))
+    branches.map((branch) => ({ name: branch.merged ? branch.name : `${branch.name} (não mergeada)`, value: branch.name }))
   );
+  const target = branches.find((branch) => branch.name === targetName) ?? { name: targetName, merged: true };
 
-  const approved = await confirm(`Deletar a branch ${target}?`);
+  const approved = await confirm(`Deletar a branch ${target.name}?`);
   if (!approved) {
     console.log('Exclusão cancelada.');
     return;
   }
 
-  const result = deleteBranch(target);
+  const result = deleteBranch(target.name);
   if (result.success) {
-    console.log(`✅ Branch deletada: ${target}`);
+    console.log(`✅ Branch deletada: ${target.name}`);
     return;
   }
 
   console.log(`\n${result.stderr.trim()}`);
-  const forceApproved = await confirm(`A branch "${target}" não está mergeada. Forçar exclusão (-D)?`);
+  // -D only helps with unmerged commits (known from "git branch --merged", not from git's message)
+  if (target.merged) {
+    console.log('❌ Não deletei a branch.');
+    return;
+  }
+  const forceApproved = await confirm(`A branch "${target.name}" tem commits que não estão na atual e serão perdidos. Forçar exclusão (-D)?`);
   if (!forceApproved) {
     console.log('Exclusão cancelada.');
     return;
   }
 
-  const forceResult = deleteBranch(target, true);
+  const forceResult = deleteBranch(target.name, true);
   if (forceResult.success) {
-    console.log(`✅ Branch deletada (forçado): ${target}`);
+    console.log(`✅ Branch deletada (forçado): ${target.name}`);
   } else {
     console.log(`❌ Falha ao deletar a branch: ${forceResult.stderr.trim()}`);
   }
 }
 
-export async function runListBranches(): Promise<void> {
-  const lines = listAllBranches()
-    .split('\n')
-    .map((line) => line.replace('*', '').trim())
-    .filter((line) => line.length > 0);
+function describeLocalBranch(branch: LocalBranch): string {
+  const notes = [branch.inWorktree && !branch.current ? 'aberta em outro worktree' : '', branch.merged ? '' : 'não mergeada'].filter(Boolean);
+  return `${branch.current ? '* ' : '  '}${branch.name}${notes.length > 0 ? ` (${notes.join(', ')})` : ''}`;
+}
 
-  const local = lines.filter((line) => !line.startsWith('remotes/'));
-  const remote = lines
-    .filter((line) => line.startsWith('remotes/'))
-    .map((line) => line.replace('remotes/', ''));
+export async function runListBranches(): Promise<void> {
+  const local = listLocalBranches();
+  const remote = listRemoteBranches();
 
   console.log('\nBranches locais:');
-  local.forEach((branch) => console.log(`  ${branch}`));
+  if (local.length === 0) console.log('  (nenhuma)');
+  local.forEach((branch) => console.log(`  ${describeLocalBranch(branch)}`));
 
   console.log('\nBranches remotas:');
   if (remote.length === 0) console.log('  (nenhuma)');
