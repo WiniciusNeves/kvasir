@@ -23,7 +23,7 @@
 
 ## 3. Melhorias do aprendizado
 
-- [ ] Review com veredito por achado (útil / ignorar), para aprender quais avisos o desenvolvedor ignora; hoje é só "útil? sim/não" para a revisão inteira
+- [x] Review com veredito por achado (2026-10-31): checkbox dos avisos úteis; cada um vira exemplo, a métrica conta a maioria e a nota só guarda os úteis. Testado num projeto real: pôr esses exemplos no prompt piora o modelo local (copia o que vê), então eles ficam só gravados. O review também saiu do validador local, que trocava linhas e uma vez parou 5 min. Falta: usar os avisos ignorados sem passar pelo prompt (ex.: esconder na hora um aviso igual que já foi ignorado na mesma linha; fato do código, não regra sobre o modelo)
 - [ ] "Por quê?" opcional ao rejeitar uma sugestão (vira exemplo e feedback)
 - [ ] `learn` automático (sem rodar `kvasir learn` à mão)
 - [ ] Preferências por projeto (o estilo de um projeto não vaza para outro)

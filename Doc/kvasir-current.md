@@ -83,6 +83,7 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 | 19 | ✅ resolvido (2026-10-30): `getChangedPaths` lia o `git status --porcelain` depois de um `trim()`, que comia o espaço inicial da 1ª linha (` M constants/utils.ts` → `onstants/utils.ts`): o 1º arquivo só modificado sumia no `test` (sem argumento), no `release` e no `format` | `utils/git.ts` | — |
 | 20 | ✅ resolvido (2026-10-30): o `push` perguntava sem mostrar o que ia subir e o primeiro push de uma branch não fazia `-u` (o `git pull` seguinte não sabia de onde puxar). O `format` rodava `prettier --write .` no projeto inteiro (255 arquivos num projeto real); agora oferece só os alterados | `push/index.ts`, `format/index.ts` | — |
 | 21 | ✅ resolvido (2026-10-30): o menu do `branch` lia o `git branch` puro. Uma branch aberta em outro worktree vinha como "+ nome" (deletar dava "not found" e oferecia `-D`), o HEAD solto aparecia como branch, a atual não era marcada e qualquer falha ao deletar virava "não mergeada". Agora usa `git branch --format` e o `--merged` | `utils/git.ts`, `branch/index.ts` | — |
+| 22 | ⚠️ revisto (2026-10-31): a mudança do #18 (validador refaz a tarefa) piorava o review. O deepseek-r1 reescrevia com avisos na linha errada e "bugs" falsos, e uma vez parou nos 5 min. Com o veredito por achado quem confere o review é você, então ele saiu do validador local (`DEVELOPER_CHECKED_TASKS`). O validador segue nas outras tarefas longas | `ai/router.ts`, `review/index.ts` | — |
 
 ---
 

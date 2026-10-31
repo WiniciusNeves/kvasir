@@ -354,7 +354,8 @@ npm registry → (sem README? tenta `raw.githubusercontent.com` em `main`/`maste
 1. `parseAddedLines` (`utils/diff.ts`) pega as linhas adicionadas com o número real da linha; linhas vazias ou só com chaves saem; máx. 150.
 2. Cada linha recebe um id (`L1`…`Ln`). O prompt pede um veredito **por linha** (`L3: OK` ou `L3: PROBLEMA [bug|segurança|estilo] … — …`), com um exemplo do formato e o que conta como problema. Sem regras fixas: pedido como "lista de problemas", o qwen2.5-coder respondia "nenhum problema"; linha por linha ele encontra.
 3. `parseFindings` mapeia o id de volta para `arquivo:linha` (qualquer veredito que não seja OK conta).
-4. `askFor('review', temperature 0.1, repeatPenalty 1.1, maxTokens = 40 por linha)` → mostra → "As sugestões foram úteis?" → `patterns.md` + métrica; se útil, nota em `knowledge/patterns/review-<projeto>.md`.
+4. `askFor('review', temperature 0.1, repeatPenalty 1.1, maxTokens = 40 por linha)`, sem validador local (você julga cada aviso; `DEVELOPER_CHECKED_TASKS`) → mostra.
+5. Veredito por achado: checkbox "Quais avisos foram úteis?" (os não marcados contam como ignorados). Cada aviso vira exemplo `review` (caso = a linha de código, `approved`/`rejected`), que **não** volta para o prompt (ver `kvasir-decisions.md`). Métrica: `approved` quando a maioria dos avisos foi útil. Só os avisos úteis vão para `knowledge/patterns/review-<projeto>.md`. Sem avisos: "Concorda que não há problemas nessas linhas?".
 
 ### `kvasir keys`
 `keys` mostra se cada chave está configurada (nunca mostra a chave). `keys set [gemini|groq]`: link para criar a chave → entrada oculta → aviso se o prefixo não bate (`AQ.`/`AIza` no Gemini, `gsk_` no Groq, de `CLOUD_KEY_INFO`) → `checkCloudKey` (lista modelos, sem gerar) → confirm → `writeUserEnv` (`setx` no Windows) → se a nuvem não estiver permitida, pergunta o consentimento. `keys remove`: confirm → `removeUserEnv`.
