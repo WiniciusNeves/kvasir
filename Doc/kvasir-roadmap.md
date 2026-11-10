@@ -1,6 +1,6 @@
 # Kvasir: roadmap (lista do que falta)
 
-> **Atualizado em 2026-10-28.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> **Atualizado em 2026-10-31.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
 > Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
 > Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
