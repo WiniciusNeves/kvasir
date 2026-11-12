@@ -126,6 +126,12 @@ export async function countExamples(task: string, source?: ExampleSource): Promi
   return (await readExamples(task)).filter((item) => item.project === project && (!source || item.source === source)).length;
 }
 
+// Every case of this project, oldest first (rejected ones included), for facts the module computes itself.
+export async function projectExamples(task: string): Promise<Example[]> {
+  const project = currentProject();
+  return (await readExamples(task)).filter((item) => item.project === project).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+}
+
 function cosine(a: number[], b: number[]): number {
   let dot = 0;
   let normA = 0;

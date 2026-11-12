@@ -5,7 +5,8 @@ import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { noteUsefulReview } from '@modules/knowledge/auto';
 import { answerLines } from '@ai/parse';
-import { recordExample } from '@ai/examples';
+import { projectExamples, recordExample } from '@ai/examples';
+import type { ExampleDecision } from '@ai/examples';
 import { checkbox, confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
@@ -89,9 +90,30 @@ function formatFinding(finding: Finding): string {
   return `- ${finding.line.filePath}:${finding.line.lineNumber} ${finding.description}`;
 }
 
-// The case of a review example is the code line itself.
+// The case of a review example is the code line itself, with its file (line numbers move, the text stays).
 function exampleInput(line: ReviewLine): string {
-  return line.text.trim();
+  return `${line.filePath} | ${line.text.trim()}`;
+}
+
+// "[bug] x — y" → "bug": the same kind of warning, whatever words the model picked this time.
+function findingKind(description: string): string {
+  const match = description.match(/\[\s*([^\]]+?)\s*\]/);
+  return (match?.[1] ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function findingKey(input: string, description: string): string {
+  return `${input}\u0000${findingKind(description)}`;
+}
+
+// A fact from the developer's own verdicts, not a rule about the model: a warning of the same kind on the
+// same line of the same file that they ignored last time is hidden now. A later "useful" brings it back.
+async function splitIgnored(findings: Finding[]): Promise<{ shown: Finding[]; hidden: Finding[] }> {
+  const lastVerdict = new Map<string, ExampleDecision>();
+  for (const example of await projectExamples('review')) {
+    lastVerdict.set(findingKey(example.input, example.output), example.decision);
+  }
+  const hidden = findings.filter((finding) => lastVerdict.get(findingKey(exampleInput(finding.line), finding.description)) === 'rejected');
+  return { shown: findings.filter((finding) => !hidden.includes(finding)), hidden };
 }
 
 // One verdict per finding, recorded as examples. They do NOT go back into the prompt: tested on a real
@@ -136,13 +158,20 @@ export async function runReview(): Promise<void> {
     repeatPenalty: 1.1,
     maxTokens: Math.max(400, lines.length * TOKENS_PER_LINE),
   });
-  const findings = parseFindings(response, lines);
+  const { shown: findings, hidden } = await splitIgnored(parseFindings(response, lines));
 
   console.log('\n🔎 Revisão:');
-  console.log(findings.length > 0 ? findings.map(formatFinding).join('\n') : NO_ISSUES);
+  console.log(findings.length > 0 ? findings.map(formatFinding).join('\n') : hidden.length > 0 ? 'Nenhum aviso novo.' : NO_ISSUES);
+  if (hidden.length > 0) {
+    console.log(`\n🙈 ${hidden.length} aviso(s) escondido(s): você ignorou o mesmo tipo de aviso nessas linhas antes.`);
+    console.log(hidden.map(formatFinding).join('\n'));
+  }
 
   // The review only suggests; applying is up to the developer (see Doc/kvasir-current.md #3).
-  if (findings.length === 0) {
+  if (findings.length === 0 && hidden.length > 0) {
+    // only warnings already judged: nothing new to ask, and no verdict on the model from a repeat
+    console.log('Nada novo para avaliar.');
+  } else if (findings.length === 0) {
     const agreed = await confirm('Concorda que não há problemas nessas linhas?');
     await recordFeedback('patterns', agreed ? 'approved' : 'rejected', `review: ${NO_ISSUES}`);
     await recordOutcome('review', agreed ? 'approved' : 'rejected');
