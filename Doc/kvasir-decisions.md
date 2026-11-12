@@ -352,3 +352,17 @@ O app desktop pode ser feito com **Tauri** (mais leve, ensina Rust) ou **Electro
 **Decisão:** Onde o gosto importa (commit, branch), o router coloca no prompt as respostas reais do desenvolvedor nos casos mais parecidos (`@ai/examples`): o que ele aprovou ou a versão que ele editou. No primeiro uso, os commits que ele já fez viram exemplos (`learnFromCommitHistory`, pelo `git log`). A busca é local (vetores do Ollama), com peso para os mais recentes. Cada chamada grava se levou exemplos, e o `kvasir stats` mostra a aceitação com × sem. As regras da persona continuam valendo antes dos exemplos: se o histórico contradiz a persona (ex.: commits fora do Conventional Commits), a regra ganha, e mudar a regra é decisão do desenvolvedor.
 
 **Por quê:** O `profile.md` resume o gosto em frases, só depois de muito feedback e de rodar `kvasir learn` à mão: na prática a IA começava sem saber nada, e um "recusou" sem o porquê ensinava pouco. Modelo local copia a forma de um exemplo muito melhor do que segue uma descrição (o `docs update` já tinha mostrado isso), e um exemplo carrega tamanho, tom, escopo e idioma de uma vez. Descartados: questionário no `init` (as pessoas respondem o que acham que fazem) e fine-tuning (precisa de GPU, é lento para atualizar e não acompanha o desenvolvedor em outra máquina).
+
+---
+
+## Review: veredito por aviso, mas os exemplos não voltam para o prompt
+
+**Decisão:** O `kvasir review` pergunta quais avisos foram úteis (checkbox). Cada aviso vira exemplo (`~/.kvasir/examples/review.jsonl`, caso = a linha de código, aprovado ou ignorado). A métrica conta a maioria, e o knowledge só guarda os úteis. Esses exemplos **não** entram no prompt do review. O review também não passa pelo validador local: quem confere é o desenvolvedor, aviso por aviso, como no commit e na branch.
+
+**Por quê:** Testado (2026-10-31) num projeto real, com 7 bugs plantados, várias rodadas no mesmo diff, só qwen2.5-coder:
+- Com os avisos úteis como exemplo, ele repetia só aqueles: a revisão encolheu de 4 para 2 avisos e o token no código sumiu.
+- Com um aviso ignorado como exemplo ("não repita"), ele passou a repetir esse aviso em toda rodada (até em 2 linhas) e perdeu um bug real.
+
+Modelo local copia o que vê, positivo ou negativo. O validador (deepseek-r1 refazendo a tarefa) reescrevia o review com avisos na linha errada e uma vez parou nos 5 min. Os exemplos ficam gravados para usos que não passam pelo prompt: esconder um aviso igual que já foi ignorado na mesma linha (fato do código), ou um modelo maior no futuro.
+
+**Atualização (2026-11-12):** o aviso já ignorado agora é escondido. "Igual" = mesmo arquivo, mesmo texto da linha (o número muda quando o arquivo cresce) e mesma categoria (`[bug]`, `[segurança]`, `[estilo]`), porque o modelo reescreve a frase a cada rodada. Vale o último veredito: marcar como útil depois traz o aviso de volta. Os escondidos aparecem numa lista à parte, nada some calado. Não é regra sobre o modelo: o prompt não muda, só o que você já julgou deixa de ser perguntado de novo. Testado num repo descartável com 4 avisos (1 falso marcado como ignorado): nas 2 rodadas seguintes o falso foi escondido, com outro texto, e os 3 úteis continuaram.

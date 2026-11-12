@@ -349,9 +349,10 @@ const TRUST_MIN_VERDICTS = 5;
 const TRUST_MIN_APPROVAL = 0.8;
 // reasoning model first; never the model that answered (it would just approve itself)
 const LOCAL_VALIDATORS = ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'];
-// One-line answers the developer reads and approves or edits right away: that is the check. deepseek-r1
-// always thinks (it ignores think: false) and took ~45-70s to confirm one commit line.
-const SHORT_ANSWER_TASKS: AiTask[] = ['commit', 'branch', 'intent'];
+// Answers the developer judges right away, one by one, are already checked: a one-line commit/branch/intent
+// they approve or edit, and review warnings they mark useful or ignored. deepseek-r1 always thinks (~45-70s
+// for one commit line); on reviews its rewrite moved warnings to the wrong lines and once hit the 5 min limit.
+const DEVELOPER_CHECKED_TASKS: AiTask[] = ['commit', 'branch', 'intent', 'review'];
 
 export type ValidationMode = 'auto' | 'always' | 'never';
 
@@ -421,7 +422,7 @@ export async function askFor(task: AiTask, basePrompt: string, options: AskForOp
       if (mode === 'auto') console.log(`✔ ${label} já é confiável em "${task}" (${trusted}): sem conferência.`);
       return result;
     }
-    if (mode === 'auto' && validator === 'local' && SHORT_ANSWER_TASKS.includes(task)) return result;
+    if (mode === 'auto' && validator === 'local' && DEVELOPER_CHECKED_TASKS.includes(task)) return result;
     if (mode === 'auto') {
       console.log(`ℹ️  ${label} ainda não provou que acerta em "${task}" (precisa de ${TRUST_MIN_VERDICTS}+ avaliações com ${Math.round(TRUST_MIN_APPROVAL * 100)}%+ de aprovação): outro modelo confere.`);
     }

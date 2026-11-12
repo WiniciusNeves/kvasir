@@ -5,7 +5,9 @@ import { askFor } from '@ai/router';
 import { recordOutcome } from '@ai/metrics';
 import { noteUsefulReview } from '@modules/knowledge/auto';
 import { answerLines } from '@ai/parse';
-import { confirm } from '@utils/prompt';
+import { projectExamples, recordExample } from '@ai/examples';
+import type { ExampleDecision } from '@ai/examples';
+import { checkbox, confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { markDiffReviewed } from '@modules/proactive/suggestions';
@@ -59,11 +61,16 @@ L2: OK
 Responda só com as linhas no formato acima, uma para cada identificador, sem repetir o código.`;
 }
 
-// Maps "L3: PROBLEMA [bug] ..." back to "file:line". Anything that is not "OK" counts as a finding
+interface Finding {
+  line: ReviewLine;
+  description: string;
+}
+
+// Maps "L3: PROBLEMA [bug] ..." back to the line. Anything that is not "OK" counts as a finding
 // (the model sometimes writes "SECURITY" instead of "PROBLEMA").
-function parseFindings(response: string, lines: ReviewLine[]): string[] {
+function parseFindings(response: string, lines: ReviewLine[]): Finding[] {
   const byId = new Map(lines.map((line) => [line.id, line]));
-  const findings = new Map<string, string>();
+  const findings = new Map<string, Finding>();
 
   for (const answer of answerLines(response)) {
     const match = answer.match(/^(L\d+)\s*:\s*(.+)$/i);
@@ -73,11 +80,55 @@ function parseFindings(response: string, lines: ReviewLine[]): string[] {
     const verdict = match[2].trim();
     if (!line || /^ok\b/i.test(verdict) || findings.has(line.id)) continue;
 
-    const description = verdict.replace(/^(problema|problem|security|seguran[cç]a)\s*/i, '');
-    findings.set(line.id, `- ${line.filePath}:${line.lineNumber} ${description}`);
+    findings.set(line.id, { line, description: verdict.replace(/^(problema|problem|security|seguran[cç]a)\s*/i, '') });
   }
 
   return [...findings.values()];
+}
+
+function formatFinding(finding: Finding): string {
+  return `- ${finding.line.filePath}:${finding.line.lineNumber} ${finding.description}`;
+}
+
+// The case of a review example is the code line itself, with its file (line numbers move, the text stays).
+function exampleInput(line: ReviewLine): string {
+  return `${line.filePath} | ${line.text.trim()}`;
+}
+
+// "[bug] x — y" → "bug": the same kind of warning, whatever words the model picked this time.
+function findingKind(description: string): string {
+  const match = description.match(/\[\s*([^\]]+?)\s*\]/);
+  return (match?.[1] ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function findingKey(input: string, description: string): string {
+  return `${input}\u0000${findingKind(description)}`;
+}
+
+// A fact from the developer's own verdicts, not a rule about the model: a warning of the same kind on the
+// same line of the same file that they ignored last time is hidden now. A later "useful" brings it back.
+async function splitIgnored(findings: Finding[]): Promise<{ shown: Finding[]; hidden: Finding[] }> {
+  const lastVerdict = new Map<string, ExampleDecision>();
+  for (const example of await projectExamples('review')) {
+    lastVerdict.set(findingKey(example.input, example.output), example.decision);
+  }
+  const hidden = findings.filter((finding) => lastVerdict.get(findingKey(exampleInput(finding.line), finding.description)) === 'rejected');
+  return { shown: findings.filter((finding) => !hidden.includes(finding)), hidden };
+}
+
+// One verdict per finding, recorded as examples. They do NOT go back into the prompt: tested on a real
+// project, qwen2.5-coder copied whatever warnings it was shown. The useful ones made the review shrink
+// (4 → 2 warnings, the hardcoded token dropped); an ignored one came back in every round (Doc/kvasir-decisions.md).
+async function judgeFindings(findings: Finding[]): Promise<Finding[]> {
+  const usefulIds = await checkbox<string>(
+    'Quais avisos foram úteis? (espaço marca, Enter confirma; os não marcados contam como ignorados)',
+    findings.map((finding) => ({ name: formatFinding(finding).slice(2), value: finding.line.id }))
+  );
+  const useful = findings.filter((finding) => usefulIds.includes(finding.line.id));
+  for (const finding of findings) {
+    await recordExample('review', { input: exampleInput(finding.line), output: finding.description, decision: useful.includes(finding) ? 'approved' : 'rejected' });
+  }
+  return useful;
 }
 
 export async function runReview(): Promise<void> {
@@ -107,16 +158,32 @@ export async function runReview(): Promise<void> {
     repeatPenalty: 1.1,
     maxTokens: Math.max(400, lines.length * TOKENS_PER_LINE),
   });
-  const findings = parseFindings(response, lines);
+  const { shown: findings, hidden } = await splitIgnored(parseFindings(response, lines));
 
   console.log('\n🔎 Revisão:');
-  console.log(findings.length > 0 ? findings.join('\n') : NO_ISSUES);
+  console.log(findings.length > 0 ? findings.map(formatFinding).join('\n') : hidden.length > 0 ? 'Nenhum aviso novo.' : NO_ISSUES);
+  if (hidden.length > 0) {
+    console.log(`\n🙈 ${hidden.length} aviso(s) escondido(s): você ignorou o mesmo tipo de aviso nessas linhas antes.`);
+    console.log(hidden.map(formatFinding).join('\n'));
+  }
 
   // The review only suggests; applying is up to the developer (see Doc/kvasir-current.md #3).
-  const useful = await confirm('As sugestões foram úteis?');
-  await recordFeedback('patterns', useful ? 'approved' : 'rejected', `review: ${findings[0] ?? NO_ISSUES}`);
-  await recordOutcome('review', useful ? 'approved' : 'rejected');
+  if (findings.length === 0 && hidden.length > 0) {
+    // only warnings already judged: nothing new to ask, and no verdict on the model from a repeat
+    console.log('Nada novo para avaliar.');
+  } else if (findings.length === 0) {
+    const agreed = await confirm('Concorda que não há problemas nessas linhas?');
+    await recordFeedback('patterns', agreed ? 'approved' : 'rejected', `review: ${NO_ISSUES}`);
+    await recordOutcome('review', agreed ? 'approved' : 'rejected');
+  } else {
+    const useful = await judgeFindings(findings);
+    // the review as a whole is good when most of its warnings were worth reading
+    const verdict = useful.length * 2 >= findings.length ? 'approved' : 'rejected';
+    await recordFeedback('patterns', verdict, `review: ${useful.length}/${findings.length} avisos úteis; ${formatFinding(useful[0] ?? findings[0])}`);
+    await recordOutcome('review', verdict);
+    console.log(`${useful.length} de ${findings.length} aviso(s) úteis.`);
+    if (useful.length > 0) await noteUsefulReview(useful.map(formatFinding));
+  }
   console.log('Feedback registrado.');
-  if (useful && findings.length > 0) await noteUsefulReview(findings);
   await markDiffReviewed(diff);
 }

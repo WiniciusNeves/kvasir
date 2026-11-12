@@ -9,7 +9,7 @@
 ## Princípios que valem para tudo
 
 - A IA aprende e melhora com feedback. **NUNCA contornar uma IA que erra com regra fixa no código**; melhorar prompt, contexto e dados. Exceção: correções 100% determinísticas e comprovadas.
-- Claude é o CHEFE (analisa, decide, delega, valida). Os modelos locais são os executores.
+- Local primeiro: os modelos do Ollama fazem o trabalho e outro modelo local confere enquanto o que respondeu não provou que acerta. Nuvem (Gemini/Groq) e Claude (pelo clipboard, `ai.validator: "claude"`) são opcionais. (Antes o Claude era o "chefe" que validava tudo; mudou em 2026-10-28, ver `kvasir-decisions.md`.)
 - Zero token desperdiçado: conhecimento gerado uma vez fica salvo e é reaproveitado.
 - Falar do jeito que quiser: o sistema entende intenção; erro de código corrige direto sem perguntar sim/não.
 - Interface em português; commits, branches e código em inglês.

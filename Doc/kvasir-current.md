@@ -1,6 +1,6 @@
 # Kvasir: estado atual
 
-> Atualizado em: 2026-10-17 · versão `0.1.0`
+> Atualizado em: 2026-11-12 · versão `0.1.0`
 > Feito a partir da leitura do código em `src/`. Atualize quando um módulo mudar de status.
 
 ---
@@ -31,9 +31,9 @@
 | `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |
 | `models` | ✅ funcionando | Mostra a ordem real de cada tarefa (com o motivo: padrão, desempenho ou pausa) e o desempenho real por tarefa × modelo (métricas) e o custo das idas ao Claude |
 | `fix` | ✅ funcionando | Clipboard com erro do tsc é usado direto; classifica simples × complexo; simples corrige sem perguntar (regra comprovada → IA); complexo investiga a causa raiz com imports, tsconfig, versões e arquivos de mesmo nome; nota em `knowledge/errors/`; expansão e `--undo` |
-| `review` | ✅ testado (2026-10-17) | Veredito da IA linha por linha (sem regras fixas); achados com `arquivo:linha`; reviews úteis viram nota em `knowledge/patterns/` |
-| `push` / `undo` / `log` | 🧪 falta testar | Também acessíveis pelo menu do `commit` |
-| `format` | 🧪 falta testar | Sem `execSync` (usa `runCommand`) |
+| `review` | ✅ testado (2026-10-17; veredito por achado 2026-10-31; avisos ignorados 2026-11-12) | Veredito da IA linha por linha (sem regras fixas); achados com `arquivo:linha`; você marca quais avisos foram úteis; um aviso do mesmo tipo que você já ignorou na mesma linha fica escondido (listado à parte); reviews úteis viram nota em `knowledge/patterns/` |
+| `push` / `undo` / `log` | ✅ testado (`undo`/`log` em 2026-10-28; `push` em 2026-10-30) | Também acessíveis pelo menu do `commit`. O `push` mostra os commits que vão subir e faz `-u` no primeiro push da branch (testado contra um remoto local) |
+| `format` | ✅ testado (2026-10-30) | Sem `execSync` (usa `runCommand`); oferece formatar só os arquivos alterados, não o projeto inteiro |
 | `knowledge` | ✅ v2 (2026-10-17) · grafo HTML no `show` (2026-10-18) | Vault do Obsidian com frontmatter e `index.md` gerado; pastas `errors/` e `agents/`; notas automáticas de fix, commit, task, branch, review, learn e doc |
 | `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks, salva só o markdown (antes salvava a frase do Claude e as cercas ```) |
 | `task` / `start` | ✅ testado (2026-10-17) | Testados sem a API e com um Planner falso: erros claros (token, conexão, formato via zod); `task` grava a task ativa; `start` não aborta se o Planner falhar |
@@ -83,6 +83,7 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 | 19 | ✅ resolvido (2026-10-30): `getChangedPaths` lia o `git status --porcelain` depois de um `trim()`, que comia o espaço inicial da 1ª linha (` M constants/utils.ts` → `onstants/utils.ts`): o 1º arquivo só modificado sumia no `test` (sem argumento), no `release` e no `format` | `utils/git.ts` | — |
 | 20 | ✅ resolvido (2026-10-30): o `push` perguntava sem mostrar o que ia subir e o primeiro push de uma branch não fazia `-u` (o `git pull` seguinte não sabia de onde puxar). O `format` rodava `prettier --write .` no projeto inteiro (255 arquivos num projeto real); agora oferece só os alterados | `push/index.ts`, `format/index.ts` | — |
 | 21 | ✅ resolvido (2026-10-30): o menu do `branch` lia o `git branch` puro. Uma branch aberta em outro worktree vinha como "+ nome" (deletar dava "not found" e oferecia `-D`), o HEAD solto aparecia como branch, a atual não era marcada e qualquer falha ao deletar virava "não mergeada". Agora usa `git branch --format` e o `--merged` | `utils/git.ts`, `branch/index.ts` | — |
+| 22 | ⚠️ revisto (2026-10-31): a mudança do #18 (validador refaz a tarefa) piorava o review. O deepseek-r1 reescrevia com avisos na linha errada e "bugs" falsos, e uma vez parou nos 5 min. Com o veredito por achado quem confere o review é você, então ele saiu do validador local (`DEVELOPER_CHECKED_TASKS`). O validador segue nas outras tarefas longas | `ai/router.ts`, `review/index.ts` | — |
 
 ---
 
@@ -90,5 +91,4 @@ Encontrados na leitura do código. Estão em ordem de impacto.
 
 - `kvasir task update`
 - `kvasir task` sem `KVASIR_PLANNER_API_URL` não tem fonte de tasks local (só a API)
-- Knowledge base consultada nos prompts (hoje os módulos escrevem notas, mas nenhum lê; vem com o OmniContext)
 - Testes automatizados do próprio Kvasir (o `kvasir test` gera testes para os projetos, mas o repo do Kvasir ainda não tem os seus)
