@@ -15,7 +15,7 @@ import { recordOutcome } from '@ai/metrics';
 import { recordExample } from '@ai/examples';
 import { describeCommitFiles, learnFromCommitHistory } from '@modules/learn/history';
 import { answerLines, pickLine, truncateForPrompt } from '@ai/parse';
-import { confirm, editor, select, input } from '@utils/prompt';
+import { askReason, confirm, editor, select, input } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { runPush } from '@modules/push';
@@ -187,9 +187,10 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
   ]);
 
   if (action === 'no') {
-    await recordFeedback('commits', 'rejected', message);
+    const reason = await askReason();
+    await recordFeedback('commits', 'rejected', message, reason);
     await recordOutcome('commit', 'rejected');
-    await recordExample('commit', { input: about, output: message, decision: 'rejected' });
+    await recordExample('commit', { input: about, output: message, decision: 'rejected', reason });
     console.log('❌ Commit cancelado.');
     return;
   }

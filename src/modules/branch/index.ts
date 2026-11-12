@@ -3,7 +3,8 @@ import { recordOutcome } from '@ai/metrics';
 import { recordExample } from '@ai/examples';
 import { noteTaskBranch } from '@modules/knowledge/auto';
 import { answerLines, pickLine } from '@ai/parse';
-import { confirm, input, select } from '@utils/prompt';
+import { askReason, confirm, input, select } from '@utils/prompt';
+import { recordFeedback } from '@utils/feedback';
 import {
   createBranch,
   getCurrentBranch,
@@ -125,8 +126,10 @@ export async function runBranch(): Promise<void> {
   ]);
 
   if (action === 'no') {
+    const reason = await askReason();
+    await recordFeedback('branches', 'rejected', `${branchName} (${about})`, reason);
     await recordOutcome('branch', 'rejected');
-    await recordExample('branch', { input: about, output: branchName, decision: 'rejected' });
+    await recordExample('branch', { input: about, output: branchName, decision: 'rejected', reason });
     console.log('❌ Criação de branch cancelada.');
     return;
   }
@@ -146,6 +149,11 @@ export async function runBranch(): Promise<void> {
   console.log(`✅ Branch criada: ${finalBranchName}`);
   // "Editar" that keeps the suggested name is an approval, like the example below
   await recordOutcome('branch', finalBranchName === branchName ? 'approved' : 'rejected');
+  await recordFeedback(
+    'branches',
+    finalBranchName === branchName ? 'approved' : 'rejected',
+    finalBranchName === branchName ? `${branchName} (${about})` : `${branchName} → editada para ${finalBranchName} (${about})`
+  );
   await recordExample(
     'branch',
     finalBranchName !== branchName

@@ -198,6 +198,7 @@ askFor('fix', prompt)
 ├── templates/<persona>-mobile.md / -web.md  # templates de CLAUDE.md da empresa (opcionais, pessoais)
 ├── feedback/
 │   ├── commits.md          # aprovações/rejeições do commit
+│   ├── branches.md         # aprovações/edições/rejeições do branch
 │   ├── fixes.md            # aprovações/rejeições do fix
 │   └── patterns.md         # aprovações/rejeições do review
 ├── config.json             # config do usuário: daily.repos, ai.cloud, ai.geminiModel, ai.groqModel (NUNCA chaves)
@@ -363,8 +364,11 @@ npm registry → (sem README? tenta `raw.githubusercontent.com` em `main`/`maste
 ### `kvasir models`
 Lista os modelos instalados no Ollama, o status de cada modelo do `MODEL_MAP` e o primeiro instalado por tarefa.
 
+### "Por quê?" ao rejeitar
+Ao recusar uma sugestão (commit "Não", branch "Não", avisos ignorados no review, "não concordo" com um review sem avisos), `askReason()` (`@utils/prompt`) pergunta o motivo; Enter pula. O motivo vai para o feedback (`recordFeedback(..., reason)` → `(motivo: …)` no fim da linha) e para o exemplo (`reason` em `@ai/examples`). No review é uma pergunta só para todos os avisos ignorados. O motivo **não** entra nos prompts das tarefas: chega lá pelo `learn`, que trata um motivo escrito como a evidência mais forte para o `profile.md`.
+
 ### `kvasir learn`
-Últimos 150 registros de feedback + `profile.md` → `promptAI` → `extractProfile` → confirm → salva `~/.kvasir/profile.md` → escreve `knowledge/agents/<modelo>.md` com o desempenho de cada modelo (métricas dos últimos 30 dias).
+Últimos 150 registros de feedback (commits, branches, fixes, patterns) + `profile.md` → `promptAI` → `extractProfile` → confirm → salva `~/.kvasir/profile.md` → escreve `knowledge/agents/<modelo>.md` com o desempenho de cada modelo (métricas dos últimos 30 dias).
 
 ### `kvasir knowledge`
 - Escrita sempre por `modules/knowledge/notes.ts` (`saveNote` em modo `append` ou `replace`): frontmatter, tags e projetos mesclados, `index.md` regenerado. Notas sem frontmatter (antigas/manuais) são lidas com padrões.
