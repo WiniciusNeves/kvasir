@@ -14,12 +14,14 @@ function getFeedbackFile(category: FeedbackCategory): string {
 export async function recordFeedback(
   category: FeedbackCategory,
   decision: FeedbackDecision,
-  summary: string
+  summary: string,
+  reason = ''
 ): Promise<void> {
   const filePath = getFeedbackFile(category);
   const existing = (await readFile(filePath)) ?? `# ${category} feedback\n\n`;
   const timestamp = new Date().toISOString();
-  const entry = `- [${timestamp}] ${decision.toUpperCase()}: ${summary}\n`;
+  const why = reason.trim() ? ` (motivo: ${reason.trim().replace(/\s+/g, ' ')})` : '';
+  const entry = `- [${timestamp}] ${decision.toUpperCase()}: ${summary}${why}\n`;
 
   await writeFile(filePath, existing + entry);
 }

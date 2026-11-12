@@ -25,6 +25,11 @@ export async function input(message: string, defaultValue?: string): Promise<str
   return inquirerInput({ message, default: defaultValue });
 }
 
+// Optional "why" after a rejection: Enter skips it and returns ''.
+export async function askReason(message = 'Por quê? (opcional, Enter pula)'): Promise<string> {
+  return (await inquirerInput({ message })).trim();
+}
+
 export async function checkbox<T extends string>(message: string, choices: SelectChoice<T>[]): Promise<T[]> {
   return inquirerCheckbox<T>({ message, choices });
 }

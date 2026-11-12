@@ -24,7 +24,7 @@
 ## 3. Melhorias do aprendizado
 
 - [x] Review com veredito por achado (2026-10-31): checkbox dos avisos úteis; cada um vira exemplo, a métrica conta a maioria e a nota só guarda os úteis. Testado num projeto real: pôr esses exemplos no prompt piora o modelo local (copia o que vê), então eles ficam só gravados. O review também saiu do validador local, que trocava linhas e uma vez parou 5 min. Em 2026-11-12: um aviso do mesmo tipo que você já ignorou na mesma linha fica escondido (listado à parte; marcar como útil depois traz de volta), sem mexer no prompt
-- [ ] "Por quê?" opcional ao rejeitar uma sugestão (vira exemplo e feedback)
+- [x] "Por quê?" opcional ao rejeitar uma sugestão (2026-11-12): commit e branch recusados, avisos ignorados no review (uma pergunta para todos) e review sem avisos de que você discorda. Enter pula. O motivo vai para o exemplo (`reason`) e para o feedback (`(motivo: …)`), e o `learn` usa como a evidência mais forte. O branch passou a gravar feedback também (`feedback/branches.md`), que o `learn` lê
 - [ ] `learn` automático (sem rodar `kvasir learn` à mão)
 - [ ] Preferências por projeto (o estilo de um projeto não vaza para outro)
 

@@ -27,10 +27,10 @@ function buildLearnPrompt(currentProfile: string, entries: string[]): string {
 Perfil atual (profile.md):
 ${currentProfile}
 
-Feedback recente (APPROVED = ele aceitou a sugestão da IA, REJECTED = recusou ou editou):
+Feedback recente (APPROVED = ele aceitou a sugestão da IA, REJECTED = recusou ou editou; "(motivo: …)" = o porquê, nas palavras dele):
 ${entries.join('\n')}
 
-Atualize o perfil com as preferências que o feedback mostra de forma consistente (ex.: estilo de mensagem de commit que ele aprova, tipos de correção que recusa).
+Atualize o perfil com as preferências que o feedback mostra de forma consistente (ex.: estilo de mensagem de commit que ele aprova, nomes de branch que recusa, tipos de correção que recusa). Um motivo escrito por ele é a evidência mais forte: um único motivo claro já pode virar item do perfil.
 
 Regras:
 - Mantenha a estrutura e as seções existentes; só acrescente ou refine itens
@@ -50,7 +50,7 @@ function extractProfile(answer: string): string {
 }
 
 export async function runLearn(): Promise<void> {
-  const feedback = await Promise.all([readFeedback('commits'), readFeedback('fixes'), readFeedback('patterns')]);
+  const feedback = await Promise.all([readFeedback('commits'), readFeedback('branches'), readFeedback('fixes'), readFeedback('patterns')]);
   const entries = feedback.flatMap(recentEntries);
 
   if (entries.length === 0) {

@@ -7,7 +7,7 @@ import { noteUsefulReview } from '@modules/knowledge/auto';
 import { answerLines } from '@ai/parse';
 import { projectExamples, recordExample } from '@ai/examples';
 import type { ExampleDecision } from '@ai/examples';
-import { checkbox, confirm } from '@utils/prompt';
+import { askReason, checkbox, confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
 import { markDiffReviewed } from '@modules/proactive/suggestions';
@@ -119,16 +119,24 @@ async function splitIgnored(findings: Finding[]): Promise<{ shown: Finding[]; hi
 // One verdict per finding, recorded as examples. They do NOT go back into the prompt: tested on a real
 // project, qwen2.5-coder copied whatever warnings it was shown. The useful ones made the review shrink
 // (4 → 2 warnings, the hardcoded token dropped); an ignored one came back in every round (Doc/kvasir-decisions.md).
-async function judgeFindings(findings: Finding[]): Promise<Finding[]> {
+async function judgeFindings(findings: Finding[]): Promise<{ useful: Finding[]; ignoredReason: string }> {
   const usefulIds = await checkbox<string>(
     'Quais avisos foram úteis? (espaço marca, Enter confirma; os não marcados contam como ignorados)',
     findings.map((finding) => ({ name: formatFinding(finding).slice(2), value: finding.line.id }))
   );
   const useful = findings.filter((finding) => usefulIds.includes(finding.line.id));
+  // one optional "why" for the ignored ones as a group: asking per warning would cost more than it teaches
+  const ignoredReason = useful.length < findings.length ? await askReason('Por que ignorou os outros? (opcional, Enter pula)') : '';
   for (const finding of findings) {
-    await recordExample('review', { input: exampleInput(finding.line), output: finding.description, decision: useful.includes(finding) ? 'approved' : 'rejected' });
+    const approved = useful.includes(finding);
+    await recordExample('review', {
+      input: exampleInput(finding.line),
+      output: finding.description,
+      decision: approved ? 'approved' : 'rejected',
+      reason: approved ? undefined : ignoredReason,
+    });
   }
-  return useful;
+  return { useful, ignoredReason };
 }
 
 export async function runReview(): Promise<void> {
@@ -173,13 +181,16 @@ export async function runReview(): Promise<void> {
     console.log('Nada novo para avaliar.');
   } else if (findings.length === 0) {
     const agreed = await confirm('Concorda que não há problemas nessas linhas?');
-    await recordFeedback('patterns', agreed ? 'approved' : 'rejected', `review: ${NO_ISSUES}`);
+    const reason = agreed ? '' : await askReason('O que ficou de fora? (opcional, Enter pula)');
+    await recordFeedback('patterns', agreed ? 'approved' : 'rejected', `review: ${NO_ISSUES}`, reason);
     await recordOutcome('review', agreed ? 'approved' : 'rejected');
   } else {
-    const useful = await judgeFindings(findings);
+    const { useful, ignoredReason } = await judgeFindings(findings);
     // the review as a whole is good when most of its warnings were worth reading
     const verdict = useful.length * 2 >= findings.length ? 'approved' : 'rejected';
-    await recordFeedback('patterns', verdict, `review: ${useful.length}/${findings.length} avisos úteis; ${formatFinding(useful[0] ?? findings[0])}`);
+    const ignored = findings.find((finding) => !useful.includes(finding));
+    const reason = ignored && ignoredReason ? `ignorou "${formatFinding(ignored).slice(2)}"${useful.length + 1 < findings.length ? ' e outros' : ''}: ${ignoredReason}` : '';
+    await recordFeedback('patterns', verdict, `review: ${useful.length}/${findings.length} avisos úteis; ${formatFinding(useful[0] ?? findings[0])}`, reason);
     await recordOutcome('review', verdict);
     console.log(`${useful.length} de ${findings.length} aviso(s) úteis.`);
     if (useful.length > 0) await noteUsefulReview(useful.map(formatFinding));

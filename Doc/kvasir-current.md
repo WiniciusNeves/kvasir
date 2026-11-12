@@ -35,7 +35,7 @@
 | `push` / `undo` / `log` | ✅ testado (`undo`/`log` em 2026-10-28; `push` em 2026-10-30) | Também acessíveis pelo menu do `commit`. O `push` mostra os commits que vão subir e faz `-u` no primeiro push da branch (testado contra um remoto local) |
 | `format` | ✅ testado (2026-10-30) | Sem `execSync` (usa `runCommand`); oferece formatar só os arquivos alterados, não o projeto inteiro |
 | `knowledge` | ✅ v2 (2026-10-17) · grafo HTML no `show` (2026-10-18) | Vault do Obsidian com frontmatter e `index.md` gerado; pastas `errors/` e `agents/`; notas automáticas de fix, commit, task, branch, review, learn e doc |
-| `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks, salva só o markdown (antes salvava a frase do Claude e as cercas ```) |
+| `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks (commits, branches, fixes, patterns), salva só o markdown (antes salvava a frase do Claude e as cercas ```); o motivo escrito ao rejeitar ("Por quê?", 2026-11-12) pesa mais. Ainda passa pelo Claude (`promptAI`) |
 | `task` / `start` | ✅ testado (2026-10-17) | Testados sem a API e com um Planner falso: erros claros (token, conexão, formato via zod); `task` grava a task ativa; `start` não aborta se o Planner falhar |
 
 ---

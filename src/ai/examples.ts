@@ -21,6 +21,8 @@ export interface Example {
   // the AI's suggestion, when the developer changed it
   suggested?: string;
   decision: ExampleDecision;
+  // the developer's own words on why they rejected or changed it (optional)
+  reason?: string;
   source: ExampleSource;
   timestamp: string;
   vector?: number[];
@@ -31,6 +33,7 @@ export interface NewExample {
   output: string;
   suggested?: string;
   decision: ExampleDecision;
+  reason?: string;
   source?: ExampleSource;
   // when it happened (a commit from the history keeps its own date); default: now
   timestamp?: string;
@@ -101,7 +104,8 @@ export async function recordExample(task: string, example: NewExample): Promise<
   const input = example.input.slice(0, MAX_INPUT_CHARS);
   if (!input.trim() || !example.output.trim()) return;
   const [vector] = await embedAll([input]);
-  await store(task, [{ ...example, input, source: example.source ?? 'kvasir', project: currentProject(), timestamp: example.timestamp ?? new Date().toISOString(), vector }]);
+  const reason = example.reason?.trim() || undefined;
+  await store(task, [{ ...example, input, reason, source: example.source ?? 'kvasir', project: currentProject(), timestamp: example.timestamp ?? new Date().toISOString(), vector }]);
 }
 
 // Several at once (seeding from the git history): one embedding batch, duplicates of what is stored skipped.
