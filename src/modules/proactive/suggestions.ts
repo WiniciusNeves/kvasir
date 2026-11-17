@@ -3,6 +3,7 @@ import type { KvasirContext } from '@ktypes/context';
 import { countChangedLines, parseAddedDependencies } from '@utils/diff';
 import { getCurrentBranch, getLocalBranchAges, countUnmergedCommits, deleteBranch, refExists } from '@utils/git';
 import { readNote } from '@modules/knowledge/notes';
+import { countNewFeedback } from '@modules/learn/state';
 import { offerSuggestion, readProactiveState, writeProactiveState } from './index';
 
 // The facts behind each suggestion, computed by code. Each offer* returns true when it ran.
@@ -11,6 +12,8 @@ const MAIN_BRANCHES = ['main', 'master', 'develop'];
 const REVIEW_MIN_LINES = 80;
 const STALE_DAYS = 14;
 const DAY_SECONDS = 24 * 60 * 60;
+// enough new verdicts for a pattern; fewer would rewrite the profile from one or two answers
+const LEARN_MIN_NEW_FEEDBACK = 15;
 
 function hashDiff(diff: string): string {
   return createHash('sha256').update(diff.replace(/\r/g, '')).digest('hex');
@@ -99,6 +102,22 @@ export async function offerStaleBranch(): Promise<boolean> {
       const result = deleteBranch(stale.name, false);
       if (result.success) console.log(`🗑️  Branch "${stale.name}" apagada.`);
       else console.log(`Não apaguei: a branch tem trabalho que não foi mergeado. Se quiser mesmo: kvasir branch -d`);
+    },
+  });
+}
+
+// `learn` without anyone remembering to run it: offered once enough verdicts piled up since the last one.
+export async function offerLearn(): Promise<boolean> {
+  const fresh = await countNewFeedback();
+  if (fresh < LEARN_MIN_NEW_FEEDBACK) return false;
+
+  return offerSuggestion({
+    id: 'learn-profile',
+    question: `Você deu ${fresh} veredito(s) novos desde o último aprendizado. Atualizar o seu perfil com eles?`,
+    action: `Atualizando o perfil com ${fresh} veredito(s) novos`,
+    run: async () => {
+      const { runLearn } = await import('@modules/learn');
+      await runLearn();
     },
   });
 }

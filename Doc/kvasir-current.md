@@ -1,6 +1,6 @@
 # Kvasir: estado atual
 
-> Atualizado em: 2026-11-12 · versão `0.1.0`
+> Atualizado em: 2026-11-17 · versão `0.1.0`
 > Feito a partir da leitura do código em `src/`. Atualize quando um módulo mudar de status.
 
 ---
@@ -25,7 +25,7 @@
 | `watch` | ✅ testado (2026-10-18; em projeto Expo real em 2026-10-26) | Corrige sozinho erros do TypeScript e de execução (exceções e testes que falham: Node, Next, Vitest, Jest, Metro), pelo clipboard ou `kvasir watch -- <comando>`. Validação: não aceita esconder o erro nem mudar o teste, não cria erro de tipo novo, roda o teste de novo (confirmada) ou fica provisória e é desfeita se o erro voltar; aprende com o resultado e com o `fix --undo` |
 | `index` / `ask` | ✅ testado (2026-10-18) | OmniContext: busca local (embeddings no Ollama, índice próprio sem dependências) no projeto, no `Doc/` e no knowledge; incremental; `ask` responde citando `arquivo:linha`, com busca híbrida, pergunta reescrita nos termos do código e aviso de citação inventada. Segredos e `.gitignore` ficam de fora. Resposta que ajudou vira nota em `knowledge/answers/` (grafo e `stats`) e é reaproveitada nas próximas perguntas. `fix`, `watch`, `review` e `test` recebem trechos de código relacionados do índice (medido: com contexto o qwen local corrigiu na 1ª um erro que sem contexto não corrigia); `index --watch` reindexa ao salvar |
 | `docs update` | ✅ testado (2026-10-20) | Propõe mudanças no README e na pasta de docs para o que mudou no código desde a última documentação commitada (fatos pelo código, texto pelo Documentador), com diff por arquivo, aprovação e backup |
-| `proactive` | ✅ testado (2026-10-18) | 4 sugestões (branch da task, review antes do commit, documentar lib nova, branch parada), uma por comando; viram automáticas ou param conforme as suas respostas; `kvasir proactive` mostra e ajusta |
+| `proactive` | ✅ testado (2026-10-18) | 5 sugestões (branch da task, review antes do commit, documentar lib nova, branch parada, atualizar o perfil com o `learn`), uma por comando; viram automáticas ou param conforme as suas respostas; `kvasir proactive` mostra e ajusta |
 | `stats` / `board` | ✅ testado (2026-10-18) | HTML offline em `~/.kvasir/reports/`: cards, radar, barras por dia, modelos, o que aprendeu e o Agent Board (a fazer / em andamento ao vivo, feito / falhou); `board` atualiza a cada 3 s |
 | `agents` | ✅ testado (2026-10-18) | Time formal: 5 agentes, dono único por tarefa, prompt de papel, modelos trocáveis por agente (`agents set`), nuvem desligável por agente; métricas e notas no knowledge por agente |
 | `keys` | ✅ testado (2026-10-18) | Salva/remove a chave do Gemini/Groq como variável de ambiente do usuário; testa na API antes; nunca mostra a chave. Testado com API falsa (chave aceita, recusada, prefixo errado) e registro real do Windows (gravar, ler em processo novo, remover) |
@@ -35,7 +35,7 @@
 | `push` / `undo` / `log` | ✅ testado (`undo`/`log` em 2026-10-28; `push` em 2026-10-30) | Também acessíveis pelo menu do `commit`. O `push` mostra os commits que vão subir e faz `-u` no primeiro push da branch (testado contra um remoto local) |
 | `format` | ✅ testado (2026-10-30) | Sem `execSync` (usa `runCommand`); oferece formatar só os arquivos alterados, não o projeto inteiro |
 | `knowledge` | ✅ v2 (2026-10-17) · grafo HTML no `show` (2026-10-18) | Vault do Obsidian com frontmatter e `index.md` gerado; pastas `errors/` e `agents/`; notas automáticas de fix, commit, task, branch, review, learn e doc |
-| `learn` | ✅ testado (2026-10-17) | Prompt em português, últimos 150 feedbacks (commits, branches, fixes, patterns), salva só o markdown (antes salvava a frase do Claude e as cercas ```); o motivo escrito ao rejeitar ("Por quê?", 2026-11-12) pesa mais. Ainda passa pelo Claude (`promptAI`) |
+| `learn` | ✅ testado (2026-10-17; local e automático 2026-11-17) | IA local (tarefa `learn`: qwen2.5-coder → llama3.2, nunca a nuvem; antes ia ao Claude pelo clipboard). Últimos 60 feedbacks (commits, branches, fixes, patterns); o motivo escrito ao rejeitar pesa mais. Mostra só o diff do perfil e salva com a sua aprovação (o veredito conta no `models`). Roda sozinho como sugestão proativa depois de 15 vereditos novos (no fim do `commit`, do `review` e no `start`) |
 | `task` / `start` | ✅ testado (2026-10-17) | Testados sem a API e com um Planner falso: erros claros (token, conexão, formato via zod); `task` grava a task ativa; `start` não aborta se o Planner falhar |
 
 ---

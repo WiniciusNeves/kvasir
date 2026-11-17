@@ -9,7 +9,7 @@ import { printCliError } from '@utils/errors';
 // stops. Whether a suggestion applies is decided by code (facts), never by a model.
 // State: ~/.kvasir/proactive.json.
 
-export type SuggestionId = 'branch-for-task' | 'review-before-commit' | 'doc-new-lib' | 'stale-branch';
+export type SuggestionId = 'branch-for-task' | 'review-before-commit' | 'doc-new-lib' | 'stale-branch' | 'learn-profile';
 export type SuggestionMode = 'ask' | 'auto' | 'off';
 
 export const SUGGESTION_LABELS: Record<SuggestionId, string> = {
@@ -17,6 +17,7 @@ export const SUGGESTION_LABELS: Record<SuggestionId, string> = {
   'review-before-commit': 'Revisar antes de commitar uma mudança grande',
   'doc-new-lib': 'Documentar uma lib nova adicionada no package.json',
   'stale-branch': 'Apagar branch local parada há muito tempo',
+  'learn-profile': 'Atualizar o seu perfil quando juntar feedback novo (kvasir learn)',
 };
 
 // Actions with side effects in git never become automatic.
@@ -25,6 +26,8 @@ export const AUTO_ALLOWED: Record<SuggestionId, boolean> = {
   'review-before-commit': true,
   'doc-new-lib': true,
   'stale-branch': false,
+  // automatic only skips the question: the new profile is still shown and saved only on "yes"
+  'learn-profile': true,
 };
 
 type Answer = 'yes' | 'no';

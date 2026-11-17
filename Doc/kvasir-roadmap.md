@@ -1,6 +1,6 @@
 # Kvasir: roadmap (lista do que falta)
 
-> **Atualizado em 2026-11-12.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> **Atualizado em 2026-11-17.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
 > Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
 > Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
@@ -25,7 +25,7 @@
 
 - [x] Review com veredito por achado (2026-10-31): checkbox dos avisos úteis; cada um vira exemplo, a métrica conta a maioria e a nota só guarda os úteis. Testado num projeto real: pôr esses exemplos no prompt piora o modelo local (copia o que vê), então eles ficam só gravados. O review também saiu do validador local, que trocava linhas e uma vez parou 5 min. Em 2026-11-12: um aviso do mesmo tipo que você já ignorou na mesma linha fica escondido (listado à parte; marcar como útil depois traz de volta), sem mexer no prompt
 - [x] "Por quê?" opcional ao rejeitar uma sugestão (2026-11-12): commit e branch recusados, avisos ignorados no review (uma pergunta para todos) e review sem avisos de que você discorda. Enter pula. O motivo vai para o exemplo (`reason`) e para o feedback (`(motivo: …)`), e o `learn` usa como a evidência mais forte. O branch passou a gravar feedback também (`feedback/branches.md`), que o `learn` lê
-- [ ] `learn` automático (sem rodar `kvasir learn` à mão)
+- [x] `learn` automático (2026-11-17): vira sugestão proativa depois de 15 vereditos novos (fim do `commit` e do `review`, `start`) e passou do Claude pelo clipboard para a IA local (tarefa `learn`, nunca a nuvem). Mostra só o diff do perfil e salva com a sua aprovação. O teste achou um dado confuso: a linha de feedback do review citava o aviso útil sem dizer que era útil, e o modelo escreveu que você ignora aquele tipo de aviso. Com "útil:" na linha, o erro sumiu nas 2 rodadas
 - [ ] Preferências por projeto (o estilo de um projeto não vaza para outro)
 
 ## 4. `kvasir deploy` (explicar o plano antes de começar)

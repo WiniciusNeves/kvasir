@@ -10,7 +10,7 @@ import type { ExampleDecision } from '@ai/examples';
 import { askReason, checkbox, confirm } from '@utils/prompt';
 import { loadContext } from '@modules/init/ensure';
 import { recordFeedback } from '@utils/feedback';
-import { markDiffReviewed } from '@modules/proactive/suggestions';
+import { markDiffReviewed, offerLearn } from '@modules/proactive/suggestions';
 import { relatedContext } from '@modules/omnicontext/context';
 import type { KvasirContext } from '@ktypes/context';
 
@@ -190,11 +190,14 @@ export async function runReview(): Promise<void> {
     const verdict = useful.length * 2 >= findings.length ? 'approved' : 'rejected';
     const ignored = findings.find((finding) => !useful.includes(finding));
     const reason = ignored && ignoredReason ? `ignorou "${formatFinding(ignored).slice(2)}"${useful.length + 1 < findings.length ? ' e outros' : ''}: ${ignoredReason}` : '';
-    await recordFeedback('patterns', verdict, `review: ${useful.length}/${findings.length} avisos úteis; ${formatFinding(useful[0] ?? findings[0])}`, reason);
+    // say which warning was the useful one: unlabeled, `learn` read it as one of the ignored
+    const example = useful[0] ? `útil: ${formatFinding(useful[0]).slice(2)}` : `nenhum útil, ex.: ${formatFinding(findings[0]).slice(2)}`;
+    await recordFeedback('patterns', verdict, `review: ${useful.length}/${findings.length} avisos úteis; ${example}`, reason);
     await recordOutcome('review', verdict);
     console.log(`${useful.length} de ${findings.length} aviso(s) úteis.`);
     if (useful.length > 0) await noteUsefulReview(useful.map(formatFinding));
   }
   console.log('Feedback registrado.');
   await markDiffReviewed(diff);
+  await offerLearn();
 }
