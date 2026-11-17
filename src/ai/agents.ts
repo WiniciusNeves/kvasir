@@ -70,6 +70,7 @@ export const TASK_OWNER: Record<AiTask, AgentName> = {
   intent: 'executor',
   ask: 'documenter',
   docs: 'documenter',
+  learn: 'documenter',
 };
 
 export const AGENT_NAMES = Object.keys(AGENTS) as AgentName[];

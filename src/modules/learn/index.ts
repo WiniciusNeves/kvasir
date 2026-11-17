@@ -1,14 +1,18 @@
 import os from 'os';
 import path from 'path';
-import { readFeedback } from '@utils/feedback';
-import { promptAI } from '@ai/client';
+import { askFor } from '@ai/router';
 import { cleanAnswer } from '@ai/parse';
+import { readMetrics, recordOutcome, summarizeMetrics } from '@ai/metrics';
 import { writeFile, readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
-import { readMetrics, summarizeMetrics } from '@ai/metrics';
+import { formatDiff, lineDiff } from '@utils/diff';
 import { noteAgentPerformance } from '@modules/knowledge/auto';
+import { markLearned, readFeedbackEntries } from './state';
 
-const MAX_FEEDBACK_ENTRIES = 150;
+// The local context window (8k tokens) also holds the profile and the answer: the newest verdicts only,
+// each cut to a line. The older ones are already in the profile.
+const MAX_FEEDBACK_ENTRIES = 60;
+const MAX_ENTRY_CHARS = 220;
 const AGENT_STATS_DAYS = 30;
 const DEFAULT_PROFILE = '# profile.md\n\n## Preferências aprendidas\n\n## Stack pessoal\n';
 
@@ -16,31 +20,29 @@ function getProfilePath(): string {
   return path.join(os.homedir(), '.kvasir', 'profile.md');
 }
 
-// Only the most recent entries: the full log grows forever and the old ones are already in the profile.
-function recentEntries(feedback: string): string[] {
-  return feedback.split('\n').filter((line) => line.startsWith('- [')).slice(-MAX_FEEDBACK_ENTRIES);
+function shorten(entry: string): string {
+  return entry.length <= MAX_ENTRY_CHARS ? entry : `${entry.slice(0, MAX_ENTRY_CHARS)}…`;
 }
 
+// Data first, instructions and the exact output shape last: what works with local models.
 function buildLearnPrompt(currentProfile: string, entries: string[]): string {
-  return `Você mantém o perfil de preferências de um desenvolvedor, usado para personalizar sugestões de IA (commits, correções, revisões).
-
-Perfil atual (profile.md):
-${currentProfile}
-
-Feedback recente (APPROVED = ele aceitou a sugestão da IA, REJECTED = recusou ou editou; "(motivo: …)" = o porquê, nas palavras dele):
+  return `Feedback recente de um desenvolvedor sobre sugestões de IA (APPROVED = aceitou, REJECTED = recusou ou editou; "(motivo: …)" = o porquê, nas palavras dele):
 ${entries.join('\n')}
 
-Atualize o perfil com as preferências que o feedback mostra de forma consistente (ex.: estilo de mensagem de commit que ele aprova, nomes de branch que recusa, tipos de correção que recusa). Um motivo escrito por ele é a evidência mais forte: um único motivo claro já pode virar item do perfil.
+Perfil atual dele (profile.md):
+${currentProfile}
+
+Atualize o perfil com as preferências que o feedback mostra de forma consistente (ex.: estilo de mensagem de commit que ele aprova, nomes de branch que recusa, tipos de aviso de review que ignora). Um motivo escrito por ele é a evidência mais forte: um único motivo claro já pode virar item do perfil.
 
 Regras:
-- Mantenha a estrutura e as seções existentes; só acrescente ou refine itens
-- Não invente preferências que o feedback não sustenta
-- Escreva em português, itens curtos
+- Mantenha as seções existentes e os itens que o feedback não contradiz; só acrescente ou refine itens
+- Não invente preferências que o feedback não sustenta; sem novidade, devolva o perfil igual
+- Itens curtos, em português, em "## Preferências aprendidas"
 
-Responda com o conteúdo COMPLETO do novo profile.md, começando por "# profile.md", sem comentários antes ou depois.`;
+Responda só com o conteúdo COMPLETO do novo profile.md, começando por "# profile.md", sem comentários antes ou depois.`;
 }
 
-// Claude often wraps the file in a code fence or adds a sentence before it: keep only the markdown.
+// Models wrap the file in a code fence or add a sentence before it: keep only the markdown.
 function extractProfile(answer: string): string {
   const clean = cleanAnswer(answer);
   const fence = clean.match(/```(?:markdown|md)?\n([\s\S]*?)```/);
@@ -50,23 +52,30 @@ function extractProfile(answer: string): string {
 }
 
 export async function runLearn(): Promise<void> {
-  const feedback = await Promise.all([readFeedback('commits'), readFeedback('branches'), readFeedback('fixes'), readFeedback('patterns')]);
-  const entries = feedback.flatMap(recentEntries);
+  const entries = (await readFeedbackEntries()).slice(-MAX_FEEDBACK_ENTRIES).map(shorten);
 
   if (entries.length === 0) {
-    console.log('Nenhum feedback registrado ainda. Use commit, fix e review e rode "kvasir learn" depois.');
+    console.log('Nenhum feedback registrado ainda. Use commit, branch, fix e review e o Kvasir aprende sozinho.');
     return;
   }
 
   const currentProfile = (await readFile(getProfilePath())) ?? DEFAULT_PROFILE;
-  console.log(`\nAnalisando ${entries.length} registro(s) de feedback com o Claude...`);
+  console.log(`\nAnalisando ${entries.length} registro(s) de feedback com a IA local...`);
 
-  const updatedProfile = extractProfile(await promptAI(buildLearnPrompt(currentProfile, entries), { task: 'learn', role: 'direct' }));
+  const updatedProfile = extractProfile(await askFor('learn', buildLearnPrompt(currentProfile, entries), { temperature: 0.2, maxTokens: 1500 }));
+  // the verdicts are consolidated whatever the answer: the next offer counts only what comes after
+  await markLearned();
 
-  console.log('\nPerfil proposto:\n');
-  console.log(updatedProfile);
+  if (updatedProfile.trim() === currentProfile.trim()) {
+    console.log('Nada novo para o perfil: o feedback recente confirma o que ele já diz.');
+    return;
+  }
+
+  console.log('\nMudanças propostas no perfil:\n');
+  console.log(formatDiff(lineDiff(currentProfile.split('\n'), updatedProfile.split('\n'))));
 
   const approved = await confirm(`Salvar em ${getProfilePath()}?`);
+  await recordOutcome('learn', approved ? 'approved' : 'rejected');
   if (!approved) {
     console.log('Perfil não alterado.');
     return;

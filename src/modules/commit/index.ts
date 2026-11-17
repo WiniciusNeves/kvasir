@@ -22,7 +22,7 @@ import { runPush } from '@modules/push';
 import { confirmAndUndoLastCommit } from '@modules/undo';
 import { runLog } from '@modules/log';
 import { noteCommit } from '@modules/knowledge/auto';
-import { offerBranchForTask, offerReviewBeforeCommit, offerDocNewLib } from '@modules/proactive/suggestions';
+import { offerBranchForTask, offerReviewBeforeCommit, offerDocNewLib, offerLearn } from '@modules/proactive/suggestions';
 import { guardStagedChanges } from '@modules/guard';
 
 type CommitChoice = 'yes' | 'no' | 'edit';
@@ -218,7 +218,7 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
   commitWithMessage(finalMessage);
   console.log('✅ Commit realizado com sucesso!');
   await noteCommit(finalMessage, getHeadShortHash(), getCurrentBranch());
-  await offerDocNewLib(diff);
+  if (!(await offerDocNewLib(diff))) await offerLearn();
 
   await runPostCommitMenu();
 }

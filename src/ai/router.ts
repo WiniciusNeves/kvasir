@@ -17,7 +17,7 @@ import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
 import { findExamples } from '@ai/examples';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs' | 'learn';
 
 // Local chain (Ollama), always tried first: runs on the developer's own GPU/CPU, free, private, offline.
 export const MODEL_MAP: Record<AiTask, string[]> = {
@@ -36,6 +36,8 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   ask: ['qwen2.5-coder', 'llama3.2'],
   // edits must keep the markdown exact: qwen follows the section format better than llama3.2
   docs: ['qwen2.5-coder', 'llama3.2'],
+  // rewrites profile.md keeping its sections: same need as docs
+  learn: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // Cloud providers, a fallback AFTER the local chain when the user allowed the cloud (Ollama down,
@@ -58,6 +60,8 @@ export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
   pr: ['gemini', 'groq'],
   architect: [],
   guard: [],
+  // the developer's profile and verdicts are personal: they never leave the machine
+  learn: [],
 };
 
 // 30s was not enough for a cold model load or deepseek-r1 thinking: the chosen model timed out
@@ -352,7 +356,7 @@ const LOCAL_VALIDATORS = ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'];
 // Answers the developer judges right away, one by one, are already checked: a one-line commit/branch/intent
 // they approve or edit, and review warnings they mark useful or ignored. deepseek-r1 always thinks (~45-70s
 // for one commit line); on reviews its rewrite moved warnings to the wrong lines and once hit the 5 min limit.
-const DEVELOPER_CHECKED_TASKS: AiTask[] = ['commit', 'branch', 'intent', 'review'];
+const DEVELOPER_CHECKED_TASKS: AiTask[] = ['commit', 'branch', 'intent', 'review', 'learn'];
 
 export type ValidationMode = 'auto' | 'always' | 'never';
 

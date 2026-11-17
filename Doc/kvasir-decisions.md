@@ -366,3 +366,11 @@ O app desktop pode ser feito com **Tauri** (mais leve, ensina Rust) ou **Electro
 Modelo local copia o que vê, positivo ou negativo. O validador (deepseek-r1 refazendo a tarefa) reescrevia o review com avisos na linha errada e uma vez parou nos 5 min. Os exemplos ficam gravados para usos que não passam pelo prompt: esconder um aviso igual que já foi ignorado na mesma linha (fato do código), ou um modelo maior no futuro.
 
 **Atualização (2026-11-12):** o aviso já ignorado agora é escondido. "Igual" = mesmo arquivo, mesmo texto da linha (o número muda quando o arquivo cresce) e mesma categoria (`[bug]`, `[segurança]`, `[estilo]`), porque o modelo reescreve a frase a cada rodada. Vale o último veredito: marcar como útil depois traz o aviso de volta. Os escondidos aparecem numa lista à parte, nada some calado. Não é regra sobre o modelo: o prompt não muda, só o que você já julgou deixa de ser perguntado de novo. Testado num repo descartável com 4 avisos (1 falso marcado como ignorado): nas 2 rodadas seguintes o falso foi escondido, com outro texto, e os 3 úteis continuaram.
+
+---
+
+## `learn` local e oferecido sozinho
+
+**Decisão:** (2026-11-17) O `kvasir learn` usa a IA local (tarefa `learn`, qwen2.5-coder → llama3.2) e nunca a nuvem (`CLOUD_MAP.learn = []`): o feedback e o perfil são pessoais. Ele virou uma sugestão proativa (`learn-profile`) oferecida depois de 15 vereditos novos desde o último `learn`, no fim do `commit` e do `review` e no `start`. Mesmo no modo automático, o perfil só muda com o seu "sim" depois de ver o diff.
+
+**Por quê:** Ninguém lembrava de rodar o `learn`, então o `profile.md` ficava parado e os motivos do "Por quê?" não chegavam aos prompts. Ele ia ao Claude pelo clipboard, o que contradiz o "Local primeiro". Testado com 17 vereditos (3 com motivo): o qwen2.5-coder propôs 3 itens certos em ~18s. No 1º teste ele escreveu que você ignora avisos de "limite de laço", que era o aviso útil: a linha de feedback do review citava o aviso útil sem dizer que era útil. A correção foi no dado (`útil: …` na linha), não uma regra sobre o modelo; nas 2 rodadas seguintes o erro sumiu. 15 é o mínimo para um padrão: com menos, um ou dois vereditos reescreveriam o perfil.

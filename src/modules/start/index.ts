@@ -1,6 +1,6 @@
 import { getCurrentBranch } from '@utils/git';
 import { loadContext } from '@modules/init/ensure';
-import { offerBranchForTask, offerStaleBranch } from '@modules/proactive/suggestions';
+import { offerBranchForTask, offerLearn, offerStaleBranch } from '@modules/proactive/suggestions';
 import type { KvasirContext } from '@ktypes/context';
 import { fetchMyTasks, PLANNER_SETUP_HINT } from '@integrations/planner';
 import { printCliError } from '@utils/errors';
@@ -25,7 +25,9 @@ export async function runStart(): Promise<void> {
   console.log(`Branch atual: ${getCurrentBranch() || '(fora de um repositório git)'}`);
   if (getCurrentBranch()) {
     const handled = context ? await offerBranchForTask(context) : false;
-    if (!handled) await offerStaleBranch();
+    if (!handled && !(await offerStaleBranch())) await offerLearn();
+  } else {
+    await offerLearn();
   }
 
   // A Planner failure must not abort the morning summary.
