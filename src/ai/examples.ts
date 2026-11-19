@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { appendLine, readFile } from '@utils/fs';
+import { currentProject } from '@utils/project';
 import { embedDocuments, embedQuery, hasEmbeddingModel } from '@ai/embeddings';
 
 // The developer's own past answers, per task: what the AI suggested and what the developer kept.
@@ -52,9 +53,7 @@ function examplesFile(task: string): string {
   return path.join(os.homedir(), '.kvasir', 'examples', `${task}.jsonl`);
 }
 
-export function currentProject(): string {
-  return path.basename(process.cwd());
-}
+export { currentProject };
 
 async function readExamples(task: string): Promise<Example[]> {
   const cached = cache.get(task);

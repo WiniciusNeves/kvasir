@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from '@utils/fs';
+import { currentProject } from '@utils/project';
 import type { FeedbackCategory, FeedbackDecision } from '@ktypes/feedback';
 
 function getFeedbackDir(): string {
@@ -21,7 +22,8 @@ export async function recordFeedback(
   const existing = (await readFile(filePath)) ?? `# ${category} feedback\n\n`;
   const timestamp = new Date().toISOString();
   const why = reason.trim() ? ` (motivo: ${reason.trim().replace(/\s+/g, ' ')})` : '';
-  const entry = `- [${timestamp}] ${decision.toUpperCase()}: ${summary}${why}\n`;
+  // the project the verdict was given in: `learn` keeps one project's taste out of the others
+  const entry = `- [${timestamp}] ${decision.toUpperCase()} [${currentProject()}]: ${summary}${why}\n`;
 
   await writeFile(filePath, existing + entry);
 }

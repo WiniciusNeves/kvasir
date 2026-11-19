@@ -1,5 +1,5 @@
-import path from 'path';
 import { saveNote, readNote, today } from './notes';
+import { currentProject } from '@utils/project';
 import type { SaveNoteInput, SaveMode } from './notes';
 import type { MetricsSummary } from '@ai/metrics';
 import { AGENTS, AGENT_NAMES, TASK_OWNER } from '@ai/agents';
@@ -8,9 +8,6 @@ import type { AiTask } from '@ai/router';
 // Notes the other modules write on their own ("conhecimento gerado uma vez fica salvo").
 // Writing a note must never break the command that produced it.
 
-function currentProject(): string {
-  return path.basename(process.cwd());
-}
 
 // global = not tied to a project (e.g. agent notes).
 async function trySave(input: Omit<SaveNoteInput, 'project'>, mode: SaveMode, global: boolean = false): Promise<void> {

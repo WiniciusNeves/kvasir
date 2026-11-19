@@ -1,5 +1,3 @@
-import os from 'os';
-import path from 'path';
 import { askOllamaDetailed, listInstalledModels } from '@ai/ollama';
 import { askGemini, getGeminiApiKey, checkGeminiKey, DEFAULT_GEMINI_MODEL } from '@ai/gemini';
 import { askGroq, getGroqApiKey, checkGroqKey, DEFAULT_GROQ_MODEL } from '@ai/groq';
@@ -12,10 +10,11 @@ import type { AgentSettings } from '@utils/userConfig';
 import type { RankedCandidate } from '@ai/performance';
 import { promptAIOrSkip } from '@ai/client';
 import { ANSWER_TAG, cleanAnswer, extractTaggedAnswer } from '@ai/parse';
-import { readFile } from '@utils/fs';
 import { confirm } from '@utils/prompt';
 import { readUserConfig, updateUserConfig } from '@utils/userConfig';
 import { findExamples } from '@ai/examples';
+import { readPreferences } from '@ai/profile';
+import { currentProject } from '@utils/project';
 
 export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs' | 'learn';
 
@@ -36,8 +35,9 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   ask: ['qwen2.5-coder', 'llama3.2'],
   // edits must keep the markdown exact: qwen follows the section format better than llama3.2
   docs: ['qwen2.5-coder', 'llama3.2'],
-  // rewrites profile.md keeping its sections: same need as docs
-  learn: ['qwen2.5-coder', 'llama3.2'],
+  // turns verdicts into preferences and compares projects: rare and not urgent, so the reasoning model
+  // first. Measured on the same feedback, qwen2.5-coder looped or kept a refused style ("usa prefixo")
+  learn: ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'],
 };
 
 // Cloud providers, a fallback AFTER the local chain when the user allowed the cloud (Ollama down,
@@ -293,29 +293,26 @@ Como conferir (não aprove por padrão: o resultado pode estar incompleto):
 Responda APENAS com o resultado final entre <${ANSWER_TAG}> e </${ANSWER_TAG}>, sem explicações sobre a validação. Exemplo: <${ANSWER_TAG}>resultado final aqui</${ANSWER_TAG}>`;
 }
 
-// profile.md is "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
-// matters. Not into fix/architect, where only correctness counts.
+// The profiles are "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
+// matters. Not into fix/architect, where only correctness counts. The global profile.md plus the one of the
+// project the command runs in (@ai/profile): another project's style never reaches this prompt.
 const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily', 'release'];
 const MAX_PREFERENCES_CHARS = 1200;
 const EXAMPLES_IN_PROMPT = 3;
 const MAX_EXAMPLE_INPUT_CHARS = 300;
 
-function getProfilePath(): string {
-  return path.join(os.homedir(), '.kvasir', 'profile.md');
-}
-
 async function withDeveloperPreferences(task: AiTask, prompt: string): Promise<string> {
   if (!PREFERENCE_TASKS.includes(task)) return prompt;
 
-  const profile = (await readFile(getProfilePath())) ?? '';
-  const section = profile.replace(/\r\n/g, '\n').match(/## Preferências aprendidas\n([\s\S]*?)(?=\n## |$)/);
-  const preferences = section?.[1].trim() ?? '';
-  if (!preferences) return prompt;
+  const preferences = await readPreferences(currentProject());
+  const sections = [
+    preferences.global && `Preferências aprendidas deste desenvolvedor (siga quando não conflitarem com as regras abaixo):\n${preferences.global.slice(0, MAX_PREFERENCES_CHARS)}`,
+    preferences.project &&
+      `Preferências dele neste projeto (valem mais que as gerais quando as duas falam da mesma coisa):\n${preferences.project.slice(0, MAX_PREFERENCES_CHARS)}`,
+  ].filter(Boolean);
+  if (sections.length === 0) return prompt;
 
-  return `Preferências aprendidas deste desenvolvedor (siga quando não conflitarem com as regras abaixo):
-${preferences.slice(0, MAX_PREFERENCES_CHARS)}
-
-${prompt}`;
+  return `${sections.join('\n\n')}\n\n${prompt}`;
 }
 
 // The developer's own answers in the most similar past cases: the style (length, language, scope)

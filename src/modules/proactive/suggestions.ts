@@ -4,6 +4,7 @@ import { countChangedLines, parseAddedDependencies } from '@utils/diff';
 import { getCurrentBranch, getLocalBranchAges, countUnmergedCommits, deleteBranch, refExists } from '@utils/git';
 import { readNote } from '@modules/knowledge/notes';
 import { countNewFeedback } from '@modules/learn/state';
+import { currentProject } from '@utils/project';
 import { offerSuggestion, readProactiveState, writeProactiveState } from './index';
 
 // The facts behind each suggestion, computed by code. Each offer* returns true when it ran.
@@ -108,7 +109,7 @@ export async function offerStaleBranch(): Promise<boolean> {
 
 // `learn` without anyone remembering to run it: offered once enough verdicts piled up since the last one.
 export async function offerLearn(): Promise<boolean> {
-  const fresh = await countNewFeedback();
+  const fresh = await countNewFeedback(currentProject());
   if (fresh < LEARN_MIN_NEW_FEEDBACK) return false;
 
   return offerSuggestion({
