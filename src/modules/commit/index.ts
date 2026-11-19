@@ -202,7 +202,8 @@ export async function runCommit(options: CommitOptions = {}): Promise<void> {
   }
   // "Editar" that keeps the suggested message is an approval, like the example below
   const verdict = finalMessage === message ? 'approved' : 'rejected';
-  await recordFeedback('commits', verdict, message);
+  // an edit keeps what the developer wrote: that is the strongest sign of the style they want
+  await recordFeedback('commits', verdict, verdict === 'approved' ? message : `${message} → editada para ${finalMessage}`);
   await recordOutcome('commit', verdict);
 
   if (!finalMessage) {

@@ -374,3 +374,21 @@ Modelo local copia o que vê, positivo ou negativo. O validador (deepseek-r1 ref
 **Decisão:** (2026-11-17) O `kvasir learn` usa a IA local (tarefa `learn`, qwen2.5-coder → llama3.2) e nunca a nuvem (`CLOUD_MAP.learn = []`): o feedback e o perfil são pessoais. Ele virou uma sugestão proativa (`learn-profile`) oferecida depois de 15 vereditos novos desde o último `learn`, no fim do `commit` e do `review` e no `start`. Mesmo no modo automático, o perfil só muda com o seu "sim" depois de ver o diff.
 
 **Por quê:** Ninguém lembrava de rodar o `learn`, então o `profile.md` ficava parado e os motivos do "Por quê?" não chegavam aos prompts. Ele ia ao Claude pelo clipboard, o que contradiz o "Local primeiro". Testado com 17 vereditos (3 com motivo): o qwen2.5-coder propôs 3 itens certos em ~18s. No 1º teste ele escreveu que você ignora avisos de "limite de laço", que era o aviso útil: a linha de feedback do review citava o aviso útil sem dizer que era útil. A correção foi no dado (`útil: …` na linha), não uma regra sobre o modelo; nas 2 rodadas seguintes o erro sumiu. 15 é o mínimo para um padrão: com menos, um ou dois vereditos reescreveriam o perfil.
+
+**Atualização (2026-11-17, por projeto):** o `learn` passou para o deepseek-r1 primeiro (qwen2.5-coder → llama3.2 de reserva) e responde só a lista de preferências, que o código grava na seção certa. No mesmo feedback o qwen entrou em loop numa rodada e, na outra, anotou o estilo que você tinha recusado ("usa prefixo"); reescrevendo o arquivo inteiro, ele apagou a seção "Stack pessoal". O deepseek é mais lento (10-80 s), mas o `learn` é raro e não tem pressa. O feedback agora chega agrupado por tipo e escrito por extenso ("aceitou" / "recusou … porque") em vez de "REJECTED: …", que confundia a sugestão recusada com o gosto do desenvolvedor.
+
+---
+
+## Preferências por projeto
+
+**Decisão:** (2026-11-17) Cada projeto tem o seu perfil, `~/.kvasir/profiles/<projeto>.md`, e o `profile.md` geral só guarda o que se repete em 2+ projetos. Cada linha de feedback grava o projeto (a pasta do comando, a mesma chave dos exemplos e do knowledge). O `learn` aprende só com os vereditos do projeto atual; o perfil geral é proposto comparando os perfis dos projetos lado a lado, não o feedback bruto. O router injeta o geral + o do projeto atual ("valem mais que as gerais"). Os vereditos antigos, sem projeto, ficam de fora: não dá para saber de qual projeto eram.
+
+**Por quê:** Num projeto o time escreve commit em português sem prefixo, no outro em inglês com conventional commits. Um perfil único juntava os dois e mandava os dois estilos para os dois projetos. Testado com 2 projetos de estilos opostos: cada perfil ficou com o seu estilo e o idioma não entrou no geral em nenhuma das rodadas. Comparar listas curtas é o que o modelo local faz bem; pedir o perfil geral a partir do feedback de todos os projetos fez ele somar tudo. Com "mesmo com palavras diferentes" no prompt, o que se repete (commit curto) entrou em 4 de 6 rodadas; nas outras ele respondeu "nenhuma", que é o erro seguro. Os exemplos (`@ai/examples`) já eram por projeto; um projeto com menos de 3 exemplos ainda pega emprestado dos outros, porque no começo isso é melhor que nada.
+
+---
+
+## Review em blocos de 6 linhas
+
+**Decisão:** (2026-11-17) O `kvasir review` manda as linhas adicionadas ao modelo em blocos de 6 (cada bloco numera L1…L6) em vez do diff inteiro num prompt só. Continua no qwen2.5-coder.
+
+**Por quê:** Medido com 9 bugs plantados (chave no código, laço `<=`, divisão por zero, `customer` opcional, `await` esquecido, `console.log` com a chave, condição invertida, `any`, função sem tipo de retorno), 3 rodadas cada: o diff inteiro achou 2-3; em blocos de 6, 5-6 em toda rodada, em poucos segundos. Com 4 linhas vieram mais avisos falsos, com 10 alguns bugs sumiram. Os falsos (2-3, "sem tipo de retorno" em função que tem) somem depois do primeiro "ignorado". O deepseek-r1 como revisor achou 5, 4 e 0 em 3 rodadas: na última gastou os 6000 tokens pensando e não respondeu. Ainda passam `await` esquecido, condição invertida e o `customer` opcional. É técnica de prompt (menos linhas por pergunta), não regra sobre o modelo.

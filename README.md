@@ -78,7 +78,7 @@ Detalhes em [`Doc/kvasir-architecture.md`](Doc/kvasir-architecture.md).
 | `kvasir docs update` | Mantém o README e a pasta de documentação em dia: vê o que mudou no código desde a última vez que a documentação foi commitada (função renomeada, função nova, script novo…), propõe a mudança de cada documento e mostra o diff para você aprovar | ✅ |
 | `kvasir proactive` | Sugestões do Kvasir no momento certo (criar a branch da task, revisar antes de um commit grande, documentar lib nova, apagar branch parada). Começam perguntando; o que você sempre aceita vira automático, o que sempre recusa para | ✅ |
 | `kvasir board` | Agent Board ao vivo: o que cada agente tem a fazer, está fazendo, fez e falhou (atualiza a cada 3 s) | ✅ |
-| `kvasir learn` | Consolida o feedback na IA local e atualiza `~/.kvasir/profile.md` (usado nos prompts); também é oferecido sozinho depois de 15 vereditos novos | ✅ |
+| `kvasir learn` | Consolida o feedback do projeto na IA local e atualiza o perfil dele (`~/.kvasir/profiles/<projeto>.md`); o que se repete em 2+ projetos vai para o `~/.kvasir/profile.md` geral. Também é oferecido sozinho depois de 15 vereditos novos | ✅ |
 | `kvasir task` / `start` | Busca tasks (Planner/API), grava a task ativa e mostra o resumo do dia | ✅ |
 
 ✅ funcionando · 🔧 em desenvolvimento · 🧪 implementado, falta testar

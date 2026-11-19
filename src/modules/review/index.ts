@@ -16,6 +16,7 @@ import type { KvasirContext } from '@ktypes/context';
 
 const MAX_REVIEW_LINES = 150;
 const TOKENS_PER_LINE = 40;
+const REVIEW_CHUNK_LINES = 6;
 const NO_ISSUES = 'Nenhum problema encontrado.';
 const TRIVIAL_LINE = /^\s*[{}()[\];,]*\s*$/;
 
@@ -84,6 +85,26 @@ function parseFindings(response: string, lines: ReviewLine[]): Finding[] {
   }
 
   return [...findings.values()];
+}
+
+// A few lines per call. Measured (2026-11-17, 9 planted bugs, qwen2.5-coder): the whole diff in one prompt
+// found 2-3 of them; 6 lines at a time found 5-6 in every round (4 lines: more false warnings; 10: fewer
+// bugs), in a few seconds. Each chunk numbers its lines from L1, and the findings point back to the real line.
+async function reviewInChunks(context: KvasirContext, lines: ReviewLine[], projectContext: string): Promise<Finding[]> {
+  const findings: Finding[] = [];
+  for (let start = 0; start < lines.length; start += REVIEW_CHUNK_LINES) {
+    const original = lines.slice(start, start + REVIEW_CHUNK_LINES);
+    const chunk = original.map((line, index) => ({ ...line, id: `L${index + 1}` }));
+    const response = await askFor('review', buildReviewPrompt(context, chunk, projectContext), {
+      temperature: 0.1,
+      repeatPenalty: 1.1,
+      maxTokens: Math.max(400, chunk.length * TOKENS_PER_LINE),
+    });
+    for (const finding of parseFindings(response, chunk)) {
+      findings.push({ ...finding, line: original[chunk.indexOf(finding.line)] });
+    }
+  }
+  return findings;
 }
 
 function formatFinding(finding: Finding): string {
@@ -161,12 +182,7 @@ export async function runReview(): Promise<void> {
 
   const changedFiles = [...new Set(lines.map((line) => line.filePath))];
   const projectContext = await relatedContext(lines.map((line) => line.text.trim()).join('\n').slice(0, 1500), { excludeFiles: changedFiles });
-  const response = await askFor('review', buildReviewPrompt(context, lines, projectContext), {
-    temperature: 0.1,
-    repeatPenalty: 1.1,
-    maxTokens: Math.max(400, lines.length * TOKENS_PER_LINE),
-  });
-  const { shown: findings, hidden } = await splitIgnored(parseFindings(response, lines));
+  const { shown: findings, hidden } = await splitIgnored(await reviewInChunks(context, lines, projectContext));
 
   console.log('\n🔎 Revisão:');
   console.log(findings.length > 0 ? findings.map(formatFinding).join('\n') : hidden.length > 0 ? 'Nenhum aviso novo.' : NO_ISSUES);
