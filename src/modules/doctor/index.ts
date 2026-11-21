@@ -11,7 +11,7 @@ import type { CheckResult, CheckSection, CheckStatus } from '@ktypes/doctor';
 
 const ICONS: Record<CheckStatus, string> = { ok: '✅', warn: '⚠️ ', fail: '❌' };
 
-function printSection(section: CheckSection): void {
+export function printCheckSection(section: CheckSection): void {
   console.log(`\n${section.title}`);
   const width = Math.max(...section.results.map((result) => result.name.length));
   for (const result of section.results) {
@@ -50,7 +50,7 @@ export async function runDoctor(): Promise<void> {
     { title: 'GitHub', results: checkGithubCli() },
   ];
 
-  sections.forEach(printSection);
+  sections.forEach(printCheckSection);
 
   const all: CheckResult[] = sections.flatMap((section) => section.results);
   const failures = all.filter((result) => result.status === 'fail').length;

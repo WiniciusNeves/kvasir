@@ -292,11 +292,18 @@ Pré-requisitos encadeados: `loadContext()` (`modules/init/ensure.ts`) oferece o
 - `create`: nome (slug), copiar uma persona existente ou começar do zero, stack, prefixos (pergunta para que serve cada prefixo novo: é o que o prompt da branch usa), idioma de branch e de commit, padrão de repositório → confirma → salva.
 - `remove <nome>`: personalizada → apaga; embutida → apaga só a cópia local (volta à versão embutida).
 
+### `kvasir deploy`
+Parte 1 de 3 (preparação; a publicação vem nas partes 2 e 3). Sem IA.
+1. `detectDeployTarget` (`deploy/detect.ts`): `expo` nas dependências → Expo; um framework web (Next, Vite, CRA, Angular, Nuxt, SvelteKit, Astro, Gatsby, Remix) ou os scripts `build`/`deploy` → web; senão diz o que falta e para.
+2. `runPreflight` (`deploy/preflight.ts`) devolve as checagens (`CheckResult`, impressas com `printCheckSection` do `doctor`) e o estado de cada ação (`DeployActionStatus`: pronta ou o que falta). Expo: `checkEas` (o mesmo do `doctor`: CLI, versão, `eas whoami`), `readEasConfig` (`deploy/eas.ts`, zod: perfis de build com `channel`/`distribution`, herdados por `extends`; perfis de submit), `expo-updates`, git (`isGitRepo` + `getChangedPaths`: mudança pendente é aviso, não bloqueio). Web: script `build`, `vercel whoami`, `.vercel/project.json` ou `vercel.json`, script `deploy`.
+3. CLI que o projeto precisa e não está instalado (`eas-cli`; `vercel` se o projeto já usa a Vercel) → confirm → `npm install -g` com a saída na tela → confere de novo.
+4. Lista as ações (✅ pronta / ⛔ falta: …). Login faltando com o CLI instalado → diz para rodar `eas login` / `vercel login`: credencial nunca passa pelo Kvasir.
+
 ### `kvasir doctor`
 Sem IA (determinístico). Uma checagem por arquivo em `modules/doctor/checks/`, cada uma devolve `{ name, status: ok|warn|fail, detail, fix }`:
 - `node.ts`: `process.version` × `engines.node` do projeto (`>=`, `^`, `~`, `||`), npm, yarn
 - `git.ts`: git, `user.name`, `user.email`
-- `mobile.ts` (só se o projeto tem `expo` ou `react-native`): JDK 17, `JAVA_HOME` existe e é o mesmo JDK do `java` do PATH, `ANDROID_HOME`, `adb`, `android/gradlew`, versão do Expo, EAS CLI (versão nova?) e `eas whoami`
+- `mobile.ts` (só se o projeto tem `expo` ou `react-native`; `checkEas` também é usado pelo `deploy`): JDK 17, `JAVA_HOME` existe e é o mesmo JDK do `java` do PATH, `ANDROID_HOME`, `adb`, `android/gradlew`, versão do Expo, EAS CLI (versão nova?) e `eas whoami`
 - `ollama.ts`: rodando? cada modelo do `MODEL_MAP` instalado (casa tags como `:7b`)? alguma tarefa sem nenhum modelo → ❌
 - `kvasir.ts`: `~/.kvasir`, `kvasir.context.md`, `profile.md`, comando `code`, `gh` + `gh auth status`
 - `shared.ts`: `probe()` primeiro pergunta ao sistema se o executável existe (`commandExists` = `where`/`which`), depois roda com timeout de 15s. Via `cmd /c`, comando inexistente sai com 1 como qualquer erro, e a mensagem "não é reconhecido" vem traduzida e com acento quebrado: nenhuma das duas serve para detectar
