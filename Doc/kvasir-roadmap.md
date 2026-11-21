@@ -1,6 +1,6 @@
 # Kvasir: roadmap (lista do que falta)
 
-> **Atualizado em 2026-11-17.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> **Atualizado em 2026-11-20.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
 > Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
 > Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
@@ -28,11 +28,14 @@
 - [x] `learn` automático (2026-11-17): vira sugestão proativa depois de 15 vereditos novos (fim do `commit` e do `review`, `start`) e passou do Claude pelo clipboard para a IA local (tarefa `learn`, nunca a nuvem). Mostra só o diff do perfil e salva com a sua aprovação. O teste achou um dado confuso: a linha de feedback do review citava o aviso útil sem dizer que era útil, e o modelo escreveu que você ignora aquele tipo de aviso. Com "útil:" na linha, o erro sumiu nas 2 rodadas
 - [x] Preferências por projeto (2026-11-17): cada projeto tem o seu perfil (`~/.kvasir/profiles/<projeto>.md`) e o `profile.md` geral só guarda o que se repete em 2+ projetos. O feedback grava o projeto, o `learn` aprende só com o do projeto atual e o router injeta o geral + o do projeto. Testado com 2 projetos de estilos opostos (português sem prefixo × inglês conventional): cada um ficou com o seu e o idioma não vazou para o geral. O teste levou o `learn` para o deepseek-r1 (o qwen repetia em loop ou anotava o estilo recusado) e a responder só a lista de preferências
 
-## 4. `kvasir deploy` (explicar o plano antes de começar)
+## 4. `kvasir deploy` (plano aprovado em 2026-11-20; um PR por parte)
 
-- Mobile (Expo): EAS Build (AAB/IPA), EAS Submit, EAS Update (OTA, mensagem no estilo commit)
-- Web: build + deploy (Vercel ou outro)
-- Detecta o tipo de projeto sozinho; nada sobe sem confirmação
+Detecta o tipo de projeto sozinho, mostra o comando exato e nada sobe sem confirmação. O login é sempre do desenvolvedor (`eas login` / `vercel login`): o Kvasir nunca toca em credencial.
+
+- [x] Parte 1, preparação (2026-11-20): sem IA. Expo: EAS CLI e login (a mesma checagem do `doctor`), `eas.json` (perfis e canais, inclusive herdados por `extends`), `expo-updates`, git limpo. Web: script `build`, Vercel CLI/login/projeto ligado, script `deploy`. Lista o que dá para fazer e o que falta, e oferece instalar o CLI que falta. Testado no projeto Expo real (tudo pronto) e em 6 projetos falsos (sem `eas.json`, `eas.json` inválido, `extends`, Next, Vite com `vercel.json`, nada para publicar)
+- [ ] Parte 2, mobile: atualização OTA (`eas update`, mensagem da IA local no estilo commit, canal do `eas.json`, aviso quando algo nativo mudou desde o último build), depois build (`eas build`, plataforma e perfil) e envio para a loja (`eas submit --latest`)
+- [ ] Parte 3, web: `npm run build`, Vercel (preview ou produção, produção com confirmação a mais), `npm run deploy` para outros provedores
+- [ ] Integrações: o `release` de um projeto Expo oferece o deploy; nota no knowledge por deploy
 
 ## 5. Produto e infra
 

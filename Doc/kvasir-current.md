@@ -1,6 +1,6 @@
 # Kvasir: estado atual
 
-> Atualizado em: 2026-11-17 · versão `0.1.0`
+> Atualizado em: 2026-11-20 · versão `0.1.0`
 > Feito a partir da leitura do código em `src/`. Atualize quando um módulo mudar de status.
 
 ---
@@ -16,6 +16,7 @@
 | `daily` | ✅ testado (2026-10-17) | 2 repos descartáveis: pegou só os commits do autor (inclusive em branch de feature), ignorou o do colega e o antigo; llama3.2 escreve o "Ontem" com exemplo de formato; copia e salva em `knowledge/commits/daily.md` |
 | `release` | ✅ testado (2026-10-17) | Repo Expo descartável: v1.4.2 → 1.5.0 (feat), CHANGELOG agrupado, indentação preservada, `versionCode`/`buildNumber` +1, commit + tag + push para remoto local; recusa stage sujo, tag repetida e "nada novo"; notas reescrevem só o que o usuário percebe |
 | `test` | ✅ testado (2026-10-17) | vitest e jest reais: testes passando de primeira em `cart.ts` e `slug.ts`; bug plantado (média dividindo por `length - 1`) detectado em 4 de 4 rodadas, com o teste salvo passando depois da correção |
+| `deploy` | 🚧 parte 1 de 3 (2026-11-20) | Preparação sem IA: detecta Expo ou web; confere EAS CLI e login, `eas.json` (perfis e canais), `expo-updates`, git limpo; ou script `build`, Vercel CLI/login/projeto ligado, script `deploy`. Lista as ações prontas e o que falta em cada uma, oferece instalar o CLI que falta. Ainda não publica (partes 2 e 3) |
 | `doctor` | ✅ testado (2026-10-17) | Testado no repo do kvasir e num projeto Expo descartável: pegou Node fora do `engines`, `JAVA_HOME` ≠ `java` do PATH, `gradlew` faltando, EAS desatualizado, `gh` ausente; Ollama com modelo faltando/fora do ar simulado |
 | `guard` | ✅ testado (2026-10-17) | Regras determinísticas (chaves AWS, Google `AIza`/`AQ.`, Groq `gsk_`, GitHub, Stripe, JWT, senhas, cartão Luhn 🔴; CPF/CNPJ, logs sensíveis 🟡), arquivos proibidos, IA para strings de alta entropia; cancelar / tirar do stage / ignorar com dupla confirmação; `.kvasirignore` com hashes |
 | `branch` | ✅ funcionando | Inclui `-l`, `-d` e o menu pós-branch |

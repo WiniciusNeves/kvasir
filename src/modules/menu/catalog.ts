@@ -56,6 +56,7 @@ export const MAIN_MENU: CatalogGroup[] = [
       { argv: ['branch', '--list'], label: 'Listar as branches' },
       { argv: ['branch', '--delete'], label: 'Apagar uma branch local' },
       { argv: ['release'], label: 'Nova versão (SemVer, CHANGELOG e tag)' },
+      { argv: ['deploy'], label: 'Publicar o app ou o site (confere se está pronto)' },
     ],
   },
   {

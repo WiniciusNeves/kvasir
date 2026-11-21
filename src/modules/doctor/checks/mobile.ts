@@ -75,7 +75,12 @@ function checkExpo(pkg: ProjectPackageJson | null): CheckResult[] {
   const results: CheckResult[] = [];
   const expoVersion = pkg?.dependencies?.expo ?? pkg?.devDependencies?.expo;
   if (expoVersion) results.push({ name: 'Expo SDK', status: 'ok', detail: `expo@${expoVersion} (o CLI vem com o pacote: npx expo)` });
+  return [...results, ...checkEas()];
+}
 
+// EAS CLI installed, up to date and logged in. Shared with `kvasir deploy`.
+export function checkEas(): CheckResult[] {
+  const results: CheckResult[] = [];
   const eas = probe('eas', ['--version']);
   if (!eas.found) {
     results.push({ name: 'EAS CLI', status: 'warn', detail: 'não instalado', fix: 'npm install -g eas-cli' });
