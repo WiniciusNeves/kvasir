@@ -28,6 +28,7 @@ const CATEGORY_TITLES: Partial<Record<FeedbackCategory, string>> = {
   branches: 'Nomes de branch sugeridos',
   fixes: 'Correções sugeridas (fix)',
   patterns: 'Revisões de código (review)',
+  deploys: 'Mensagens de update/deploy sugeridas',
 };
 
 function defaultGlobalProfile(): string {

@@ -387,6 +387,14 @@ Modelo local copia o que vê, positivo ou negativo. O validador (deepseek-r1 ref
 
 ---
 
+## `kvasir deploy`: fatos do EAS, mensagem da IA, publicar só com confirmação
+
+**Decisão:** (2026-11-23) O `deploy` do Expo publica pelo próprio `eas` (com o login do desenvolvedor), sempre mostrando o comando e pedindo confirmação, e uma a mais no canal `production`. Antes do update OTA, ele pergunta ao EAS de qual commit saiu o último build do canal e compara com o git: `android/`, `ios/`, `app.json` e `app.config.*` são nativos com certeza; dependência mudada é só listada, porque só o desenvolvedor sabe se a lib tem código nativo. A mensagem do update vem da IA local (tarefa `deploy`, executor, `groq` como nuvem opcional, igual ao commit), a partir dos commits desde o build e das mensagens anteriores dele no canal; o idioma é passado como fato. Depois do build, a primeira opção é baixar o arquivo (Downloads), não o `eas submit`: muitos desenvolvedores sobem o AAB/IPA na loja na mão, e o envio só aparece quando o `eas.json` tem `submit`.
+
+**Por quê:** Um update OTA que leva JavaScript para um build com nativo diferente quebra o app no usuário; o commit do build é o único ponto de comparação confiável, e o EAS guarda ele. No teste, com 30 commits, "resuma o que o usuário ganha" deu "correções e melhorias" (inútil); pedir as 1-2 mudanças que o usuário mais nota, com o nome, deu "My Ranking pagination and medal updates". "No idioma dos commits" saiu em português para commits em inglês: o idioma agora vem do `kvasir.context.md` ou é contado nos textos dele. O teste usou um `eas` falso no PATH que repassa só as consultas e bloqueia `update`/`build`/`submit`, porque o projeto é da empresa e a confirmação final tem "sim" como padrão.
+
+---
+
 ## Review em blocos de 6 linhas
 
 **Decisão:** (2026-11-17) O `kvasir review` manda as linhas adicionadas ao modelo em blocos de 6 (cada bloco numera L1…L6) em vez do diff inteiro num prompt só. Continua no qwen2.5-coder.

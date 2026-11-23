@@ -9,6 +9,7 @@ const buildProfileSchema = z.object({
   extends: z.string().optional(),
   channel: z.string().optional(),
   distribution: z.string().optional(),
+  environment: z.string().optional(),
 });
 
 const easSchema = z.object({
@@ -22,7 +23,12 @@ type RawBuildProfile = z.infer<typeof buildProfileSchema>;
 function resolveProfile(name: string, profiles: Record<string, RawBuildProfile>, seen: string[] = []): EasBuildProfile {
   const profile = profiles[name] ?? {};
   const parent = profile.extends && !seen.includes(profile.extends) ? resolveProfile(profile.extends, profiles, [...seen, name]) : null;
-  return { name, channel: profile.channel ?? parent?.channel, distribution: profile.distribution ?? parent?.distribution };
+  return {
+    name,
+    channel: profile.channel ?? parent?.channel,
+    distribution: profile.distribution ?? parent?.distribution,
+    environment: profile.environment ?? parent?.environment,
+  };
 }
 
 // null when the project has no eas.json; throws when it exists but is not valid JSON / not the expected shape.

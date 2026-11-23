@@ -83,7 +83,12 @@ async function expoPreflight(pkg: DeployPackageJson | null): Promise<DeployPrefl
     actions: [
       action('eas-update', [...base, [!configured || hasChannel, 'um perfil com "channel"'], [hasUpdates, 'expo-updates']]),
       action('eas-build', base),
-      action('eas-submit', base),
+      action('eas-download', [
+        [easInstalled, 'EAS CLI'],
+        [loggedIn, 'login no EAS (eas login)'],
+      ]),
+      // eas submit only where the project set it up: many developers upload the file to the store by hand
+      ...(eas && eas.submitProfiles.length > 0 ? [action('eas-submit', base)] : []),
     ],
     eas,
     missingClis: easInstalled ? [] : ['eas-cli'],

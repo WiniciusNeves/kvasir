@@ -1,14 +1,18 @@
-import { confirm } from '@utils/prompt';
+import { confirm, select } from '@utils/prompt';
 import { runCommand, commandSucceeded } from '@utils/process';
 import { printCheckSection } from '@modules/doctor';
 import type { DeployAction, DeployActionStatus } from '@ktypes/deploy';
 import { detectDeployTarget, readDeployPackage } from './detect';
+import type { DeployPackageJson } from './detect';
+import { runEasUpdate } from './update';
+import { runEasBuild, runEasDownload, runEasSubmit } from './build';
 import { runPreflight } from './preflight';
 import type { DeployCli, DeployPreflight } from './preflight';
 
 const ACTION_LABELS: Record<DeployAction, string> = {
   'eas-update': 'Atualização OTA (eas update)',
   'eas-build': 'Build para as lojas (eas build: AAB/IPA)',
+  'eas-download': 'Baixar o arquivo de um build (AAB/APK/IPA)',
   'eas-submit': 'Enviar o último build para a loja (eas submit)',
   'web-build': 'Build do site (npm run build)',
   vercel: 'Deploy na Vercel (preview ou produção)',
@@ -64,5 +68,24 @@ export async function runDeploy(): Promise<void> {
   // only when the CLI is there: without it, installing comes first
   const blockedByLogin = preflight.actions.some((status) => status.missing.some((item) => item.startsWith('login')) && !status.missing.some((item) => item.endsWith('CLI')));
   if (blockedByLogin) console.log(`\nO login é com você: rode "${target === 'expo' ? 'eas login' : 'vercel login'}" no terminal e depois o kvasir deploy de novo.`);
-  console.log('\n(A publicação em si chega nas próximas partes do kvasir deploy: por enquanto ele só confere se o projeto está pronto.)');
+
+  if (target === 'web') {
+    console.log('\n(A publicação web chega na próxima parte do kvasir deploy: por enquanto ele só confere se o projeto está pronto.)');
+    return;
+  }
+  await runExpoAction(preflight, pkg);
+}
+
+async function runExpoAction(preflight: DeployPreflight, pkg: DeployPackageJson | null): Promise<void> {
+  const ready = preflight.actions.filter((status) => status.ready).map((status) => status.action);
+  if (ready.length === 0 || !preflight.eas) return;
+
+  const choice = await select<DeployAction | 'exit'>('\nO que fazer?', [
+    ...ready.map((action) => ({ name: ACTION_LABELS[action], value: action })),
+    { name: 'Nada agora', value: 'exit' },
+  ]);
+  if (choice === 'eas-update') await runEasUpdate(preflight.eas, pkg);
+  else if (choice === 'eas-build') await runEasBuild(preflight.eas);
+  else if (choice === 'eas-download') await runEasDownload();
+  else if (choice === 'eas-submit') await runEasSubmit(preflight.eas);
 }

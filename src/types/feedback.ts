@@ -1,4 +1,4 @@
-export type FeedbackCategory = 'commits' | 'branches' | 'fixes' | 'patterns' | 'guard';
+export type FeedbackCategory = 'commits' | 'branches' | 'fixes' | 'patterns' | 'guard' | 'deploys';
 
 export type FeedbackDecision = 'approved' | 'rejected';
 

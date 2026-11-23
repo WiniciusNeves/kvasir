@@ -281,6 +281,13 @@ export function getCommitsSince(base: string): string[] {
   return stdout.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+// The last `count` commits of HEAD, oldest first: "hash subject" (for a repo without the reference a
+// caller wanted to compare with).
+export function getLastCommits(count: number): string[] {
+  const { stdout } = gitOutput(['log', '--reverse', `-${count}`, '--pretty=format:%h %s']);
+  return stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
 // Three-dot: changes of this branch since it forked from `base` (what the PR will show).
 export function getDiffAgainst(base: string): string {
   return gitOutput(['diff', `${base}...HEAD`]).stdout;
