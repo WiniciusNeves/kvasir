@@ -183,6 +183,22 @@ export async function noteRelease(version: string, changelogSection: string): Pr
   );
 }
 
+// commits/<projeto>.md: what was published, where and with which message (kvasir deploy).
+export async function noteDeploy(kind: string, target: string, message: string): Promise<void> {
+  await trySave(
+    {
+      category: 'commits',
+      title: currentProject(),
+      body: `## ${today()} · deploy: ${kind} → ${target}
+
+${message}`,
+      origin: 'kvasir deploy',
+      tags: ['deploy'],
+    },
+    'append'
+  );
+}
+
 // errors/bugs-encontrados-por-testes.md: bugs a generated test exposed (to fix later with kvasir fix).
 export async function noteBugFoundByTest(sourceFile: string, explanation: string): Promise<void> {
   await trySave(

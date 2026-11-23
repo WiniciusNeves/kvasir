@@ -64,6 +64,7 @@ export const TASK_OWNER: Record<AiTask, AgentName> = {
   pr: 'documenter',
   daily: 'documenter',
   release: 'documenter',
+  deploy: 'executor',
   test: 'tester',
   commit: 'executor',
   branch: 'executor',

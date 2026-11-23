@@ -16,7 +16,7 @@ import { findExamples } from '@ai/examples';
 import { readPreferences } from '@ai/profile';
 import { currentProject } from '@utils/project';
 
-export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs' | 'learn';
+export type AiTask = 'commit' | 'branch' | 'fix' | 'review' | 'doc' | 'architect' | 'guard' | 'pr' | 'daily' | 'release' | 'test' | 'intent' | 'ask' | 'docs' | 'learn' | 'deploy';
 
 // Local chain (Ollama), always tried first: runs on the developer's own GPU/CPU, free, private, offline.
 export const MODEL_MAP: Record<AiTask, string[]> = {
@@ -38,6 +38,8 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
   // turns verdicts into preferences and compares projects: rare and not urgent, so the reasoning model
   // first. Measured on the same feedback, qwen2.5-coder looped or kept a refused style ("usa prefixo")
   learn: ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'],
+  // one line from commit subjects, like a commit message
+  deploy: ['qwen2.5-coder', 'llama3.2'],
 };
 
 // Cloud providers, a fallback AFTER the local chain when the user allowed the cloud (Ollama down,
@@ -45,6 +47,7 @@ export const MODEL_MAP: Record<AiTask, string[]> = {
 // secret candidates); architect stays on the local deepseek-r1 (backlog: "arquitetura → deepseek-r1").
 export const CLOUD_MAP: Record<AiTask, CloudProvider[]> = {
   commit: ['groq'],
+  deploy: ['groq'],
   branch: ['groq'],
   fix: ['groq'],
   review: ['groq'],
@@ -296,7 +299,7 @@ Responda APENAS com o resultado final entre <${ANSWER_TAG}> e </${ANSWER_TAG}>, 
 // The profiles are "alive": the preferences `kvasir learn` consolidated go into the prompts where taste
 // matters. Not into fix/architect, where only correctness counts. The global profile.md plus the one of the
 // project the command runs in (@ai/profile): another project's style never reaches this prompt.
-const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily', 'release'];
+const PREFERENCE_TASKS: AiTask[] = ['commit', 'branch', 'review', 'doc', 'pr', 'daily', 'release', 'deploy'];
 const MAX_PREFERENCES_CHARS = 1200;
 const EXAMPLES_IN_PROMPT = 3;
 const MAX_EXAMPLE_INPUT_CHARS = 300;
@@ -353,7 +356,7 @@ const LOCAL_VALIDATORS = ['deepseek-r1', 'qwen2.5-coder', 'llama3.2'];
 // Answers the developer judges right away, one by one, are already checked: a one-line commit/branch/intent
 // they approve or edit, and review warnings they mark useful or ignored. deepseek-r1 always thinks (~45-70s
 // for one commit line); on reviews its rewrite moved warnings to the wrong lines and once hit the 5 min limit.
-const DEVELOPER_CHECKED_TASKS: AiTask[] = ['commit', 'branch', 'intent', 'review', 'learn'];
+const DEVELOPER_CHECKED_TASKS: AiTask[] = ['commit', 'branch', 'intent', 'review', 'learn', 'deploy'];
 
 export type ValidationMode = 'auto' | 'always' | 'never';
 

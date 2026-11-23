@@ -1,6 +1,6 @@
 # Kvasir: roadmap (lista do que falta)
 
-> **Atualizado em 2026-11-20.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
+> **Atualizado em 2026-11-23.** Se a conversa com a IA se perder, recomece por aqui: esta é a lista completa do que falta, em ordem.
 > Estado atual e problemas conhecidos: `kvasir-current.md` · Ideias completas: `ideas/backlog.md` · Visão: `kvasir-vision.md`
 > Regras: termine um bloco antes do próximo; módulo novo (bloco 4 em diante) só com aprovação do Winicius; testes em projeto da empresa só com IA local (`kvasir models --cloud off`, religar depois).
 
@@ -33,7 +33,7 @@
 Detecta o tipo de projeto sozinho, mostra o comando exato e nada sobe sem confirmação. O login é sempre do desenvolvedor (`eas login` / `vercel login`): o Kvasir nunca toca em credencial.
 
 - [x] Parte 1, preparação (2026-11-20): sem IA. Expo: EAS CLI e login (a mesma checagem do `doctor`), `eas.json` (perfis e canais, inclusive herdados por `extends`), `expo-updates`, git limpo. Web: script `build`, Vercel CLI/login/projeto ligado, script `deploy`. Lista o que dá para fazer e o que falta, e oferece instalar o CLI que falta. Testado no projeto Expo real (tudo pronto) e em 6 projetos falsos (sem `eas.json`, `eas.json` inválido, `extends`, Next, Vite com `vercel.json`, nada para publicar)
-- [ ] Parte 2, mobile: atualização OTA (`eas update`, mensagem da IA local no estilo commit, canal do `eas.json`, aviso quando algo nativo mudou desde o último build), depois build (`eas build`, plataforma e perfil) e envio para a loja (`eas submit --latest`)
+- [x] Parte 2, mobile (2026-11-23): escolhe uma ação pronta. **OTA:** canal do `eas.json`; pergunta ao EAS o último build terminado do canal (`eas build:list --json`) e compara com o commit dele: pasta `android/`/`ios/` ou `app.json`/`app.config` mudou → avisa que precisa de build; dependência mudou → lista para você conferir. A IA local (tarefa `deploy`) escreve a mensagem a partir dos commits desde o build e das suas mensagens anteriores no canal (`eas update:list`), no idioma do projeto; você aprova, edita ou recusa (vira exemplo e feedback). SDK 55+ pede o `--environment`. Produção pede uma confirmação a mais. **Build:** plataforma e perfil (os de loja primeiro); depois oferece baixar o arquivo para a pasta Downloads (você mesmo sobe na loja) ou, se o `eas.json` tiver `submit`, o envio. **Baixar arquivo:** escolhe entre os últimos builds terminados da plataforma (os expirados aparecem marcados). **Submit:** só aparece com `submit` no `eas.json`; `--latest` com o perfil de submit. Testado no projeto Expo real com um `eas` falso que bloqueia publicar: achou as mudanças nativas desde o build do canal `development` e "nada nativo" no `production`. A mensagem saía genérica ("correções e melhorias") e em português para commits em inglês: o prompt passou a pedir as 1-2 mudanças com nome e o idioma veio a ser dito explicitamente
 - [ ] Parte 3, web: `npm run build`, Vercel (preview ou produção, produção com confirmação a mais), `npm run deploy` para outros provedores
 - [ ] Integrações: o `release` de um projeto Expo oferece o deploy; nota no knowledge por deploy
 

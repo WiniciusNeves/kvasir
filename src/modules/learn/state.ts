@@ -23,7 +23,7 @@ export interface FeedbackEntry {
   reason: string;
 }
 
-export const LEARN_CATEGORIES: FeedbackCategory[] = ['commits', 'branches', 'fixes', 'patterns'];
+export const LEARN_CATEGORIES: FeedbackCategory[] = ['commits', 'branches', 'fixes', 'patterns', 'deploys'];
 
 // "- [ISO] DECISION [project]: summary (motivo: …)", written by recordFeedback (older lines have no project)
 const ENTRY = /^- \[([^\]]+)\] ([A-Z]+)(?: \[([^\]]+)\])?: (.*)$/;
